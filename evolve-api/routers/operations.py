@@ -110,6 +110,11 @@ def get_operations_summary(
                 SUM(sales_inc_tax)                                                                  AS recognized_revenue,
                 SUM(sales_inc_tax) * 1.0
                     / NULLIF(COUNT(DISTINCT CAST(sale_date AS DATE)), 0)                            AS avg_daily_revenue,
+                -- NOTE (#6): This ASP is accrual ÷ invoices and does NOT match the KPI
+                -- spec (cash ÷ unique guest-per-day). The spec-correct ASP lives in
+                -- mtd-kpi-header (asp_new_clients / asp_existing_clients). The dashboard
+                -- should source the headline ASP from the header; this column is kept
+                -- only for the per-location Operations table and is labeled accordingly.
                 SUM(sales_exc_tax) * 1.0
                     / NULLIF(COUNT(DISTINCT invoice_id), 0)                                           AS asp,
                 SUM(CASE WHEN item_category != 'Memberships' THEN sales_exc_tax ELSE 0 END) * 1.0
