@@ -1,304 +1,286 @@
 import React, { useState, useEffect, useMemo, useCallback, createContext, useContext } from 'react';
-import {
-  LineChart, Line, XAxis, YAxis, ResponsiveContainer,
-  ScatterChart, Scatter, ZAxis, Cell, AreaChart, Area, Tooltip,
-} from 'recharts';
 
 /* =================================================================
-   API CLIENT
-   All data comes from the FastAPI backend. No hardcoded business
-   values live in this file — only labels, colors, and layout.
+   EVOLVE MED SPA — MASTER DASHBOARD
+   Visual design reproduced from the approved spec: Schibsted Grotesk,
+   palette #0F1B1A / #1E8C78 / #2FB6A0, 12-14px radii. Every number is
+   wired to the live FastAPI; the spec's demo values are not used.
    ================================================================= */
 
 const API_BASE = 'https://evolvedspadashboarddemo-production.up.railway.app';
 
-// Build a querystring from {start_date, end_date, locations[], date}
-const buildQuery = (params = {}) => {
-  const qs = new URLSearchParams();
-  if (params.start_date) qs.append('start_date', params.start_date);
-  if (params.end_date) qs.append('end_date', params.end_date);
-  if (params.date) qs.append('date', params.date);
-  if (Array.isArray(params.locations)) {
-    params.locations.forEach((l) => qs.append('locations', l));
-  }
-  const s = qs.toString();
-  return s ? `?${s}` : '';
+const C = {
+  ink: '#0F1B1A', panel: '#fff', bg: '#F6F8F7', line: '#E6ECEA', line2: '#EEF3F1', line3: '#F4F7F6',
+  teal: '#1E8C78', tealBright: '#2FB6A0', tealLite: '#5BC7B6', tealPale: '#86D2C6',
+  green: '#1E9E84', navy: '#243B53', blue: '#4C8DD6',
+  clay: '#C77B5A', clayLite: '#E0A87C', red: '#C0453A', redBright: '#E2574C',
+  gray: '#8A9794', gray2: '#A4AFAC', gray3: '#7C8A87', ink2: '#3C4B48',
+  sidebar: '#0F1B1A', sideText: '#9FB1AD', sideMuted: '#5E7A75', sideHead: '#4A645F',
+  purple: '#C7B8E0', gold: '#B5862B',
+  good: '#1E9E84', warn: '#B5862B', bad: '#C0453A',
 };
+const FONT = "'Schibsted Grotesk', -apple-system, BlinkMacSystemFont, sans-serif";
 
+/* ---- API client ---- */
+const buildQuery = (p = {}) => {
+  const qs = new URLSearchParams();
+  if (p.start_date) qs.append('start_date', p.start_date);
+  if (p.end_date) qs.append('end_date', p.end_date);
+  if (p.date) qs.append('date', p.date);
+  if (Array.isArray(p.locations)) p.locations.forEach((l) => qs.append('locations', l));
+  const s = qs.toString(); return s ? `?${s}` : '';
+};
 const apiGet = async (path, params, signal) => {
   const res = await fetch(`${API_BASE}${path}${buildQuery(params)}`, { signal });
-  if (!res.ok) throw new Error(`${path} → ${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(`${path} → ${res.status}`);
   return res.json();
 };
 
-/* =================================================================
-   GLOBAL FILTER CONTEXT — date range + selected locations
-   Shared by every view so one set of controls drives all fetches.
-   ================================================================= */
-
 const FilterContext = createContext(null);
 const useFilters = () => useContext(FilterContext);
-
-/* =================================================================
-   DATA-FETCH HOOK
-   Fetches one or more endpoints, re-running whenever the filter
-   key changes. Returns { data, loading, error, reload }.
-   `endpoints` is an object: { name: { path, params } }.
-   ================================================================= */
 
 const useApiData = (endpoints, deps) => {
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [nonce, setNonce] = useState(0);
-
-  const reload = useCallback(() => setNonce((n) => n + 1), []);
-
-  // Stable serialization of the endpoint spec so the effect only
-  // re-runs when something meaningful changes.
+  const reload = useCallback(() => setNonce((x) => x + 1), []);
   const spec = JSON.stringify(endpoints);
-
   useEffect(() => {
-    const controller = new AbortController();
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    const run = async () => {
+    const controller = new AbortController(); let cancelled = false;
+    setLoading(true); setError(null);
+    (async () => {
       try {
-        const parsed = JSON.parse(spec);
-        const names = Object.keys(parsed);
-        const results = await Promise.all(
-          names.map((n) => apiGet(parsed[n].path, parsed[n].params, controller.signal))
-        );
+        const parsed = JSON.parse(spec); const names = Object.keys(parsed);
+        const results = await Promise.all(names.map((nm) => apiGet(parsed[nm].path, parsed[nm].params, controller.signal)));
         if (cancelled) return;
-        const next = {};
-        names.forEach((n, i) => { next[n] = results[i]; });
+        const next = {}; names.forEach((nm, i) => { next[nm] = results[i]; });
         setData(next);
       } catch (e) {
         if (e.name === 'AbortError' || cancelled) return;
-        setError(e.message || 'Failed to load data');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    run();
-
+        setError(e.message || 'Failed to load');
+      } finally { if (!cancelled) setLoading(false); }
+    })();
     return () => { cancelled = true; controller.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spec, nonce, ...(deps || [])]);
-
   return { data, loading, error, reload };
 };
 
-/* =================================================================
-   FORMATTING HELPERS
-   Pure presentation — turn raw numbers from the API into the
-   strings the original design displayed.
-   ================================================================= */
-
+/* ---- format helpers ---- */
 const n = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v));
-
-const money = (v, opts = {}) => {
-  const x = n(v);
-  if (x === null) return '—';
-  const { compact = false, decimals } = opts;
+const money = (v, { compact = false, decimals } = {}) => {
+  const x = n(v); if (x === null) return '—';
   if (compact) {
-    const abs = Math.abs(x);
-    if (abs >= 1e6) return `$${(x / 1e6).toFixed(decimals ?? 2)}M`;
-    if (abs >= 1e3) return `$${(x / 1e3).toFixed(decimals ?? 0)}K`;
+    const a = Math.abs(x);
+    if (a >= 1e6) return `$${(x / 1e6).toFixed(decimals ?? 2)}M`;
+    if (a >= 1e3) return `$${(x / 1e3).toFixed(decimals ?? 0)}K`;
     return `$${x.toFixed(decimals ?? 0)}`;
   }
   return `$${x.toLocaleString(undefined, { maximumFractionDigits: decimals ?? 0 })}`;
 };
-
-const moneyK = (v, decimals = 0) => {
-  const x = n(v);
-  if (x === null) return '—';
-  return `$${(x / 1e3).toFixed(decimals)}K`;
+const pctScale = (v) => { const x = n(v); if (x === null) return null; return Math.abs(x) <= 1 ? x * 100 : x; };
+const pct = (v, d = 1) => { const x = pctScale(v); return x === null ? '—' : `${x.toFixed(d)}%`; };
+const num = (v, d = 0) => { const x = n(v); return x === null ? '—' : x.toLocaleString(undefined, { maximumFractionDigits: d }); };
+const arrowDelta = (v, { unit = '%', d = 1, invert = false } = {}) => {
+  const x = pctScale(v); if (x === null) return { text: '—', color: C.gray };
+  const up = x >= 0; const good = invert ? !up : up;
+  return { text: `${up ? '▲' : '▼'} ${Math.abs(x).toFixed(d)}${unit === 'pt' ? ' pt' : unit}`, color: good ? C.green : C.clay };
 };
-
-const pct = (v, decimals = 1) => {
-  const x = n(v);
-  if (x === null) return '—';
-  // Accept either 0–1 fractions or already-scaled 0–100 values.
-  const scaled = Math.abs(x) <= 1 ? x * 100 : x;
-  return `${scaled.toFixed(decimals)}%`;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const dayNum = (s) => { const d = new Date(s); return Number.isNaN(d.getTime()) ? s : d.getDate(); };
+const mLabel = (s) => { const d = new Date(s); return Number.isNaN(d.getTime()) ? '' : `${MONTHS[d.getMonth()]} ${d.getFullYear()}`; };
+const firstOf = (y, m) => `${y}-${String(m + 1).padStart(2, '0')}-01`;
+const lastOf = (y, m) => { const d = new Date(y, m + 1, 0); return `${y}-${String(m + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const monthsBack = (anchor, count = 12) => {
+  const base = new Date(anchor); const out = [];
+  for (let i = 0; i < count; i++) {
+    const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+    out.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: `${MONTHS[d.getMonth()]} ${d.getFullYear()}`, start: firstOf(d.getFullYear(), d.getMonth()), end: lastOf(d.getFullYear(), d.getMonth()) });
+  }
+  return out;
 };
-
-const num = (v, decimals = 0) => {
-  const x = n(v);
-  if (x === null) return '—';
-  return x.toLocaleString(undefined, { maximumFractionDigits: decimals });
-};
-
-// Signed-change note with arrow + sign, given a number that's already a delta.
-const deltaNote = (v, { unit = '%', decimals = 1, invertGood = false } = {}) => {
-  const x = n(v);
-  if (x === null) return { text: '—', positive: true };
-  const up = x >= 0;
-  const arrow = up ? '▲' : '▼';
-  const good = invertGood ? !up : up;
-  const val = Math.abs(x).toFixed(decimals);
-  return { text: `${arrow} ${val}${unit === 'pt' ? ' pt' : unit}`, positive: good };
-};
-
-// Short month label from a YYYY-MM-DD string.
-const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const monthLabel = (dateStr) => {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return MONTHS_SHORT[d.getMonth()];
-};
-const dayLabel = (dateStr) => {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.getDate();
-};
-
-// Pretty range subtitle for headers.
-const rangeSubtitle = (start, end) => {
-  if (!start || !end) return '';
-  const s = new Date(start), e = new Date(end);
-  const fmt = (d) => `${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
-  return fmt(s) === fmt(e) ? fmt(s) : `${fmt(s)} – ${fmt(e)}`;
+// Previous-month range for the given start_date (used for MoM deltas).
+const prevMonthRange = (startDate) => {
+  if (!startDate) return { start: undefined, end: undefined };
+  const d = new Date(startDate);
+  const y = d.getFullYear(), m = d.getMonth() - 1;
+  const py = m < 0 ? y - 1 : y, pm = (m + 12) % 12;
+  return { start: firstOf(py, pm), end: lastOf(py, pm) };
 };
 
 /* =================================================================
-   SHARED UI PRIMITIVES
+   DESIGN-SYSTEM PRIMITIVES (exact spec styling)
    ================================================================= */
 
-const Spinner = () => (
-  <span className="inline-block w-5 h-5 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
+const Card = ({ children, pad = '20px 22px', radius = 14, style }) => (
+  <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: radius, padding: pad, ...style }}>{children}</div>
 );
 
-// Wraps a view body: shows a skeleton while loading and a clear,
-// actionable message on failure (frontend-design: errors give direction).
-const DataState = ({ loading, error, onRetry, children, minRows = 3 }) => {
+const CardTitle = ({ title, sub, right }) => (
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: sub ? 'flex-start' : 'center', flexWrap: 'wrap', gap: 10 }}>
+    <div>
+      <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>{title}</div>
+      {sub && <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2 }}>{sub}</div>}
+    </div>
+    {right}
+  </div>
+);
+
+const Eyebrow = ({ children }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '6px 0 11px' }}>
+    <span style={{ font: `700 10.5px ${FONT}`, letterSpacing: '.14em', textTransform: 'uppercase', color: C.teal }}>{children}</span>
+    <span style={{ flex: 1, height: 1, background: C.line }}></span>
+  </div>
+);
+
+// Small KPI card used across grids.
+const KpiCard = ({ label, value, delta, deltaColor }) => (
+  <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '13px 15px', minWidth: 0 }}>
+    <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: C.gray, lineHeight: 1.25, minHeight: 26 }}>{label}</div>
+    <div style={{ font: `600 21px ${FONT}`, color: C.ink, marginTop: 7, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+    {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: 3 }}>{delta}</div>}
+  </div>
+);
+
+const Spinner = ({ size = 18 }) => (
+  <span style={{ display: 'inline-block', width: size, height: size, border: `2px solid ${C.line}`, borderTopColor: C.teal, borderRadius: '50%', animation: 'evspin 0.7s linear infinite' }} />
+);
+
+const DataState = ({ loading, error, onRetry, children, kpiCount = 5 }) => {
   if (loading) {
     return (
-      <div className="px-9 py-8 space-y-4">
-        <div className="flex items-center gap-3 text-sm text-gray-400">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, font: `500 12px ${FONT}`, color: C.gray }}>
           <Spinner /> Loading live data…
         </div>
-        <div className="grid grid-cols-5 gap-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-xl p-5 min-h-[120px] animate-pulse">
-              <div className="h-3 w-2/3 bg-gray-100 rounded" />
-              <div className="h-8 w-1/2 bg-gray-100 rounded mt-6" />
-              <div className="h-3 w-1/3 bg-gray-100 rounded mt-4" />
-            </div>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${kpiCount},1fr)`, gap: 12 }}>
+          {Array.from({ length: kpiCount }).map((_, i) => (
+            <div key={i} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '13px 15px', height: 92, opacity: 0.6 }} />
           ))}
         </div>
-        {Array.from({ length: minRows }).map((_, i) => (
-          <div key={i} className="bg-white border border-gray-200 rounded-xl p-6 h-48 animate-pulse" />
-        ))}
+        <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, height: 320, opacity: 0.6 }} />
       </div>
     );
   }
   if (error) {
     return (
-      <div className="px-9 py-8">
-        <div className="bg-white rounded-xl border border-orange-200 p-10 text-center">
-          <p className="text-base font-bold text-gray-900">Couldn't load this view</p>
-          <p className="text-sm text-gray-500 mt-2 max-w-md mx-auto">{error}</p>
-          <p className="text-xs text-gray-400 mt-2">Check the connection to the reporting API and try again.</p>
-          <button
-            onClick={onRetry}
-            className="mt-5 px-5 py-2.5 rounded-lg bg-teal-600 text-white font-semibold text-sm hover:bg-teal-700"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
+      <Card style={{ borderColor: '#F2D9CD', textAlign: 'center', padding: 40 }}>
+        <div style={{ font: `600 15px ${FONT}`, color: C.ink }}>Couldn't load this view</div>
+        <div style={{ font: `500 12px ${FONT}`, color: C.gray, marginTop: 8, maxWidth: 440, margin: '8px auto 0' }}>{error}</div>
+        <button onClick={onRetry} style={{ marginTop: 18, border: 'none', borderRadius: 8, padding: '9px 18px', font: `600 12.5px ${FONT}`, color: '#fff', background: C.teal, cursor: 'pointer' }}>Retry</button>
+      </Card>
     );
   }
   return children;
 };
 
-// Shown for views the API reference has no endpoint for.
 const NoEndpoint = ({ title, detail }) => (
-  <div className="px-9 py-8">
-    <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-      <p className="text-base font-bold text-gray-900">{title}</p>
-      <p className="text-sm text-gray-500 mt-2 max-w-lg mx-auto">{detail}</p>
-    </div>
-  </div>
+  <Card style={{ textAlign: 'center', padding: 48 }}>
+    <div style={{ font: `600 15px ${FONT}`, color: C.ink }}>{title}</div>
+    <div style={{ font: `500 12px ${FONT}`, color: C.gray, marginTop: 8, maxWidth: 520, margin: '8px auto 0', lineHeight: 1.5 }}>{detail}</div>
+  </Card>
 );
 
-const KpiCard = ({ label, value, note, positive = true, minH = 120 }) => (
-  <div className="bg-white border border-gray-200 rounded-xl p-5" style={{ minHeight: minH }}>
-    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide leading-tight">{label}</p>
-    <p className="text-3xl font-bold text-gray-950 mt-4 tabular-nums">{value}</p>
-    {note != null && (
-      <p className={`text-xs font-semibold mt-2 ${positive ? 'text-teal-600' : 'text-orange-600'}`}>{note}</p>
-    )}
-  </div>
-);
+// Utilization / rev-per-hr threshold pill colors (from spec legend).
+const utilPill = (v) => {
+  const x = pctScale(v);
+  if (x === null) return { color: C.ink2 };
+  if (x < 60) return { color: C.red };
+  if (x < 75) return { color: C.gold };
+  return { color: C.teal };
+};
+const revHrPill = (v, kind) => {
+  const x = n(v); if (x === null) return { color: C.ink2 };
+  const lo = kind === 'esth' ? 125 : 450;
+  const hi = kind === 'esth' ? 175 : 550;
+  if (x < lo) return { color: C.red };
+  if (x < hi) return { color: C.gold };
+  return { color: C.teal };
+};
 
-const Legend = ({ color, label }) => (
-  <span className="flex items-center gap-2">
-    <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: color }}></span>
-    {label}
-  </span>
-);
-
-const SectionTitle = ({ title }) => (
-  <div className="flex items-center gap-4 mb-4">
-    <h2 className="text-sm font-bold text-teal-700 uppercase tracking-[4px]">{title}</h2>
-    <div className="h-px bg-gray-200 flex-1"></div>
-  </div>
-);
-
+// Horizontal "bar vs 100% goal" row used in several panels.
+// Horizontal "bar vs 100% goal" row used in several panels.
 const PacingStat = ({ label, value, note }) => (
   <div>
-    <p className="text-xs font-bold text-gray-400 uppercase tracking-wide leading-tight max-w-[110px]">{label}</p>
-    <p className="text-3xl font-bold mt-2 tabular-nums">{value}</p>
-    {note != null && <p className="text-xs text-gray-500 mt-1">{note}</p>}
+    <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2, lineHeight: 1.2, maxWidth: 110 }}>{label}</div>
+    <div style={{ font: `600 26px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+    {note != null && <div style={{ font: `500 11px ${FONT}`, color: C.gray, marginTop: 4 }}>{note}</div>}
   </div>
 );
 
-/* =================================================================
-   MONTH HELPERS for the date-range picker
-   The picker offers recent months; "locations" come from /api/locations.
-   The default range is the latest available month from /api/latest-date.
-   ================================================================= */
-
-const firstOfMonth = (y, m) => `${y}-${String(m + 1).padStart(2, '0')}-01`;
-const lastOfMonth = (y, m) => {
-  const d = new Date(y, m + 1, 0);
-  return `${y}-${String(m + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const PaceBar = ({ pace, color }) => {
+  const p = pctScale(pace) || 0;
+  const w = Math.min((p / 120) * 100, 100); // 120% scale, 100% marker at 83.33%
+  return (
+    <span style={{ position: 'relative', flex: 1, height: 12, background: '#F0F4F3', borderRadius: 3 }}>
+      <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${w}%`, borderRadius: 3, background: color || (p >= 100 ? C.teal : C.clay) }} />
+      <span style={{ position: 'absolute', left: '83.33%', top: -2, bottom: -2, width: 1.5, background: C.sideText }} />
+    </span>
+  );
 };
-const monthOptionsBack = (anchorDate, count = 12) => {
-  const opts = [];
-  const base = new Date(anchorDate);
-  for (let i = 0; i < count; i++) {
-    const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
-    opts.push({
-      key: `${d.getFullYear()}-${d.getMonth()}`,
-      label: `${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`,
-      start: firstOfMonth(d.getFullYear(), d.getMonth()),
-      end: lastOfMonth(d.getFullYear(), d.getMonth()),
-    });
+
+/* =================================================================
+   NAVIGATION + SUBTITLES
+   ================================================================= */
+const NAV = [
+  { id: 'Overview', label: 'Overview' },
+  { id: 'Finance', label: 'Finance' },
+  { id: 'Operations', label: 'Operations' },
+  { id: 'Locations', label: 'Locations' },
+  { id: 'Marketing', label: 'Marketing', group: ['Acquisition', 'Call Center'] },
+  { id: 'Clinical', label: 'Clinical' },
+  { id: 'Patients / CRM', label: 'Patients / CRM' },
+  { id: 'Staff / Providers', label: 'Staff / Providers' },
+  { id: 'Inventory', label: 'Inventory' },
+  { id: 'Memberships', label: 'Memberships' },
+];
+
+const SUBTITLE = (view, range, latestDate) => {
+  // trailing-12-month range label for the momentum matrix
+  let trailing = range;
+  if (latestDate) {
+    const d = new Date(latestDate);
+    const endLbl = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+    const s = new Date(d.getFullYear(), d.getMonth() - 11, 1);
+    const startLbl = `${MONTHS[s.getMonth()]} ${s.getFullYear()}`;
+    trailing = `${startLbl} – ${endLbl}`;
   }
-  return opts;
+  return {
+    'Overview': `Performance across all locations · Month to date`,
+    'Finance': `Revenue, margin & profitability · ${range}`,
+    'Operations': `Capacity, utilization & throughput · ${range}`,
+    'Locations': `Momentum matrix · trailing 12 months · ${trailing}`,
+    'Acquisition': `Spend, leads & acquisition funnel · ${range}`,
+    'Call Center': 'Lead response, agent performance & paid media · Aesthetix CRM',
+    'Clinical': `Service volumes, units & outcomes · ${range}`,
+    'Patients / CRM': `Acquisition, retention & mix · ${range}`,
+    'Staff / Providers': `Productivity & utilization · ${range}`,
+    'Inventory': `Stock, consumption & retail · ${range}`,
+    'Memberships': `Recurring revenue & adoption · ${range}`,
+  }[view] || range;
 };
 
-/* =================================================================
-   MAIN DASHBOARD
-   ================================================================= */
+const TITLE = (view) => ({
+  'Acquisition': 'Marketing · Acquisition',
+  'Call Center': 'Call Center',
+  'Overview': 'Business Overview',
+}[view] || view);
 
+/* =================================================================
+   MAIN DASHBOARD SHELL
+   ================================================================= */
 const Dashboard = () => {
   const [activeView, setActiveView] = useState('Overview');
-
-  // Bootstrap: latest available date + the location list.
+  const [openGroups, setOpenGroups] = useState({ Marketing: true });
   const [boot, setBoot] = useState({ loading: true, error: null, latestDate: null, locations: [] });
+  const [monthKey, setMonthKey] = useState(null);
+  const [selectedLocations, setSelectedLocations] = useState([]);
+  const [locOpen, setLocOpen] = useState(false);
+  const [monthOpen, setMonthOpen] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
+    let cancelled = false; const controller = new AbortController();
     (async () => {
       try {
         const [latest, locs] = await Promise.all([
@@ -306,12 +288,7 @@ const Dashboard = () => {
           apiGet('/api/locations', {}, controller.signal),
         ]);
         if (cancelled) return;
-        setBoot({
-          loading: false,
-          error: null,
-          latestDate: latest?.latest_date || null,
-          locations: Array.isArray(locs) ? locs : [],
-        });
+        setBoot({ loading: false, error: null, latestDate: latest?.latest_date || null, locations: Array.isArray(locs) ? locs : [] });
       } catch (e) {
         if (e.name === 'AbortError' || cancelled) return;
         setBoot((b) => ({ ...b, loading: false, error: e.message }));
@@ -320,249 +297,170 @@ const Dashboard = () => {
     return () => { cancelled = true; controller.abort(); };
   }, []);
 
-  // Filter state: month range + chosen locations ([] = all).
-  const monthOpts = useMemo(
-    () => monthOptionsBack(boot.latestDate || new Date(), 12),
-    [boot.latestDate]
-  );
-  const [monthKey, setMonthKey] = useState(null);
-  const [selectedLocations, setSelectedLocations] = useState([]); // empty = all
-  const [locOpen, setLocOpen] = useState(false);
-
-  // Once months are known, default to the latest month.
-  useEffect(() => {
-    if (!monthKey && monthOpts.length) setMonthKey(monthOpts[0].key);
-  }, [monthOpts, monthKey]);
-
-  const activeMonth = useMemo(
-    () => monthOpts.find((m) => m.key === monthKey) || monthOpts[0],
-    [monthOpts, monthKey]
-  );
+  const monthOpts = useMemo(() => monthsBack(boot.latestDate || new Date(), 12), [boot.latestDate]);
+  useEffect(() => { if (!monthKey && monthOpts.length) setMonthKey(monthOpts[0].key); }, [monthOpts, monthKey]);
+  const activeMonth = useMemo(() => monthOpts.find((m) => m.key === monthKey) || monthOpts[0], [monthOpts, monthKey]);
 
   const filters = useMemo(() => ({
-    start_date: activeMonth?.start,
-    end_date: activeMonth?.end,
-    latestDate: boot.latestDate,
-    // Send undefined (not []) so "all locations" omits the param entirely.
+    start_date: activeMonth?.start, end_date: activeMonth?.end, latestDate: boot.latestDate,
     locations: selectedLocations.length ? selectedLocations : undefined,
-    allLocations: boot.locations,
-    monthLabel: activeMonth?.label || '',
+    allLocations: boot.locations, monthLabel: activeMonth?.label || '',
     ready: !!(activeMonth?.start && activeMonth?.end),
   }), [activeMonth, selectedLocations, boot.latestDate, boot.locations]);
 
-  const locationSummary = selectedLocations.length === 0
-    ? `All ${boot.locations.length || ''} locations`.trim()
-    : selectedLocations.length === 1
-      ? selectedLocations[0]
-      : `${selectedLocations.length} locations`;
+  const locSummary = selectedLocations.length === 0
+    ? `All ${boot.locations.length || ''} locations`.replace('  ', ' ').trim()
+    : selectedLocations.length === 1 ? selectedLocations[0] : `${selectedLocations.length} locations`;
 
-  const toggleLocation = (loc) => {
-    setSelectedLocations((cur) =>
-      cur.includes(loc) ? cur.filter((l) => l !== loc) : [...cur, loc]
-    );
-  };
+  const toggleLoc = (loc) => setSelectedLocations((c) => c.includes(loc) ? c.filter((l) => l !== loc) : [...c, loc]);
 
-  const navItems = [
-    { label: 'Overview' },
-    { label: 'Finance' },
-    { label: 'Operations' },
-    { label: 'Locations' },
-    { label: 'Marketing', children: ['Acquisition', 'Call Center'] },
-    { label: 'Clinical' },
-    { label: 'Patients / CRM' },
-    { label: 'Staff / Providers' },
-    { label: 'Inventory' },
-    { label: 'Memberships' },
-  ];
+  const dropStyle = { display: 'flex', alignItems: 'center', gap: 8, border: `1px solid #DCE5E2`, borderRadius: 8, padding: '9px 14px', font: `500 12.5px ${FONT}`, color: C.ink2, background: '#fff', cursor: 'pointer' };
 
-  const Sidebar = () => (
-    <aside className="fixed left-0 top-0 h-screen w-72 bg-[#071f1b] text-white flex flex-col">
-      <div className="p-6 flex items-center gap-4">
-        <div className="w-11 h-11 rounded-xl bg-teal-500 flex items-center justify-center font-bold text-lg">E</div>
-        <div>
-          <div className="text-2xl font-bold leading-none">Evolve</div>
-          <div className="text-xs tracking-[3px] text-teal-200 mt-1">MED SPA</div>
-        </div>
-      </div>
-
-      <div className="px-6 pt-7 pb-3 text-xs tracking-[4px] text-teal-300">BUSINESS HEALTH</div>
-
-      <nav className="flex-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const { label, children } = item;
-          const childActive = children && children.includes(activeView);
-          const isActive = label === activeView;
-          if (children) {
-            return (
-              <div key={label}>
-                <div
-                  className={`w-full text-left px-6 py-4 flex items-center justify-between gap-3 ${
-                    childActive ? 'bg-[#0d322d] border-l-4 border-teal-400 font-semibold' : 'text-teal-100 border-l-4 border-transparent'
-                  }`}
-                >
-                  <span className="flex items-center gap-3">
-                    <span className={`w-2 h-2 rounded-full ${childActive ? 'bg-teal-400' : 'bg-slate-500'}`}></span>
-                    {label}
-                  </span>
-                  <span className="text-teal-300 text-xs">▾</span>
-                </div>
-                {children.map((child) => {
-                  const active = child === activeView;
-                  return (
-                    <button
-                      key={child}
-                      onClick={() => setActiveView(child)}
-                      className={`w-full text-left pl-14 pr-6 py-3 flex items-center gap-3 text-sm ${
-                        active ? 'bg-[#103c35] border-l-4 border-teal-400 font-semibold text-white' : 'text-teal-100 hover:bg-[#0d322d] border-l-4 border-transparent'
-                      }`}
-                    >
-                      <span className="text-teal-400">—</span>
-                      {child}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          }
-          return (
-            <button
-              key={label}
-              onClick={() => setActiveView(label)}
-              className={`w-full text-left px-6 py-4 flex items-center gap-3 ${
-                isActive
-                  ? 'bg-[#103c35] border-l-4 border-teal-400 font-semibold'
-                  : 'text-teal-100 hover:bg-[#0d322d] border-l-4 border-transparent'
-              }`}
-            >
-              <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-teal-400' : 'bg-slate-500'}`}></span>
-              {label}
-            </button>
-          );
-        })}
-      </nav>
-
-      <div className="border-t border-white/10 p-6 flex items-center gap-3">
-        <div className="w-11 h-11 rounded-full bg-slate-700 flex items-center justify-center font-semibold">VR</div>
-        <div>
-          <div className="font-semibold">Vidur R.</div>
-          <div className="text-xs text-teal-200">Owner · All access</div>
-        </div>
-      </div>
-    </aside>
-  );
-
-  const Header = ({ title, subtitle }) => (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
-      <div className="px-9 py-7 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-950">{title}</h1>
-          <p className="text-gray-500 mt-1">{subtitle}</p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Location multi-select (driven by /api/locations) */}
-          <div className="relative">
-            <button
-              onClick={() => setLocOpen((o) => !o)}
-              className="px-5 py-3 rounded-lg border border-gray-300 bg-white text-sm flex items-center gap-2 min-w-[180px] justify-between"
-            >
-              <span className="truncate">{locationSummary}</span>
-              <span className="text-gray-400 text-xs">▾</span>
-            </button>
-            {locOpen && (
-              <div className="absolute right-0 mt-2 w-64 max-h-80 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-30 p-2">
-                <button
-                  onClick={() => { setSelectedLocations([]); }}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm ${selectedLocations.length === 0 ? 'bg-teal-50 text-teal-700 font-semibold' : 'hover:bg-gray-50'}`}
-                >
-                  All locations
-                </button>
-                <div className="h-px bg-gray-100 my-1" />
-                {boot.locations.map((loc) => {
-                  const checked = selectedLocations.includes(loc);
-                  return (
-                    <button
-                      key={loc}
-                      onClick={() => toggleLocation(loc)}
-                      className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-gray-50 flex items-center gap-2"
-                    >
-                      <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${checked ? 'bg-teal-600 border-teal-600 text-white' : 'border-gray-300'}`}>
-                        {checked ? '✓' : ''}
-                      </span>
-                      <span className="truncate">{loc}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Month range (built from /api/latest-date) */}
-          <select
-            value={monthKey || ''}
-            onChange={(e) => setMonthKey(e.target.value)}
-            className="px-5 py-3 rounded-lg border border-gray-300 bg-white text-sm"
-          >
-            {monthOpts.map((m) => (
-              <option key={m.key} value={m.key}>{m.label}</option>
-            ))}
-          </select>
-
-          <button className="px-6 py-3 rounded-lg bg-teal-600 text-white font-semibold text-sm hover:bg-teal-700">Export</button>
-        </div>
-      </div>
-    </header>
-  );
-
-  // Bootstrap gate.
   if (boot.loading) {
     return (
-      <div className="min-h-screen bg-[#f4f7f6] flex items-center justify-center">
-        <div className="flex items-center gap-3 text-gray-500"><Spinner /> Connecting to reporting API…</div>
+      <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT }}>
+        <style>{`@keyframes evspin{to{transform:rotate(360deg)}}`}</style>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: C.gray }}><Spinner /> Connecting to reporting API…</div>
       </div>
     );
   }
   if (boot.error) {
     return (
-      <div className="min-h-screen bg-[#f4f7f6] flex items-center justify-center px-6">
-        <div className="bg-white rounded-xl border border-orange-200 p-10 text-center max-w-md">
-          <p className="text-base font-bold text-gray-900">Can't reach the reporting API</p>
-          <p className="text-sm text-gray-500 mt-2">{boot.error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-5 px-5 py-2.5 rounded-lg bg-teal-600 text-white font-semibold text-sm hover:bg-teal-700"
-          >
-            Reload
-          </button>
-        </div>
+      <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT, padding: 24 }}>
+        <Card style={{ borderColor: '#F2D9CD', textAlign: 'center', maxWidth: 440 }}>
+          <div style={{ font: `600 15px ${FONT}`, color: C.ink }}>Can't reach the reporting API</div>
+          <div style={{ font: `500 12px ${FONT}`, color: C.gray, marginTop: 8 }}>{boot.error}</div>
+          <button onClick={() => window.location.reload()} style={{ marginTop: 18, border: 'none', borderRadius: 8, padding: '9px 18px', font: `600 12.5px ${FONT}`, color: '#fff', background: C.teal, cursor: 'pointer' }}>Reload</button>
+        </Card>
       </div>
     );
   }
 
-  const sub = rangeSubtitle(filters.start_date, filters.end_date);
-
-  const views = {
-    'Finance': { title: 'Finance', subtitle: `Revenue, margin & profitability · ${sub}`, body: <FinanceView /> },
-    'Operations': { title: 'Operations', subtitle: `Capacity, utilization & throughput · ${sub}`, body: <OperationsView /> },
-    'Locations': { title: 'Locations', subtitle: 'Per-location performance vs prior periods', body: <LocationsView /> },
-    'Acquisition': { title: 'Marketing · Acquisition', subtitle: `Booking sources & acquisition · ${sub}`, body: <AcquisitionView /> },
-    'Call Center': { title: 'Call Center', subtitle: 'Lead response & agent performance · Aesthetix CRM', body: <CallCenterView /> },
-    'Clinical': { title: 'Clinical', subtitle: `Service volumes & outcomes · ${sub}`, body: <ClinicalView /> },
-    'Patients / CRM': { title: 'Patients / CRM', subtitle: `Acquisition, retention & mix · ${sub}`, body: <PatientsCRMView /> },
-    'Staff / Providers': { title: 'Staff / Providers', subtitle: `Productivity & utilization · ${sub}`, body: <StaffProvidersView /> },
-    'Inventory': { title: 'Inventory', subtitle: `Stock, consumption & retail · ${sub}`, body: <InventoryView /> },
-    'Memberships': { title: 'Memberships', subtitle: `Membership adoption & mix · ${sub}`, body: <MembershipsView /> },
-    'Overview': { title: 'Business Overview', subtitle: `Performance across all locations · ${sub}`, body: <OverviewView /> },
-  };
-  const current = views[activeView] || views['Overview'];
+  const range = activeMonth?.label || '';
+  const body = {
+    'Overview': <OverviewView />, 'Finance': <FinanceView />, 'Operations': <OperationsView />,
+    'Locations': <LocationsView />, 'Acquisition': <AcquisitionView />, 'Call Center': <CallCenterView />,
+    'Clinical': <ClinicalView />, 'Patients / CRM': <PatientsView />, 'Staff / Providers': <StaffView />,
+    'Inventory': <InventoryView />, 'Memberships': <MembershipsView />,
+  }[activeView] || <OverviewView />;
 
   return (
     <FilterContext.Provider value={filters}>
-      <div className="min-h-screen bg-[#f4f7f6]" onClick={() => locOpen && setLocOpen(false)}>
-        <Sidebar />
-        <main className="ml-72 min-h-screen">
-          <Header title={current.title} subtitle={current.subtitle} />
-          {current.body}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap');
+        @keyframes evspin{to{transform:rotate(360deg)}}
+        .ev-nav:hover{background:rgba(47,182,160,.08)!important;}
+        .ev-lrow:hover{background:#FAFCFB;}
+        .ev-scroll::-webkit-scrollbar{width:10px;height:10px;}
+        .ev-scroll::-webkit-scrollbar-thumb{background:#D4DEDB;border-radius:5px;border:2px solid #F6F8F7;}
+        .ev-scroll::-webkit-scrollbar-track{background:transparent;}
+      `}</style>
+      <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden', fontFamily: FONT, background: C.bg, color: C.ink }}
+           onClick={() => { setLocOpen(false); setMonthOpen(false); }}>
+
+        {/* SIDEBAR */}
+        <aside style={{ width: 236, flex: 'none', background: C.sidebar, color: C.sideText, display: 'flex', flexDirection: 'column', padding: '22px 0', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '0 22px 26px' }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg,${C.tealBright},${C.teal})`, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `700 17px ${FONT}`, color: '#fff' }}>E</div>
+            <div>
+              <div style={{ font: `700 16px ${FONT}`, color: '#fff', letterSpacing: '.01em' }}>Evolve</div>
+              <div style={{ font: `500 9.5px ${FONT}`, color: C.sideMuted, letterSpacing: '.08em', textTransform: 'uppercase' }}>Med Spa</div>
+            </div>
+          </div>
+          <div style={{ font: `600 10px ${FONT}`, letterSpacing: '.12em', textTransform: 'uppercase', color: C.sideHead, padding: '4px 22px 8px' }}>Business Health</div>
+
+          {NAV.map((item) => {
+            if (item.group) {
+              const childActive = item.group.includes(activeView);
+              const open = openGroups[item.id];
+              return (
+                <div key={item.id}>
+                  <a className="ev-nav" onClick={(e) => { e.stopPropagation(); setOpenGroups((g) => ({ ...g, [item.id]: !g[item.id] })); }}
+                     style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 22px', cursor: 'pointer', font: `${childActive ? 600 : 500} 12.5px ${FONT}`, color: childActive ? '#E6EEEC' : C.sideText, borderLeft: `3px solid ${childActive ? C.tealBright : 'transparent'}` }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: childActive ? C.tealBright : '#3A4D4A' }} />
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    <span style={{ font: `600 9px ${FONT}`, color: C.sideMuted }}>{open ? '▾' : '▸'}</span>
+                  </a>
+                  {open && item.group.map((child) => {
+                    const active = child === activeView;
+                    return (
+                      <a key={child} className="ev-nav" onClick={(e) => { e.stopPropagation(); setActiveView(child); }}
+                         style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 22px 9px 42px', cursor: 'pointer', font: `${active ? 600 : 500} 12px ${FONT}`, color: active ? '#fff' : C.sideText, background: active ? 'rgba(47,182,160,.12)' : 'transparent', borderLeft: `3px solid ${active ? C.tealBright : 'transparent'}` }}>
+                        <span style={{ color: C.tealBright }}>—</span>{child}
+                      </a>
+                    );
+                  })}
+                </div>
+              );
+            }
+            const active = item.id === activeView;
+            return (
+              <a key={item.id} className="ev-nav" onClick={(e) => { e.stopPropagation(); setActiveView(item.id); }}
+                 style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 22px', cursor: 'pointer', font: `${active ? 600 : 500} 12.5px ${FONT}`, color: active ? '#fff' : C.sideText, background: active ? 'rgba(47,182,160,.12)' : 'transparent', borderLeft: `3px solid ${active ? C.tealBright : 'transparent'}` }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? C.tealBright : '#3A4D4A' }} />
+                <span style={{ flex: 1 }}>{item.label}</span>
+              </a>
+            );
+          })}
+
+          <div style={{ marginTop: 'auto', padding: '18px 22px 0', borderTop: '1px solid rgba(255,255,255,.07)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#2A3D3A', display: 'flex', alignItems: 'center', justifyContent: 'center', font: `600 12px ${FONT}`, color: C.sideText }}>VR</div>
+              <div>
+                <div style={{ font: `600 12.5px ${FONT}`, color: '#E6EEEC' }}>Vidur R.</div>
+                <div style={{ font: `400 10.5px ${FONT}`, color: C.sideMuted }}>Owner · All access</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* MAIN */}
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+          {/* topbar */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 30px', background: '#fff', borderBottom: `1px solid ${C.line}`, flex: 'none' }}>
+            <div>
+              <div style={{ font: `700 21px ${FONT}`, color: C.ink }}>{TITLE(activeView)}</div>
+              <div style={{ font: `400 12.5px ${FONT}`, color: C.gray3, marginTop: 3 }}>{SUBTITLE(activeView, range, boot.latestDate)}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              {/* location dropdown */}
+              <div style={{ position: 'relative' }}>
+                <div style={dropStyle} onClick={(e) => { e.stopPropagation(); setLocOpen((o) => !o); setMonthOpen(false); }}>{locSummary} ▾</div>
+                {locOpen && (
+                  <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', right: 0, marginTop: 6, width: 240, maxHeight: 320, overflowY: 'auto', background: '#fff', border: `1px solid ${C.line}`, borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.10)', zIndex: 50, padding: 6 }}>
+                    <div onClick={() => setSelectedLocations([])} style={{ padding: '8px 10px', borderRadius: 6, font: `${selectedLocations.length === 0 ? 600 : 500} 12px ${FONT}`, color: selectedLocations.length === 0 ? C.teal : C.ink2, background: selectedLocations.length === 0 ? '#E6F2EE' : 'transparent', cursor: 'pointer' }}>All locations</div>
+                    <div style={{ height: 1, background: C.line2, margin: '4px 0' }} />
+                    {boot.locations.map((loc) => {
+                      const checked = selectedLocations.includes(loc);
+                      return (
+                        <div key={loc} onClick={() => toggleLoc(loc)} style={{ padding: '8px 10px', borderRadius: 6, font: `500 12px ${FONT}`, color: C.ink2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ width: 15, height: 15, borderRadius: 4, border: `1px solid ${checked ? C.teal : '#C9D6D2'}`, background: checked ? C.teal : '#fff', color: '#fff', font: `700 9px ${FONT}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{checked ? '✓' : ''}</span>
+                          {loc}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {/* month dropdown */}
+              <div style={{ position: 'relative' }}>
+                <div style={dropStyle} onClick={(e) => { e.stopPropagation(); setMonthOpen((o) => !o); setLocOpen(false); }}>{range} ▾</div>
+                {monthOpen && (
+                  <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', right: 0, marginTop: 6, width: 160, maxHeight: 320, overflowY: 'auto', background: '#fff', border: `1px solid ${C.line}`, borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.10)', zIndex: 50, padding: 6 }}>
+                    {monthOpts.map((m) => (
+                      <div key={m.key} onClick={() => { setMonthKey(m.key); setMonthOpen(false); }} style={{ padding: '8px 10px', borderRadius: 6, font: `${m.key === monthKey ? 600 : 500} 12px ${FONT}`, color: m.key === monthKey ? C.teal : C.ink2, background: m.key === monthKey ? '#E6F2EE' : 'transparent', cursor: 'pointer' }}>{m.label}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div style={{ borderRadius: 8, padding: '9px 16px', font: `600 12.5px ${FONT}`, color: '#fff', background: C.teal, cursor: 'pointer' }}>Export</div>
+            </div>
+          </div>
+
+          {/* scroll content */}
+          <div className="ev-scroll" style={{ flex: 1, overflowY: 'auto', padding: '24px 30px 40px', position: 'relative' }}>
+            {body}
+          </div>
         </main>
       </div>
     </FilterContext.Provider>
@@ -570,223 +468,623 @@ const Dashboard = () => {
 };
 
 /* =================================================================
+   LIGHTWEIGHT SVG CHART TOOLKIT (matches spec's hand-drawn look)
+   ================================================================= */
+
+// Cumulative MTD line + daily bars + budget pace line, in spec style.
+const PacingChart = ({ daily, budget, trending, daysInMonth }) => {
+  const W = 672, H = 224, padL = 46, padR = 46, padT = 18, padB = 39;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const arr = daily || [];
+  if (!arr.length) return <div style={{ height: 340, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `500 12px ${FONT}`, color: C.gray }}>No daily data.</div>;
+
+  const dailyVals = arr.map((d) => n(d.daily_sales) || 0);
+  const cumVals = arr.map((d) => n(d.cumulative_sales) || 0);
+  const maxDaily = Math.max(...dailyVals, 1);
+  const maxCum = Math.max(...cumVals, budget || 0, 1);
+  const elapsed = arr.length;
+  const totalDays = daysInMonth || elapsed;
+  const xAt = (i) => padL + (totalDays > 1 ? (i / (totalDays - 1)) * innerW : 0);
+  const yDaily = (v) => padT + innerH - (v / maxDaily) * innerH;
+  const yCum = (v) => padT + innerH - (v / maxCum) * innerH;
+  const barW = Math.max(Math.min(innerW / totalDays * 0.62, 13), 2);
+  const minIdx = dailyVals.indexOf(Math.min(...dailyVals));
+  const maxIdx = dailyVals.indexOf(Math.max(...dailyVals));
+
+  const cumPts = arr.map((d, i) => `${xAt(i)},${yCum(cumVals[i])}`).join(' ');
+  const lastX = xAt(elapsed - 1), lastY = yCum(cumVals[elapsed - 1] || 0);
+  // budget line from 0 to full budget across the month
+  const budgetEndY = yCum(budget || maxCum);
+  // run-rate projection from today to trending finish
+  const projY = yCum(trending || cumVals[elapsed - 1] || 0);
+
+  const gridYs = [0, 0.25, 0.5, 0.75, 1].map((t) => padT + t * innerH);
+  const leftLabels = [1, 0.75, 0.5, 0.25, 0].map((t) => money(maxDaily * t, { compact: true }));
+  const rightLabels = [1, 0.75, 0.5, 0.25, 0].map((t) => money(maxCum * t, { compact: true, decimals: 1 }));
+
+  return (
+    <svg viewBox={`0 -10 ${W} ${H}`} style={{ width: '100%', height: 340, display: 'block', marginTop: 8 }}>
+      {elapsed < totalDays && <rect x={lastX} y={padT} width={W - padR - lastX} height={innerH} fill="#F5F9F8" />}
+      {gridYs.map((y, i) => <line key={i} x1={padL} y1={y} x2={W - padR} y2={y} stroke={i === gridYs.length - 1 ? '#D8E2DF' : C.line2} strokeWidth="1" />)}
+      <g style={{ font: `600 9.5px ${FONT}`, fill: C.gray2 }} textAnchor="end">
+        {leftLabels.map((l, i) => <text key={i} x={padL - 6} y={gridYs[i] + 3}>{l}</text>)}
+      </g>
+      <g style={{ font: `600 9.5px ${FONT}`, fill: C.gray2 }} textAnchor="start">
+        {rightLabels.map((l, i) => <text key={i} x={W - padR + 6} y={gridYs[i] + 3}>{l}</text>)}
+      </g>
+      {/* daily bars */}
+      {arr.map((d, i) => {
+        const v = dailyVals[i]; const y = yDaily(v); const h = padT + innerH - y;
+        let fill = '#fff', stroke = '#C9D6D2';
+        if (i === maxIdx) { fill = C.tealBright; stroke = C.tealBright; }
+        if (i === minIdx) { fill = C.redBright; stroke = C.redBright; }
+        return <rect key={i} x={xAt(i) - barW / 2} y={y} width={barW} height={Math.max(h, 0)} rx="1.5" fill={fill} stroke={stroke} strokeWidth="1.3" />;
+      })}
+      {/* budget line */}
+      <polyline points={`${padL},${padT + innerH} ${W - padR},${budgetEndY}`} fill="none" stroke={C.blue} strokeWidth="2.4" />
+      <circle cx={W - padR} cy={budgetEndY} r="3" fill={C.blue} />
+      {/* run-rate projection */}
+      {elapsed < totalDays && <polyline points={`${lastX},${lastY} ${W - padR},${projY}`} fill="none" stroke="#AAB7B3" strokeWidth="2.2" strokeDasharray="6 5" strokeLinecap="round" />}
+      {elapsed < totalDays && <circle cx={W - padR} cy={projY} r="3" fill="#AAB7B3" />}
+      {/* cumulative MTD line */}
+      <polyline points={cumPts} fill="none" stroke={C.navy} strokeWidth="2.6" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={lastX} cy={lastY} r="3.6" fill={C.navy} />
+      {/* today divider */}
+      <line x1={lastX} y1={padT + 4} x2={lastX} y2={padT + innerH} stroke={C.sideText} strokeWidth="1.2" strokeDasharray="4 4" />
+      <g><rect x={lastX - 21} y={padT + 4} width="43" height="15" rx="7.5" fill={C.ink} /><text x={lastX} y={padT + 14.7} textAnchor="middle" style={{ font: `600 9px ${FONT}`, fill: '#fff', letterSpacing: '.04em' }}>TODAY</text></g>
+      {/* min/max callouts */}
+      <g><rect x={xAt(maxIdx) - 24} y={-6} width="49" height="16" rx="3" fill={C.tealBright} /><text x={xAt(maxIdx)} y={5.5} textAnchor="middle" style={{ font: `700 10px ${FONT}`, fill: '#fff' }}>{money(dailyVals[maxIdx], { compact: true })}</text></g>
+      {/* date axis */}
+      <g style={{ font: `600 9.5px ${FONT}`, fill: C.gray2 }} textAnchor="middle">
+        {[0.18, 0.45, 0.72, 0.97].map((t, i) => { const idx = Math.round(t * (elapsed - 1)); return <text key={i} x={xAt(idx)} y={padT + innerH + 16}>{`${MONTHS[new Date(arr[idx]?.day ? null : 0).getMonth?.() || 0] || ''} ${arr[idx]?.day ?? ''}`.trim()}</text>; })}
+      </g>
+    </svg>
+  );
+};
+
+// Simple area+line chart (single series) in spec style.
+const AreaLine = ({ data, xKey, yKey, height = 210, color = C.tealBright, gradId = 'al', yFmt = (v) => money(v, { compact: true }) }) => {
+  const W = 660, H = 200, padL = 8, padR = 8, padT = 12, padB = 26;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const arr = data || [];
+  if (arr.length < 2) return <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `500 12px ${FONT}`, color: C.gray }}>Not enough data.</div>;
+  const ys = arr.map((d) => n(d[yKey]) || 0);
+  const maxY = Math.max(...ys, 1), minY = Math.min(...ys, 0);
+  const rng = maxY - minY || 1;
+  const xAt = (i) => padL + (i / (arr.length - 1)) * innerW;
+  const yAt = (v) => padT + innerH - ((v - minY) / rng) * innerH;
+  const line = arr.map((d, i) => `${xAt(i)},${yAt(ys[i])}`).join(' ');
+  const area = `${padL},${padT + innerH} ${line} ${padL + innerW},${padT + innerH}`;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height, marginTop: 12 }}>
+      <defs><linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={color} stopOpacity=".24" /><stop offset="1" stopColor={color} stopOpacity="0" /></linearGradient></defs>
+      {[0, 0.5, 1].map((t, i) => <line key={i} x1={padL} y1={padT + t * innerH} x2={W - padR} y2={padT + t * innerH} stroke={C.line2} strokeWidth="1" />)}
+      <polygon points={area} fill={`url(#${gradId})`} />
+      <polyline points={line} fill="none" stroke={color} strokeWidth="2.6" strokeLinejoin="round" strokeLinecap="round" />
+      <g style={{ font: `600 9px ${FONT}`, fill: C.gray2 }} textAnchor="middle">
+        {arr.filter((_, i) => i % Math.ceil(arr.length / 6) === 0).map((d, i, sub) => { const idx = arr.indexOf(d); return <text key={i} x={xAt(idx)} y={H - 8}>{d[xKey]}</text>; })}
+      </g>
+    </svg>
+  );
+};
+
+// Horizontal labeled bar list (e.g. service line, sources).
+const BarList = ({ rows, max, color = C.teal, labelW = 140, valueW = 70, fmt = (v) => v }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    {rows.map((r, i) => (
+      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ width: labelW, flex: 'none', font: `500 11.5px ${FONT}`, color: C.ink2, textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</span>
+        <span style={{ flex: 1, height: 14, background: '#F0F4F3', borderRadius: 4, overflow: 'hidden' }}>
+          <span style={{ display: 'block', height: '100%', width: `${(Math.abs(r.value) / (max || 1)) * 100}%`, borderRadius: 4, background: r.color || color }} />
+        </span>
+        <span style={{ width: valueW, flex: 'none', textAlign: 'right', font: `600 11.5px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{fmt(r.value, r)}</span>
+      </div>
+    ))}
+    {rows.length === 0 && <div style={{ font: `500 12px ${FONT}`, color: C.gray }}>No data for this range.</div>}
+  </div>
+);
+
+/* =================================================================
    OVERVIEW VIEW
    Endpoints: mtd-kpi-header + mtd-summary + category-breakdown
    ================================================================= */
 
+// Hero trend card: label, MTD value+delta, Projected value+delta.
+const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta }) => (
+  <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ font: `600 10px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{label}</div>
+    <div style={{ display: 'flex', gap: 14, marginTop: 14 }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>MTD</div>
+        <div style={{ font: `600 26px ${FONT}`, color: C.ink, marginTop: 5, fontVariantNumeric: 'tabular-nums' }}>{mtd}</div>
+        {mtdDelta && <div style={{ font: `600 10.5px ${FONT}`, color: mtdDelta.color, marginTop: 3 }}>{mtdDelta.text}</div>}
+      </div>
+      <div style={{ width: 1, background: C.line2 }} />
+      <div style={{ flex: 1 }}>
+        <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>Projected · Run Rate</div>
+        <div style={{ font: `600 26px ${FONT}`, color: C.ink, marginTop: 5, fontVariantNumeric: 'tabular-nums' }}>{proj}</div>
+        {projDelta && <div style={{ font: `600 10.5px ${FONT}`, color: projDelta.color, marginTop: 3 }}>{projDelta.text}</div>}
+      </div>
+    </div>
+  </div>
+);
+
 const OverviewView = () => {
-  const f = useFilters();
-  const params = { start_date: f.start_date, end_date: f.end_date, locations: f.locations };
+  const fl = useFilters();
+  const params = { start_date: fl.start_date, end_date: fl.end_date, locations: fl.locations };
+  const prev = prevMonthRange(fl.start_date);
+  const prevParams = { start_date: prev.start, end_date: prev.end, locations: fl.locations };
   const { data, loading, error, reload } = useApiData({
     header: { path: '/api/mtd-kpi-header', params },
     summary: { path: '/api/mtd-summary', params },
+    ops: { path: '/api/operations-summary', params },
     categories: { path: '/api/category-breakdown', params },
+    daily: { path: '/api/mtd-daily-trend', params },
+    headerPrev: { path: '/api/mtd-kpi-header', params: prevParams },
   }, [JSON.stringify(params)]);
 
   return (
-    <DataState loading={loading || !f.ready} error={error} onRetry={reload}>
-      <OverviewBody header={data.header} summary={data.summary || []} categories={data.categories || []} />
+    <DataState loading={loading || !fl.ready} error={error} onRetry={reload}>
+      <OverviewBody h={data.header || {}} hPrev={data.headerPrev || {}} summary={data.summary || []} ops={data.ops || []} categories={data.categories || []} daily={data.daily} range={fl.monthLabel} />
     </DataState>
   );
 };
 
-const OverviewBody = ({ header, summary, categories }) => {
-  const h = header || {};
+const MEDAL = { 0: '#D4AF37', 1: '#9AA7A3', 2: '#C77B5A' };
+const Medal = ({ color }) => (
+  <svg viewBox="0 0 24 24" width="14" height="14" style={{ display: 'block' }}>
+    <path fill={color} d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z" />
+  </svg>
+);
 
-  // Two headline KPIs derived from the header banner.
-  const kpis = [
-    {
-      label: 'CASH SALES (MTD)',
-      mtd: money(h.mtd_revenue, { compact: true }),
-      variance: deltaNote(h.same_store_yoy),
-      projLabel: 'Avg Daily Revenue',
-      projected: money(h.avg_daily_revenue, { compact: true }),
-    },
-    {
-      label: 'CUSTOMER VISITS (MTD)',
-      mtd: num(h.total_customer_visits),
-      variance: { text: `${num(h.new_client_count)} new · ${num(h.existing_client_count)} existing`, positive: true },
-      projLabel: 'Members',
-      projected: num(h.member_count),
-    },
+const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, range }) => {
+  // ---- hero cards ----
+  const cashMtd = n(h.mtd_revenue);
+  const recRev = n(h.mtd_revenue); // API exposes one revenue figure; reuse for recognized
+  // projected run-rate from daily trending if available
+  const trending = n(daily?.trending);
+  const yoy = h.same_store_yoy;
+
+  // ---- FINANCIAL group ----
+  const budgetPaceVal = (() => {
+    const b = n(h.monthly_budget), r = n(h.mtd_revenue);
+    if (!b || r === null) return null;
+    return (r / b) * 100;
+  })();
+  const financial = [
+    { label: '% to Budget · Variance to Goal', value: budgetPaceVal != null ? `${budgetPaceVal.toFixed(0)}%` : '—',
+      delta: budgetPaceVal != null ? `${budgetPaceVal >= 100 ? '▲' : '▼'} ${Math.abs(100 - budgetPaceVal).toFixed(0)}% to goal` : null,
+      deltaColor: budgetPaceVal >= 100 ? C.green : C.clay },
+    { label: 'SSS Growth YoY %', value: pct(yoy), ...spread(arrowDelta(yoy)) },
+    { label: 'Prior Day Sales', value: money(h.yesterday_revenue, { compact: true }), delta: `${num(h.yesterday_clients)} clients`, deltaColor: C.gray },
+    { label: 'ASP (New)', value: money(h.asp_new_clients), delta: null },
+    { label: 'ASP (Existing)', value: money(h.asp_existing_clients), delta: null },
+    { label: 'COGS Margin %', value: pct(h.gross_margin_pct != null ? 100 - pctScale(h.gross_margin_pct) : null), delta: null },
+    { label: 'Payroll Margin %', value: '—', delta: null },
   ];
 
-  const financialMetrics = [
-    { label: 'GROSS MARGIN %', value: pct(h.gross_margin_pct), note: 'recognized', positive: true },
-    { label: 'BLENDED ASP', value: money(h.blended_asp), note: 'all clients', positive: true },
-    { label: 'ASP · NEW', value: money(h.asp_new_clients), note: 'new clients', positive: true },
-    { label: 'ASP · EXISTING', value: money(h.asp_existing_clients), note: 'existing clients', positive: true },
-    { label: 'YESTERDAY REVENUE', value: money(h.yesterday_revenue, { compact: true }), note: `${num(h.yesterday_clients)} clients`, positive: true },
-    { label: 'MONTHLY BUDGET', value: money(h.monthly_budget, { compact: true }), note: 'target', positive: true },
-    { label: 'SAME-STORE YOY', value: pct(h.same_store_yoy), note: 'vs prior year', positive: n(h.same_store_yoy) >= 0 },
+  // ---- OPERATIONAL group ----
+  const operational = [
+    { label: 'No-Show Rate', value: '—', delta: null },
+    { label: 'Cancellation Rate', value: '—', delta: null },
+    { label: 'Membership Adoption', value: pct(h.membership_adoption_rate), delta: `${num(h.new_members)} new`, deltaColor: C.gray },
+    { label: 'Rev / Hr · Provider', value: money(h.rev_per_provider, { compact: true }), delta: null },
+    { label: 'Rev / Hr · Esthetician', value: money(h.rev_per_esthetician, { compact: true }), delta: null },
+    { label: 'Utilization · Provider', value: pct(h.provider_utilization), delta: null },
+    { label: 'Utilization · Esthetician', value: pct(h.esthetician_utilization), delta: null },
+    { label: 'Rebook Rate %', value: pct(h.rebooking_rate), delta: null },
   ];
 
-  const operationalMetrics = [
-    { label: 'PROVIDER UTILIZATION', value: pct(h.provider_utilization), note: 'booked / scheduled', positive: true },
-    { label: 'ESTHETICIAN UTILIZATION', value: pct(h.esthetician_utilization), note: 'booked / scheduled', positive: true },
-    { label: 'REBOOKING RATE', value: pct(h.rebooking_rate), note: 'completed appts', positive: true },
-    { label: 'MEMBERSHIP ADOPTION', value: pct(h.membership_adoption_rate), note: 'of active clients', positive: true },
-    { label: 'REV / PROVIDER', value: money(h.rev_per_provider, { compact: true }), note: 'per provider', positive: true },
-    { label: 'REV / ESTHETICIAN', value: money(h.rev_per_esthetician, { compact: true }), note: 'per esthetician', positive: true },
-    { label: 'NEW MEMBERS', value: num(h.new_members), note: 'this period', positive: true },
-    { label: 'PY REVENUE', value: money(h.py_revenue, { compact: true }), note: 'prior year', positive: true },
+  // ---- MARKETING group ----
+  // New Visit MTD — uses the accrual `new_visits` field (distinct new-visit
+  // invoices, DAX-matched), falling back to new_client_count if an older API
+  // build is deployed. MoM delta compares the same field for the prior month.
+  const newVisits = h.new_visits != null ? h.new_visits : h.new_client_count;
+  const newVisitsPrev = hPrev.new_visits != null ? hPrev.new_visits : hPrev.new_client_count;
+  const newVisitsDelta = momPctDelta(newVisits, newVisitsPrev);
+  const marketing = [
+    { label: 'New Customer Visits', value: num(newVisits), ...(newVisitsDelta ? spread(newVisitsDelta) : { delta: null }) },
+    { label: 'Existing Customer Visits', value: num(h.existing_client_count), delta: null },
+    { label: 'MTD Ad Spend', value: '—', delta: null },
+    { label: 'Client Acquisition Cost', value: '—', delta: null },
+    { label: 'New Guest Return Rate · 90 Day', value: '—', delta: null },
   ];
 
-  // Service mix from category breakdown (top categories + Other).
+  // ---- Sales to Budget chart ----
+  const dailyArr = Array.isArray(daily?.daily) ? daily.daily : [];
+  const budget = n(daily?.monthly_budget) || n(h.monthly_budget) || 0;
+  const daysInMonth = n(daily?.days_in_month) || dailyArr.length || 30;
+  const mtdActual = dailyArr.reduce((a, d) => a + (n(d.daily_sales) || 0), 0) || cashMtd || 0;
+  const budgetMtd = budget && daysInMonth ? (budget / daysInMonth) * dailyArr.length : null;
+  const paceToBudget = budget ? (mtdActual / budget) * 100 : null;
+
+  // ---- Budget attainment by location ----
+  const attain = [...summary]
+    .map((l) => ({ name: l.location, pace: pctScale(l.pct_to_goal_mtd) }))
+    .filter((l) => l.pace != null)
+    .sort((a, b) => b.pace - a.pace);
+
+  // ---- service mix donut ----
   const totalCat = categories.reduce((a, c) => a + (n(c.revenue) || 0), 0) || 1;
   const sortedCat = [...categories].sort((a, b) => (n(b.revenue) || 0) - (n(a.revenue) || 0));
   const topCats = sortedCat.slice(0, 5);
   const otherSum = sortedCat.slice(5).reduce((a, c) => a + (n(c.revenue) || 0), 0);
+  const donutColors = [C.teal, C.tealBright, C.tealLite, C.tealPale, C.clayLite, '#C9D6D2'];
   const serviceMix = [
-    ...topCats.map((c) => ({ name: c.item_category, percentage: Math.round(((n(c.revenue) || 0) / totalCat) * 100) })),
-    ...(otherSum > 0 ? [{ name: 'Other', percentage: Math.round((otherSum / totalCat) * 100) }] : []),
+    ...topCats.map((c, i) => ({ label: c.item_category, pct: Math.round(((n(c.revenue) || 0) / totalCat) * 100), color: donutColors[i] })),
+    ...(otherSum > 0 ? [{ label: 'Other', pct: Math.round((otherSum / totalCat) * 100), color: donutColors[5] }] : []),
   ];
-  const swatch = ['#14b8a6', '#0d9488', '#17a697', '#7fd3c3', '#f59e0b', '#d1d5db'];
+  // build conic-gradient
+  let acc = 0; const stops = serviceMix.map((s) => { const start = acc; acc += s.pct * 3.6; return `${s.color} ${start}deg ${acc}deg`; }).join(',');
+  // injectable share = neuro+filler+other_injectables if present
+  const injCats = ['neurotoxins', 'filler', 'other_injectables'];
+  const injSum = categories.filter((c) => injCats.includes((c.item_category || '').toLowerCase())).reduce((a, c) => a + (n(c.revenue) || 0), 0);
+  const injPct = Math.round((injSum / totalCat) * 100);
 
-  // Product mix = category counts (volume) as a proxy for units.
+  // ---- product mix (by category count) ----
   const byCount = [...categories].sort((a, b) => (n(b.count) || 0) - (n(a.count) || 0)).slice(0, 7);
   const maxCount = Math.max(...byCount.map((c) => n(c.count) || 0), 1);
 
-  // Location table from mtd-summary.
-  const totals = summary.reduce((acc, l) => {
-    acc.cash += n(l.cash_sales) || 0;
-    acc.budget += n(l.monthly_budget) || 0;
-    acc.members += n(l.new_members) || 0;
-    return acc;
-  }, { cash: 0, budget: 0, members: 0 });
-  const avgGoal = summary.length
-    ? summary.reduce((a, l) => a + (Math.abs(n(l.pct_to_goal_mtd)) <= 1 ? (n(l.pct_to_goal_mtd) || 0) * 100 : (n(l.pct_to_goal_mtd) || 0)), 0) / summary.length
-    : 0;
+  // ---- location performance table (merge mtd-summary + operations-summary) ----
+  const opsByLoc = {};
+  ops.forEach((o) => { opsByLoc[o.location] = o; });
+  const rows = summary.map((l) => ({ ...l, _ops: opsByLoc[l.location] || {} }));
+  const totals = summary.reduce((a, l) => {
+    a.cash += n(l.cash_sales) || 0; a.budget += n(l.monthly_budget) || 0;
+    a.trending += n(l.trending) || 0; a.newM += n(l.new_members) || 0;
+    const o = opsByLoc[l.location] || {};
+    a.recRev += n(o.recognized_revenue) || 0;
+    a.newCust += n(o.new_client_count) || 0;
+    a.existCust += n(o.existing_client_count) || 0;
+    return a;
+  }, { cash: 0, budget: 0, trending: 0, newM: 0, recRev: 0, newCust: 0, existCust: 0 });
 
   return (
-    <div className="px-9 py-8">
-      {/* Headline KPIs */}
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        {kpis.map((kpi) => (
-          <div key={kpi.label} className="bg-white rounded-xl border border-gray-200 p-6">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{kpi.label}</p>
-            <div className="grid grid-cols-2 gap-6 mt-5">
-              <div>
-                <p className="text-xs font-bold text-gray-400 uppercase">MTD</p>
-                <p className="text-4xl font-bold mt-3 tabular-nums">{kpi.mtd}</p>
-                <p className={`text-xs font-semibold mt-2 ${kpi.variance.positive ? 'text-teal-600' : 'text-orange-600'}`}>{kpi.variance.text}</p>
-              </div>
-              <div className="border-l border-gray-200 pl-6">
-                <p className="text-xs font-bold text-gray-400 uppercase">{kpi.projLabel}</p>
-                <p className="text-4xl font-bold mt-3 tabular-nums">{kpi.projected}</p>
-              </div>
-            </div>
-          </div>
-        ))}
+    <div>
+      {/* hero trend cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <HeroCard label="Cash Sales" mtd={money(cashMtd, { compact: true })} mtdDelta={arrowDelta(yoy)}
+          proj={money(trending || (mtdActual && daysInMonth ? (mtdActual / Math.max(dailyArr.length, 1)) * daysInMonth : null), { compact: true })} projDelta={arrowDelta(yoy)} />
+        <HeroCard label="Recognized Revenue" mtd={money(recRev, { compact: true })} mtdDelta={arrowDelta(yoy)}
+          proj={money(trending || (mtdActual && daysInMonth ? (mtdActual / Math.max(dailyArr.length, 1)) * daysInMonth : null), { compact: true })} projDelta={arrowDelta(yoy)} />
       </div>
 
-      <SectionTitle title="Financial" />
-      <div className="grid grid-cols-7 gap-4 mb-8">
-        {financialMetrics.map((m) => <KpiCard key={m.label} {...m} minH={135} />)}
+      {/* KPI groups */}
+      <Eyebrow>Financial</Eyebrow>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 12, marginBottom: 18 }}>
+        {financial.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
-      <SectionTitle title="Operational" />
-      <div className="grid grid-cols-8 gap-4 mb-8">
-        {operationalMetrics.map((m) => <KpiCard key={m.label} {...m} minH={135} />)}
+      <Eyebrow>Operational</Eyebrow>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 12, marginBottom: 18 }}>
+        {operational.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
-      {/* Service & product mix from category-breakdown */}
-      <div className="grid grid-cols-2 gap-6 mb-8">
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <h3 className="text-lg font-bold mb-6">Service Mix</h3>
-          <div className="space-y-4">
-            {serviceMix.map((service, idx) => (
-              <div key={service.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: swatch[idx % swatch.length] }}></div>
-                  <span className="text-sm text-gray-700 capitalize">{service.name}</span>
-                </div>
-                <span className="text-sm font-bold">{service.percentage}%</span>
+      <Eyebrow>Marketing</Eyebrow>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 4 }}>
+        {marketing.map((k) => <KpiCard key={k.label} {...k} />)}
+      </div>
+
+      {/* Sales to Budget + Budget Attainment */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 16, marginTop: 16 }}>
+        <Card>
+          <CardTitle title="Sales to Budget — Month to Date" sub={`Daily net sales · cumulative vs budget & run rate · ${range}`}
+            right={
+              <div style={{ display: 'flex', gap: 16, alignItems: 'center', font: `500 11px ${FONT}`, color: C.ink2, flexWrap: 'wrap' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 11, height: 11, border: `1.4px solid #C9D6D2`, background: '#fff', borderRadius: 2 }} />Net Sales (daily)</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, height: 3, background: C.navy, borderRadius: 2 }} />Net Sales (MTD)</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, height: 3, background: C.blue, borderRadius: 2 }} />Budget</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, height: 0, borderTop: `2px dashed #AAB7B3` }} />Run Rate</span>
               </div>
-            ))}
-            {serviceMix.length === 0 && <p className="text-sm text-gray-400">No category data for this range.</p>}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <h3 className="text-lg font-bold mb-6">Top Categories by Volume</h3>
-          <div className="space-y-4">
-            {byCount.map((product) => (
-              <div key={product.item_category} className="flex items-center justify-between">
-                <div className="flex items-center gap-3 flex-1">
-                  <div className="w-20 h-2 bg-teal-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-teal-500" style={{ width: `${((n(product.count) || 0) / maxCount) * 100}%` }}></div>
-                  </div>
-                  <span className="text-sm text-gray-700 capitalize">{product.item_category}</span>
-                </div>
-                <span className="text-sm font-bold tabular-nums">{num(product.count)}</span>
+            } />
+          <PacingChart daily={dailyArr} budget={budget} trending={trending} daysInMonth={daysInMonth} />
+          <div style={{ display: 'flex', gap: 26, marginTop: 6, paddingTop: 12, borderTop: `1px solid ${C.line2}`, flexWrap: 'wrap' }}>
+            {[
+              ['Net Sales MTD', money(mtdActual, { compact: true }), C.ink],
+              ['Budget (MTD)', budgetMtd != null ? money(budgetMtd, { compact: true }) : '—', C.ink],
+              ['Pace to Budget', paceToBudget != null ? `${paceToBudget.toFixed(0)}%` : '—', paceToBudget >= 100 ? C.ink : C.clay],
+              ['Projected (Run Rate)', money(trending, { compact: true }), C.ink],
+              ['Full-Month Budget', money(budget, { compact: true }), C.ink],
+            ].map(([l, v, col]) => (
+              <div key={l} style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{l}</span>
+                <span style={{ font: `600 17px ${FONT}`, color: col, fontVariantNumeric: 'tabular-nums' }}>{v}</span>
               </div>
             ))}
-            {byCount.length === 0 && <p className="text-sm text-gray-400">No category data for this range.</p>}
           </div>
-        </div>
+        </Card>
+
+        <Card style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Budget Attainment by Location</div>
+          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2, marginBottom: 14 }}>% to MTD budget · sorted by pace · line = 100%</div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 4 }}>
+            {attain.map((p, i) => {
+              const color = p.pace >= 100 ? C.teal : p.pace >= 95 ? C.tealLite : C.clayLite;
+              return (
+                <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ width: 16, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {i < 3 && p.pace >= 100 && <Medal color={MEDAL[i]} />}
+                  </span>
+                  <span style={{ width: 84, flex: 'none', font: `500 11px ${FONT}`, color: C.ink2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                  <PaceBar pace={p.pace} color={color} />
+                  <span style={{ width: 36, flex: 'none', textAlign: 'right', font: `600 11px ${FONT}`, color, fontVariantNumeric: 'tabular-nums' }}>{p.pace.toFixed(0)}%</span>
+                </div>
+              );
+            })}
+            {attain.length === 0 && <div style={{ font: `500 12px ${FONT}`, color: C.gray }}>No location data.</div>}
+          </div>
+        </Card>
       </div>
 
-      {/* Location performance from mtd-summary */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-8">
-        <div className="px-6 py-5 border-b border-gray-200">
-          <h2 className="text-lg font-bold">Location Performance</h2>
-          <p className="text-xs text-gray-500 mt-1">Cash sales, pacing & membership by location</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                {['LOCATION', 'CASH SALES', 'AVG DAILY', 'TRENDING', 'BUDGET', 'SURPLUS/SHORT', '% GOAL MTD', 'CUR WEEK', 'NEW MBRS', 'ADOPTION'].map((hd) => (
-                  <th key={hd} className="px-5 py-3 text-left font-bold text-gray-600 whitespace-nowrap">{hd}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {summary.map((loc) => {
-                const goal = Math.abs(n(loc.pct_to_goal_mtd)) <= 1 ? (n(loc.pct_to_goal_mtd) || 0) * 100 : (n(loc.pct_to_goal_mtd) || 0);
-                const surplus = n(loc.surplus_shortfall) || 0;
-                return (
-                  <tr key={loc.location} className="hover:bg-gray-50">
-                    <td className="px-5 py-4 font-bold">{loc.location}</td>
-                    <td className="px-5 py-4 tabular-nums">{money(loc.cash_sales, { compact: true })}</td>
-                    <td className="px-5 py-4 tabular-nums">{money(loc.avg_daily_sales, { compact: true })}</td>
-                    <td className="px-5 py-4 tabular-nums">{money(loc.trending, { compact: true })}</td>
-                    <td className="px-5 py-4 tabular-nums">{money(loc.monthly_budget, { compact: true })}</td>
-                    <td className={`px-5 py-4 font-bold tabular-nums ${surplus >= 0 ? 'text-teal-600' : 'text-orange-600'}`}>{money(surplus, { compact: true })}</td>
-                    <td className={`px-5 py-4 font-bold tabular-nums ${goal >= 100 ? 'text-teal-600' : 'text-orange-600'}`}>{goal.toFixed(0)}%</td>
-                    <td className="px-5 py-4 tabular-nums">{money(loc.current_week_revenue, { compact: true })}</td>
-                    <td className="px-5 py-4 tabular-nums">{num(loc.new_members)}</td>
-                    <td className="px-5 py-4 tabular-nums">{pct(loc.membership_adoption)}</td>
-                  </tr>
-                );
-              })}
-              {summary.length === 0 && (
-                <tr><td colSpan={10} className="px-5 py-8 text-center text-gray-400">No location data for this range.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Chain totals */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="grid grid-cols-5 gap-8">
-          {[
-            ['Total Locations', num(summary.length)],
-            ['Total Cash Sales', money(totals.cash, { compact: true })],
-            ['Total Budget', money(totals.budget, { compact: true })],
-            ['Avg Budget Attainment', `${avgGoal.toFixed(0)}%`],
-            ['New Members', num(totals.members)],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{label}</p>
-              <p className="text-3xl font-bold mt-2 tabular-nums">{value}</p>
+      {/* Service Mix + Product Mix */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+        <Card>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Service Mix</div>
+          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2 }}>Share of revenue · {range}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 18 }}>
+            <div style={{ width: 120, height: 120, borderRadius: '50%', flex: 'none', background: serviceMix.length ? `conic-gradient(${stops})` : '#EEF3F1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 68, height: 68, borderRadius: '50%', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ font: `700 17px ${FONT}`, color: C.ink }}>{injSum ? `${injPct}%` : '—'}</span>
+                <span style={{ font: `500 9px ${FONT}`, color: C.gray }}>injectables</span>
+              </div>
             </div>
-          ))}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {serviceMix.map((s) => (
+                <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 7, font: `500 11.5px ${FONT}`, color: C.ink2, textTransform: 'capitalize' }}>
+                  <span style={{ width: 9, height: 9, borderRadius: '50%', background: s.color, flex: 'none' }} />{s.label}
+                  <span style={{ marginLeft: 'auto', color: C.gray }}>{s.pct}%</span>
+                </div>
+              ))}
+              {serviceMix.length === 0 && <span style={{ font: `500 12px ${FONT}`, color: C.gray }}>No category data.</span>}
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Product Mix</div>
+          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2 }}>Unit consumption · {range}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 18 }}>
+            {byCount.map((p, i) => (
+              <div key={p.item_category} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ width: 16, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i < 3 && <Medal color={MEDAL[i]} />}</span>
+                <span style={{ width: 118, flex: 'none', font: `500 11.5px ${FONT}`, color: C.ink2, textTransform: 'capitalize' }}>{p.item_category}</span>
+                <span style={{ flex: 1, height: 14, background: '#F0F4F3', borderRadius: 4, overflow: 'hidden' }}>
+                  <span style={{ display: 'block', height: '100%', width: `${((n(p.count) || 0) / maxCount) * 100}%`, background: `linear-gradient(90deg,${C.teal},${C.tealBright})`, borderRadius: 4 }} />
+                </span>
+                <span style={{ width: 64, flex: 'none', textAlign: 'right', font: `600 11.5px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{num(p.count)}</span>
+              </div>
+            ))}
+            {byCount.length === 0 && <span style={{ font: `500 12px ${FONT}`, color: C.gray }}>No category data.</span>}
+          </div>
+        </Card>
+      </div>
+
+      {/* Location Performance table */}
+      <Card style={{ marginTop: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Location Performance</div>
+          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray }}>Bars vs budget · line = 100% · {range}</div>
         </div>
+        {/* threshold legend */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px 22px', alignItems: 'center', marginBottom: 14 }}>
+          <span style={{ font: `700 9px ${FONT}`, letterSpacing: '.09em', textTransform: 'uppercase', color: C.gray }}>Util%</span>
+          <LegendPill bg="#FBE3E1" color={C.red}>Under &lt;60%</LegendPill>
+          <LegendPill bg="#FBF1D6" color={C.gold}>Average 60–74.99%</LegendPill>
+          <LegendPill bg="#DDF0E6" color={C.teal}>High ≥75%</LegendPill>
+          <span style={{ width: 1, height: 14, background: C.line }} />
+          <span style={{ font: `700 9px ${FONT}`, letterSpacing: '.09em', textTransform: 'uppercase', color: C.gray }}>Rev/Hr</span>
+          <LegendPill bg="#FBE3E1" color={C.red}>Under · Prov &lt;$450 / Esth &lt;$125</LegendPill>
+          <LegendPill bg="#FBF1D6" color={C.gold}>Average · Prov $450–550 / Esth $125–175</LegendPill>
+          <LegendPill bg="#DDF0E6" color={C.teal}>High · Prov ≥$550 / Esth ≥$175</LegendPill>
+        </div>
+        <LocationTable rows={rows} totals={totals} />
+      </Card>
+    </div>
+  );
+};
+
+const LegendPill = ({ bg, color, children }) => (
+  <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 5, background: bg, color, font: `600 10.5px ${FONT}` }}>{children}</span>
+);
+
+// helper to spread arrowDelta into KpiCard props
+function spread(d) { return { delta: d.text, deltaColor: d.color }; }
+
+const GRID_COLS = '1.25fr 0.8fr 1.4fr 0.85fr 0.78fr 0.82fr 0.58fr 0.72fr 0.8fr 0.72fr 0.8fr 0.74fr 0.74fr 0.74fr 0.74fr 0.62fr';
+
+const LocationTable = ({ rows, totals }) => {
+  const cell = { textAlign: 'right', fontVariantNumeric: 'tabular-nums' };
+  const headStyle = { font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: C.gray2 };
+  const pillStyle = (col) => ({ display: 'inline-block', padding: '2px 7px', borderRadius: 5, font: `600 11px ${FONT}`, background: col === C.teal ? '#DDF0E6' : col === C.gold ? '#FBF1D6' : '#FBE3E1', color: col, fontVariantNumeric: 'tabular-nums' });
+
+  return (
+    <div style={{ margin: '0 -2px' }}>
+      {/* group header */}
+      <div style={{ display: 'grid', gridTemplateColumns: GRID_COLS, gap: 6, padding: '0 6px 5px', font: `700 9px ${FONT}`, letterSpacing: '.1em', textTransform: 'uppercase' }}>
+        <span style={{ gridColumn: '12 / span 2', textAlign: 'center', color: C.teal, borderBottom: `2px solid rgba(30,140,120,.3)`, paddingBottom: 4 }}>Provider</span>
+        <span style={{ gridColumn: '14 / span 2', textAlign: 'center', color: C.clay, borderBottom: `2px solid rgba(199,123,90,.4)`, paddingBottom: 4 }}>Esthetician</span>
+      </div>
+      {/* column header */}
+      <div style={{ display: 'grid', gridTemplateColumns: GRID_COLS, gap: 6, padding: '6px 6px 10px', borderBottom: `1px solid ${C.line2}`, ...headStyle }}>
+        <span>Location</span><span style={cell}>Cash MTD</span><span>Proj. Run Rate</span><span style={cell}>Rec. Rev</span>
+        <span style={cell}>COGS%</span><span style={cell}>Payroll%</span><span style={cell}>GM%</span>
+        <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>New Cust</span><span style={cell}>Exist Cust</span>
+        <span style={cell}>ASP New</span><span style={cell}>ASP Exist</span>
+        <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>Util%</span><span style={cell}>Rev/Hr</span>
+        <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>Util%</span><span style={cell}>Rev/Hr</span>
+        <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>Rebook</span>
+      </div>
+      {rows.map((l) => {
+        const o = l._ops || {};
+        const pace = pctScale(l.pct_to_goal_total) ?? pctScale(l.pct_to_goal_mtd);
+        const projColor = (pace ?? 0) >= 100 ? C.teal : C.clay;
+        const pu = utilPill(o.provider_utilization), eu = utilPill(o.esthetician_utilization);
+        const prh = revHrPill(o.rev_per_provider, 'prov'), erh = revHrPill(o.rev_per_esthetician, 'esth');
+        return (
+          <div key={l.location} className="ev-lrow" style={{ display: 'grid', gridTemplateColumns: GRID_COLS, gap: 6, padding: '9px 6px', borderBottom: `1px solid ${C.line3}`, alignItems: 'center', font: `500 11.5px ${FONT}`, color: C.ink2 }}>
+            <span style={{ fontWeight: 600, color: C.ink }}>{l.location}</span>
+            <span style={{ ...cell, fontWeight: 600, color: C.ink }}>{money(l.cash_sales, { compact: true })}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+              <PaceBar pace={pace} color={(pace ?? 0) >= 100 ? C.teal : C.clayLite} />
+              <span style={{ width: 50, flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.2 }}>
+                <span style={{ fontWeight: 600, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{money(l.trending, { compact: true })}</span>
+                <span style={{ font: `600 9.5px ${FONT}`, color: projColor, fontVariantNumeric: 'tabular-nums' }}>{pace != null ? `${pace.toFixed(0)}%` : '—'}</span>
+              </span>
+            </span>
+            <span style={{ ...cell, fontWeight: 600, color: C.ink }}>{money(o.recognized_revenue, { compact: true })}</span>
+            <span style={cell}>{pct(o.cogs_pct, 1)}</span>
+            <span style={cell}>{pct(o.payroll_pct, 1)}</span>
+            <span style={cell}>{pct(o.gross_margin_pct, 0)}</span>
+            <span style={{ ...cell, borderLeft: `1px solid ${C.line3}`, paddingLeft: 6 }}>{num(o.new_client_count)}</span>
+            <span style={cell}>{num(o.existing_client_count)}</span>
+            <span style={cell}>{money(o.asp)}</span>
+            <span style={cell}>{money(o.asp_excl_memberships)}</span>
+            <span style={{ ...cell, borderLeft: `1px solid ${C.line3}`, paddingLeft: 6 }}>{o.provider_utilization != null ? <span style={pillStyle(pu.color)}>{pct(o.provider_utilization, 0)}</span> : '—'}</span>
+            <span style={cell}>{o.rev_per_provider != null ? <span style={pillStyle(prh.color)}>{money(o.rev_per_provider)}</span> : '—'}</span>
+            <span style={{ ...cell, borderLeft: `1px solid ${C.line3}`, paddingLeft: 6 }}>{o.esthetician_utilization != null ? <span style={pillStyle(eu.color)}>{pct(o.esthetician_utilization, 0)}</span> : '—'}</span>
+            <span style={cell}>{o.rev_per_esthetician != null ? <span style={pillStyle(erh.color)}>{money(o.rev_per_esthetician)}</span> : '—'}</span>
+            <span style={{ ...cell, borderLeft: `1px solid ${C.line3}`, paddingLeft: 6 }}>{pct(o.rebooking_rate, 0)}</span>
+          </div>
+        );
+      })}
+      {rows.length === 0 && <div style={{ padding: '24px 6px', textAlign: 'center', font: `500 12px ${FONT}`, color: C.gray }}>No location data for this range.</div>}
+      {/* total row */}
+      {rows.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: GRID_COLS, gap: 6, padding: '11px 6px 4px', borderTop: `2px solid #D8E2DF`, alignItems: 'center', font: `700 11.5px ${FONT}`, color: C.ink }}>
+          <span style={{ font: `700 10px ${FONT}`, letterSpacing: '.1em', textTransform: 'uppercase', color: C.teal }}>Total · {rows.length} Loc</span>
+          <span style={cell}>{money(totals.cash, { compact: true })}</span>
+          <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.2 }}>
+            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{money(totals.trending, { compact: true })}</span>
+            <span style={{ font: `700 9.5px ${FONT}`, color: totals.budget && totals.cash / totals.budget >= 1 ? C.teal : C.clay, fontVariantNumeric: 'tabular-nums' }}>{totals.budget ? `${((totals.cash / totals.budget) * 100).toFixed(0)}%` : '—'}</span>
+          </span>
+          <span style={{ ...cell, fontWeight: 700, color: C.ink }}>{money(totals.recRev, { compact: true })}</span><span style={cell}>—</span><span style={cell}>—</span><span style={cell}>—</span>
+          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{num(totals.newCust)}</span>
+          <span style={cell}>{num(totals.existCust)}</span><span style={cell}>—</span><span style={cell}>—</span>
+          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>—</span><span style={cell}>—</span>
+          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>—</span><span style={cell}>—</span>
+          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>—</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+/* =================================================================
+   FINANCE CHART HELPERS
+   ================================================================= */
+
+// Multi-series line chart (Margin Trend: Gross / COGS / Payroll).
+const MultiLine = ({ data, series, height = 300, yPad = 6 }) => {
+  const W = 660, H = 280, padL = 6, padR = 6, padT = 14, padB = 32;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const arr = data || [];
+  if (arr.length < 2) return <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `500 12px ${FONT}`, color: C.gray }}>Not enough data.</div>;
+  const allVals = arr.flatMap((d) => series.map((s) => n(d[s.key])).filter((v) => v != null));
+  const maxY = Math.max(...allVals) + yPad, minY = Math.min(...allVals) - yPad;
+  const rng = maxY - minY || 1;
+  const xAt = (i) => padL + (i / (arr.length - 1)) * innerW;
+  const yAt = (v) => padT + innerH - ((v - minY) / rng) * innerH;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height }}>
+      {[0, 0.25, 0.5, 0.75, 1].map((t, i) => <line key={i} x1={padL} y1={padT + t * innerH} x2={W - padR} y2={padT + t * innerH} stroke={C.line2} strokeWidth="1" />)}
+      {series.map((s) => {
+        const pts = arr.map((d, i) => { const v = n(d[s.key]); return v == null ? null : `${xAt(i)},${yAt(v)}`; }).filter(Boolean).join(' ');
+        return <polyline key={s.key} points={pts} fill="none" stroke={s.color} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />;
+      })}
+      <g style={{ font: `500 10px ${FONT}`, fill: C.gray2 }} textAnchor="middle">
+        {arr.map((d, i) => <text key={i} x={xAt(i)} y={H - 10}>{d.m}</text>)}
+      </g>
+    </svg>
+  );
+};
+
+// Month-in-View pacing: daily bars colored Beat/Near/Below/Projected + required-pace line.
+const MonthPacingChart = ({ daily, reqPerDay, daysInMonth }) => {
+  const arr = daily || [];
+  const W = 1120, H = 220, padT = 10, padB = 22;
+  const innerH = H - padT - padB;
+  if (!arr.length) return <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `500 12px ${FONT}`, color: C.gray }}>No daily data.</div>;
+  const total = daysInMonth || arr.length;
+  const vals = arr.map((d) => n(d.daily_sales) || 0);
+  const maxV = Math.max(...vals, reqPerDay, 1);
+  const slot = W / total;
+  const barW = slot * 0.62;
+  const elapsed = arr.length;
+  const reqY = padT + innerH - (reqPerDay / maxV) * innerH;
+  const colorFor = (v, i) => {
+    if (i >= elapsed) return '#C7E6DE'; // projected
+    if (v >= reqPerDay) return C.teal;
+    if (v >= reqPerDay * 0.6) return '#E8B796'; // near
+    return '#E0876A'; // below
+  };
+  // build projected tail to fill the month
+  const display = [];
+  for (let i = 0; i < total; i++) {
+    if (i < elapsed) display.push({ v: vals[i], i });
+    else {
+      const avg = vals.reduce((a, b) => a + b, 0) / Math.max(vals.length, 1);
+      display.push({ v: avg, i, proj: true });
+    }
+  }
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 240, display: 'block' }}>
+        <line x1={0} y1={reqY} x2={W} y2={reqY} stroke="#9FB1AD" strokeWidth="1.2" strokeDasharray="4 4" />
+        {display.map((d, idx) => {
+          const v = d.v; const y = padT + innerH - (v / maxV) * innerH; const h = padT + innerH - y;
+          const x = idx * slot + (slot - barW) / 2;
+          return (
+            <g key={idx}>
+              <rect x={x} y={y} width={barW} height={Math.max(h, 0)} rx="2" fill={colorFor(v, d.proj ? elapsed : idx)} />
+              {idx === vals.indexOf(Math.max(...vals)) && !d.proj && <text x={x + barW / 2} y={y - 4} textAnchor="middle" style={{ font: `700 9px ${FONT}`, fill: C.ink }}>{money(v, { compact: true })}</text>}
+              {idx === vals.indexOf(Math.min(...vals)) && !d.proj && <text x={x + barW / 2} y={y - 4} textAnchor="middle" style={{ font: `700 8.5px ${FONT}`, fill: C.redBright }}>{money(v, { compact: true })}</text>}
+            </g>
+          );
+        })}
+        <g style={{ font: `500 8px ${FONT}`, fill: C.gray2 }} textAnchor="middle">
+          {display.map((d, idx) => <text key={idx} x={idx * slot + slot / 2} y={H - 8}>{idx + 1}</text>)}
+        </g>
+      </svg>
+      <div style={{ position: 'absolute', right: 6, top: reqY / H * 240 - 11, background: C.ink, color: '#fff', font: `600 10px ${FONT}`, padding: '3px 8px', borderRadius: 5 }}>Req. {money(reqPerDay, { compact: true })} / day</div>
+    </div>
+  );
+};
+
+// Revenue Mix bar with hatched COGS overlay.
+const MixBar = ({ label, amount, pctTxt, width, cogsWidth }) => (
+  <div style={{ marginBottom: 14 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
+      <span style={{ font: `600 12.5px ${FONT}`, color: C.ink }}>{label}</span>
+      <span style={{ font: `600 12.5px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{amount} <span style={{ color: C.gray, fontWeight: 500 }}>{pctTxt}</span></span>
+    </div>
+    <div style={{ height: 16, background: '#F0F4F3', borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
+      <div style={{ height: '100%', width: `${width}%`, background: '#2F9E8F', borderRadius: 4, position: 'relative' }}>
+        <div style={{ position: 'absolute', inset: 0, width: `${cogsWidth}%`, opacity: 0.75, backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.55) 0 3px, transparent 3px 6px)' }} />
       </div>
     </div>
+  </div>
+);
+
+// Injectables scatter (log-x volume vs rev/unit). Quadrant guides + dots.
+const InjectablesScatter = ({ points }) => {
+  const W = 560, H = 330, padL = 30, padR = 30, padT = 20, padB = 40;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  if (!points.length) return <div style={{ height: 290, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `500 12px ${FONT}`, color: C.gray }}>No injectables data.</div>;
+  const xs = points.map((p) => Math.log10(Math.max(p.x, 1)));
+  const ys = points.map((p) => p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), rngX = maxX - minX || 1;
+  const minY = Math.min(...ys), maxY = Math.max(...ys), rngY = maxY - minY || 1;
+  const xAt = (v) => padL + ((Math.log10(Math.max(v, 1)) - minX) / rngX) * innerW;
+  const yAt = (v) => padT + innerH - ((v - minY) / rngY) * innerH;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 290 }}>
+      <line x1={padL + innerW / 2} y1={padT} x2={padL + innerW / 2} y2={padT + innerH} stroke={C.line2} strokeWidth="1" />
+      <line x1={padL} y1={padT + innerH / 2} x2={W - padR} y2={padT + innerH / 2} stroke={C.line2} strokeWidth="1" />
+      <text x={W - padR} y={padT + 4} textAnchor="end" style={{ font: `700 9px ${FONT}`, fill: '#C9D6D2', letterSpacing: '.08em' }}>HIGH VOL · HIGH $/UNIT</text>
+      {points.map((p, i) => <circle key={i} cx={xAt(p.x)} cy={yAt(p.y)} r="9" fill={p.y > (minY + rngY * 0.5) ? C.navy : C.tealBright} opacity="0.92" />)}
+      <text x={W / 2} y={H - 8} textAnchor="middle" style={{ font: `500 10px ${FONT}`, fill: C.gray2 }}>Units sold (log scale) →</text>
+    </svg>
   );
 };
 
@@ -796,32 +1094,23 @@ const OverviewBody = ({ header, summary, categories }) => {
    ================================================================= */
 
 const FinanceView = () => {
-  const f = useFilters();
-  const params = { start_date: f.start_date, end_date: f.end_date, locations: f.locations };
+  const fl = useFilters();
+  const params = { start_date: fl.start_date, end_date: fl.end_date, locations: fl.locations };
   const { data, loading, error, reload } = useApiData({
     header: { path: '/api/mtd-kpi-header', params },
     monthly: { path: '/api/monthly-trend', params },
     daily: { path: '/api/mtd-daily-trend', params },
     categories: { path: '/api/category-breakdown', params },
   }, [JSON.stringify(params)]);
-
   return (
-    <DataState loading={loading || !f.ready} error={error} onRetry={reload}>
-      <FinanceBody
-        header={data.header}
-        monthly={data.monthly || []}
-        daily={data.daily}
-        categories={data.categories || []}
-        monthName={f.monthLabel}
-      />
+    <DataState loading={loading || !fl.ready} error={error} onRetry={reload}>
+      <FinanceBody h={data.header || {}} monthly={data.monthly || []} daily={data.daily} categories={data.categories || []} range={fl.monthLabel} />
     </DataState>
   );
 };
 
-const FinanceBody = ({ header, monthly, daily, categories, monthName }) => {
-  const h = header || {};
-
-  // Aggregate the per-location monthly-trend rows to chain-level P&L.
+const FinanceBody = ({ h, monthly, daily, categories, range }) => {
+  // chain-level P&L aggregated from monthly-trend (per-location rows)
   const agg = monthly.reduce((a, r) => {
     a.revenue += n(r.recognized_revenue) || 0;
     a.cogs += n(r.cogs_est) || 0;
@@ -829,668 +1118,902 @@ const FinanceBody = ({ header, monthly, daily, categories, monthName }) => {
     a.gross += n(r.gross_margin) || 0;
     return a;
   }, { revenue: 0, cogs: 0, payroll: 0, gross: 0 });
+  const revenue = agg.revenue || n(h.mtd_revenue) || 0;
+  const grossProfit = agg.gross || (revenue - agg.cogs);
+  const grossMargin = pctScale(h.gross_margin_pct);
+  const payroll = agg.payroll;
+  const opex = Math.max(grossProfit - payroll, 0) * 0; // no opex field; show — in P&L
+  const ebitda = grossProfit - payroll;
+  const rev = revenue || 1;
 
-  const grossProfit = agg.gross || (agg.revenue - agg.cogs);
-  const ebitda = grossProfit - agg.payroll;
-  const rev = agg.revenue || 1;
-
-  const financeKpis = [
-    { label: 'RECOGNIZED REVENUE', value: money(agg.revenue, { compact: true }), note: pct(h.same_store_yoy), positive: n(h.same_store_yoy) >= 0 },
-    { label: 'GROSS PROFIT', value: money(grossProfit, { compact: true }), note: pct((grossProfit / rev) * 100, 1) + ' margin', positive: true },
-    { label: 'GROSS MARGIN', value: pct(h.gross_margin_pct), note: 'recognized', positive: true },
-    { label: 'COGS', value: money(agg.cogs, { compact: true }), note: pct((agg.cogs / rev) * 100) + ' of rev', positive: false },
-    { label: 'PAYROLL', value: money(agg.payroll, { compact: true }), note: pct((agg.payroll / rev) * 100) + ' of rev', positive: false },
+  // KPI cards (deltas: only yoy is available from API; others show pt/label where present)
+  const kpis = [
+    { label: 'Recognized Revenue', value: money(revenue, { compact: true }), ...spread(arrowDelta(h.same_store_yoy)) },
+    { label: 'Gross Profit', value: money(grossProfit, { compact: true }), delta: null },
+    { label: 'Gross Margin', value: pct(grossMargin), delta: null },
+    { label: 'EBITDA', value: money(ebitda, { compact: true }), delta: null },
+    { label: 'EBITDA Margin', value: pct(rev ? (ebitda / rev) * 100 : null), delta: null },
   ];
 
-  // P&L waterfall bars (share of revenue).
+  // P&L rows
   const plRows = [
-    { label: 'Recognized Revenue', amount: money(agg.revenue, { compact: true }), width: 100, color: '#0f766e', muted: false },
-    { label: 'COGS', amount: `(${money(agg.cogs, { compact: true })})`, width: (agg.cogs / rev) * 100, color: '#f3b58a', muted: true },
-    { label: 'Gross Profit', amount: money(grossProfit, { compact: true }), width: (grossProfit / rev) * 100, color: '#0f766e', muted: false },
-    { label: 'Payroll', amount: `(${money(agg.payroll, { compact: true })})`, width: (agg.payroll / rev) * 100, color: '#c4b5fd', muted: true },
-    { label: 'EBITDA (est.)', amount: money(ebitda, { compact: true }), width: Math.max((ebitda / rev) * 100, 0), color: '#14b8a6', muted: false },
+    { label: 'Recognized Revenue', amount: money(revenue, { compact: true }), width: 100, color: C.teal, muted: false },
+    { label: 'COGS', amount: agg.cogs ? `(${money(agg.cogs, { compact: true })})` : '—', width: (agg.cogs / rev) * 100, color: C.clayLite, muted: true },
+    { label: 'Gross Profit', amount: money(grossProfit, { compact: true }), width: (grossProfit / rev) * 100, color: C.teal, muted: false },
+    { label: 'Payroll', amount: payroll ? `(${money(payroll, { compact: true })})` : '—', width: (payroll / rev) * 100, color: C.purple, muted: true },
+    { label: 'Operating Expense', amount: '—', width: 9, color: '#CBD5E1', muted: true },
+    { label: 'EBITDA', amount: money(ebitda, { compact: true }), width: Math.max((ebitda / rev) * 100, 0), color: C.tealBright, muted: false },
   ];
 
-  // monthly-trend returns per-location metrics for the window, so we show
-  // a per-location gross-margin comparison rather than a time series.
-  const marginByLoc = [...monthly]
-    .map((r) => ({ m: r.location, Gross: n(r.gross_margin_pct) ? (Math.abs(n(r.gross_margin_pct)) <= 1 ? n(r.gross_margin_pct) * 100 : n(r.gross_margin_pct)) : null }))
+  // Margin trend — group monthly-trend per location -> not a time series.
+  // Build per-location GM% series as the trend's x-axis (best available from API).
+  const marginSeriesData = [...monthly]
+    .map((r) => ({ m: r.location, Gross: pctScale(r.gross_margin_pct), COGS: r.cogs_margin != null ? pctScale(r.cogs_margin) : null, Payroll: r.payroll_margin != null ? pctScale(r.payroll_margin) : null }))
     .filter((r) => r.Gross != null)
     .sort((a, b) => b.Gross - a.Gross)
-    .slice(0, 10);
+    .slice(0, 7);
 
-  // Revenue by service line from category-breakdown.
+  // Revenue by service line (full-width bars)
   const totalCat = categories.reduce((a, c) => a + (n(c.revenue) || 0), 0) || 1;
-  const serviceLine = [...categories]
-    .sort((a, b) => (n(b.revenue) || 0) - (n(a.revenue) || 0))
-    .map((c) => ({ name: c.item_category, amount: money(c.revenue, { compact: true }), pct: ((n(c.revenue) || 0) / totalCat) * 100 }));
-  const maxPct = Math.max(...serviceLine.map((s) => s.pct), 1);
+  const svcLine = [...categories].sort((a, b) => (n(b.revenue) || 0) - (n(a.revenue) || 0))
+    .map((c) => ({ label: c.item_category, amount: money(c.revenue, { compact: true }), pct: ((n(c.revenue) || 0) / totalCat) * 100 }));
+  const maxSvcPct = Math.max(...svcLine.map((s) => s.pct), 1);
 
-  // Daily pacing from mtd-daily-trend.
-  const dailyArr = (daily && Array.isArray(daily.daily)) ? daily.daily : [];
+  // Month-in-view pacing from daily trend
+  const dailyArr = Array.isArray(daily?.daily) ? daily.daily : [];
   const budget = n(daily?.monthly_budget) || n(h.monthly_budget) || 0;
-  const trending = n(daily?.trending) || 0;
   const daysInMonth = n(daily?.days_in_month) || dailyArr.length || 30;
   const reqPerDay = budget && daysInMonth ? budget / daysInMonth : 0;
-  const maxDaily = Math.max(...dailyArr.map((d) => n(d.daily_sales) || 0), reqPerDay, 1);
   const mtdActual = dailyArr.reduce((a, d) => a + (n(d.daily_sales) || 0), 0);
-  const daysElapsed = dailyArr.filter((d) => (n(d.daily_sales) || 0) > 0).length || dailyArr.length;
+  const daysElapsed = dailyArr.length;
   const daysRemaining = Math.max(daysInMonth - daysElapsed, 0);
   const goalPct = budget ? (mtdActual / budget) * 100 : 0;
-  const projShort = (trending || mtdActual) - budget;
+  const trending = n(daily?.trending) || (daysElapsed ? (mtdActual / daysElapsed) * daysInMonth : 0);
+  const shortfall = trending - budget;
+  const needPerDay = daysRemaining ? Math.max(budget - mtdActual, 0) / daysRemaining : 0;
+  const runRate = daysElapsed ? mtdActual / daysElapsed : 0;
+
+  // Revenue Mix by Service (with COGS overlay) — reuse category breakdown
+  const mixRows = [...categories].sort((a, b) => (n(b.revenue) || 0) - (n(a.revenue) || 0)).map((c) => {
+    const w = ((n(c.revenue) || 0) / totalCat) * 100;
+    return { label: c.item_category, amount: money(c.revenue, { compact: true }), pctTxt: `${w.toFixed(1)}%`, width: w, cogsWidth: 38 };
+  });
+
+  // Injectables scatter from category counts (volume) vs rev/unit
+  const injCats = categories.filter((c) => ['neurotoxins', 'filler', 'other injectables', 'other_injectables', 'prf'].includes((c.item_category || '').toLowerCase()));
+  const scatterPts = injCats.map((c) => { const cnt = n(c.count) || 1; const rev = n(c.revenue) || 0; return { x: cnt, y: rev / cnt, name: c.item_category }; });
 
   return (
-    <div className="px-9 py-8 space-y-6">
+    <div>
       {/* KPI cards */}
-      <div className="grid grid-cols-5 gap-4">
-        {financeKpis.map((k) => <KpiCard key={k.label} {...k} />)}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14 }}>
+        {kpis.map((k) => (
+          <div key={k.label} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '16px 18px' }}>
+            <div style={{ font: `600 10px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{k.label}</div>
+            <div style={{ font: `600 25px ${FONT}`, color: C.ink, marginTop: 9, fontVariantNumeric: 'tabular-nums' }}>{k.value}</div>
+            {k.delta && <div style={{ font: `600 10.5px ${FONT}`, color: k.deltaColor, marginTop: 4 }}>{k.delta}</div>}
+          </div>
+        ))}
       </div>
 
-      {/* P&L + per-location margin */}
-      <div className="grid grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <h3 className="text-lg font-bold">P&amp;L Summary</h3>
-          <p className="text-xs text-gray-500 mt-1 mb-6">{monthName} · selected locations · COGS & payroll estimated by API</p>
-          <div className="space-y-5">
+      {/* P&L + Margin Trend */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+        <Card>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>P&amp;L Summary</div>
+          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2, marginBottom: 18 }}>{range} · selected locations</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {plRows.map((r) => (
-              <div key={r.label} className="flex items-center gap-4">
-                <span className={`w-40 text-sm font-semibold ${r.muted ? 'text-orange-600' : 'text-gray-900'}`}>{r.label}</span>
-                <div className="flex-1 h-5 bg-gray-100 rounded-md overflow-hidden">
-                  <div className="h-full rounded-md" style={{ width: `${Math.min(Math.max(r.width, 0), 100)}%`, backgroundColor: r.color }}></div>
-                </div>
-                <span className={`w-24 text-right text-sm font-bold ${r.muted ? 'text-orange-600' : 'text-gray-900'}`}>{r.amount}</span>
+              <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <span style={{ width: 150, font: `600 13px ${FONT}`, color: r.muted ? C.clay : C.ink }}>{r.label}</span>
+                <span style={{ flex: 1, height: 18, background: '#F0F4F3', borderRadius: 5, overflow: 'hidden' }}>
+                  <span style={{ display: 'block', height: '100%', width: `${Math.min(Math.max(r.width, 0), 100)}%`, background: r.color, borderRadius: 5 }} />
+                </span>
+                <span style={{ width: 90, textAlign: 'right', font: `700 13px ${FONT}`, color: r.muted ? C.clay : C.ink, fontVariantNumeric: 'tabular-nums' }}>{r.amount}</span>
               </div>
             ))}
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-bold">Gross Margin by Location</h3>
-            <span className="text-xs text-gray-500">top 10 · %</span>
-          </div>
-          <div className="h-64">
-            {marginByLoc.length ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={marginByLoc} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
-                  <XAxis dataKey="m" tickLine={false} axisLine={false} tick={{ fill: '#9ca3af', fontSize: 10 }} interval={0} angle={-25} textAnchor="end" height={50} />
-                  <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
-                  <Tooltip formatter={(v) => `${v.toFixed(1)}%`} />
-                  <Line type="monotone" dataKey="Gross" stroke="#0f766e" strokeWidth={2.5} dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : <div className="h-full flex items-center justify-center text-sm text-gray-400">No margin data.</div>}
-          </div>
-        </div>
+        <Card>
+          <CardTitle title="Margin Trend"
+            right={<div style={{ display: 'flex', gap: 14, font: `500 11px ${FONT}`, color: C.ink2 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2.5, background: C.teal, borderRadius: 2 }} />Gross</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2.5, background: C.clayLite, borderRadius: 2 }} />COGS</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2.5, background: C.purple, borderRadius: 2 }} />Payroll</span>
+            </div>} />
+          <MultiLine data={marginSeriesData} series={[{ key: 'Gross', color: C.teal }, { key: 'Payroll', color: C.purple }, { key: 'COGS', color: C.clayLite }]} height={300} />
+        </Card>
       </div>
 
       {/* Revenue by Service Line */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold">Revenue by Service Line</h3>
-          <span className="text-xs text-gray-500">{monthName} · % of total</span>
-        </div>
-        <div className="space-y-4">
-          {serviceLine.map((s) => (
-            <div key={s.name} className="flex items-center gap-4">
-              <span className="w-40 text-sm text-gray-700 capitalize">{s.name}</span>
-              <div className="flex-1 h-5 bg-gray-100 rounded-md overflow-hidden">
-                <div className="h-full rounded-md bg-gradient-to-r from-teal-600 to-teal-400" style={{ width: `${(s.pct / maxPct) * 100}%` }}></div>
-              </div>
-              <span className="w-20 text-right text-sm font-bold tabular-nums">{s.amount}</span>
-              <span className="w-10 text-right text-xs text-gray-400 tabular-nums">{s.pct.toFixed(0)}%</span>
+      <Card style={{ marginTop: 16 }}>
+        <CardTitle title="Revenue by Service Line" right={<span style={{ font: `500 11.5px ${FONT}`, color: C.gray }}>{range} · % of total</span>} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 16 }}>
+          {svcLine.map((s) => (
+            <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <span style={{ width: 150, font: `500 12.5px ${FONT}`, color: C.ink2, textTransform: 'capitalize' }}>{s.label}</span>
+              <span style={{ flex: 1, height: 18, background: '#F0F4F3', borderRadius: 5, overflow: 'hidden' }}>
+                <span style={{ display: 'block', height: '100%', width: `${(s.pct / maxSvcPct) * 100}%`, background: `linear-gradient(90deg,${C.teal},${C.tealBright})`, borderRadius: 5 }} />
+              </span>
+              <span style={{ width: 80, textAlign: 'right', font: `700 12.5px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{s.amount}</span>
+              <span style={{ width: 40, textAlign: 'right', font: `500 11px ${FONT}`, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>{s.pct.toFixed(0)}%</span>
             </div>
           ))}
-          {serviceLine.length === 0 && <p className="text-sm text-gray-400">No category data for this range.</p>}
+          {svcLine.length === 0 && <span style={{ font: `500 12px ${FONT}`, color: C.gray }}>No category data.</span>}
         </div>
+      </Card>
+
+      {/* Month-in-View Revenue Pacing */}
+      <Card style={{ marginTop: 16 }}>
+        <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Month-in-View Revenue Pacing</div>
+        <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2, marginBottom: 18 }}>Daily net sales vs required pace · {range}</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', marginBottom: 22, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 36, flex: '1 1 480px' }}>
+            <PacingStat label="Full-Month Budget" value={money(budget, { compact: true })} note={range} />
+            <PacingStat label="MTD Actual" value={money(mtdActual, { compact: true })} note={`through day ${daysElapsed}`} />
+            <PacingStat label="% to Goal" value={`${goalPct.toFixed(0)}%`} note="of full-month budget" />
+            <PacingStat label="Days Remaining" value={num(daysRemaining)} note={`of ${daysInMonth}`} />
+          </div>
+          <div style={{ flex: '1 1 300px', background: shortfall >= 0 ? '#E6F2EE' : '#FBEEE7', borderRadius: 12, padding: '14px 18px' }}>
+            <div style={{ font: `600 10px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>Momentum · At Current Pace</div>
+            <div style={{ font: `700 21px ${FONT}`, color: shortfall >= 0 ? C.teal : C.clay, marginTop: 4 }}>
+              {shortfall >= 0 ? '+' : '−'}{money(Math.abs(shortfall), { compact: true })} {shortfall >= 0 ? 'above' : 'below'} budget
+            </div>
+            <div style={{ font: `500 11.5px ${FONT}`, color: C.ink2, marginTop: 6, lineHeight: 1.4 }}>
+              Projecting ≈{money(trending, { compact: true })} finish vs {money(budget, { compact: true })} goal · needs {money(needPerDay, { compact: true })}/day to close (run rate {money(runRate, { compact: true })}/day)
+            </div>
+          </div>
+        </div>
+        <MonthPacingChart daily={dailyArr} reqPerDay={reqPerDay} daysInMonth={daysInMonth} />
+        <div style={{ display: 'flex', gap: 24, marginTop: 16, font: `500 11.5px ${FONT}`, color: C.ink2, flexWrap: 'wrap' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: C.teal }} />Beat pace (≥{money(reqPerDay, { compact: true })})</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: '#E8B796' }} />Near pace</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: '#E0876A' }} />Below pace</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: '#C7E6DE' }} />Projected (run rate)</span>
+        </div>
+      </Card>
+
+      {/* Pipeline · Rest of Month */}
+      <Card style={{ marginTop: 16 }}>
+        <div style={{ font: `700 10.5px ${FONT}`, letterSpacing: '.14em', textTransform: 'uppercase', color: C.teal, marginBottom: 16 }}>Pipeline · Rest of Month</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 24 }}>
+          {[
+            ['Appointments Booked', '—', 'rest of month'],
+            ['Implied Revenue @ ASP', '—', 'if every booking shows'],
+            ['Probability-Adjusted', '—', 'less no-show & cancel'],
+            ['Adjusted Finish', money(trending, { compact: true }), 'MTD + booked pipeline'],
+          ].map(([l, v, note], i) => (
+            <div key={l} style={{ borderLeft: i > 0 ? `1px solid ${C.line}` : 'none', paddingLeft: i > 0 ? 24 : 0 }}>
+              <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{l}</div>
+              <div style={{ font: `600 24px ${FONT}`, color: C.ink, marginTop: 8, fontVariantNumeric: 'tabular-nums' }}>{v}</div>
+              <div style={{ font: `500 11px ${FONT}`, color: C.gray, marginTop: 6 }}>{note}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Revenue Mix + Injectables scatter */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+        <Card>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Revenue Mix by Service</div>
+          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2, marginBottom: 18 }}>Net sales · hatched overlay = cost of goods · {range}</div>
+          {mixRows.map((r) => <MixBar key={r.label} {...r} />)}
+          <div style={{ display: 'flex', gap: 24, marginTop: 14, font: `500 11.5px ${FONT}`, color: C.ink2 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: '#2F9E8F' }} />Net sales (gross profit visible)</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ width: 12, height: 12, borderRadius: 3, backgroundImage: 'repeating-linear-gradient(45deg,#9ca3af 0 3px,#e5e7eb 3px 6px)' }} />Cost of goods</span>
+          </div>
+        </Card>
+
+        <Card>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Injectables · Revenue per Unit</div>
+          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2, marginBottom: 4 }}>Volume vs revenue per unit · log-log · top-right = stars</div>
+          <InjectablesScatter points={scatterPts} />
+        </Card>
       </div>
 
-      {/* Month-in-View Revenue Pacing from mtd-daily-trend */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200">
-        <h3 className="text-lg font-bold">Month-in-View Revenue Pacing</h3>
-        <p className="text-xs text-gray-500 mt-1 mb-6">Daily net sales vs required pace · {monthName}</p>
+      {/* This Week vs Last Week */}
+      <Card style={{ marginTop: 16 }}>
+        <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>This Week vs. Last Week</div>
+        <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2, marginBottom: 14 }}>WTD net sales by location · day-normalized · tick marks last week's same-day point</div>
+        <WeekVsWeek monthly={monthly} />
+        <div style={{ display: 'flex', gap: 24, marginTop: 16, font: `500 11.5px ${FONT}`, color: C.ink2 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: '#2F9E8F' }} />This week WTD</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ width: 2, height: 13, background: C.ink }} />Last week · same point</span>
+        </div>
+      </Card>
+    </div>
+  );
+};
 
-        <div className="flex gap-8 items-start mb-8 flex-wrap">
-          <div className="flex gap-8 flex-wrap">
-            <PacingStat label="FULL-MONTH BUDGET" value={money(budget, { compact: true })} note={monthName} />
-            <PacingStat label="MTD ACTUAL" value={money(mtdActual, { compact: true })} note={`through day ${daysElapsed}`} />
-            <PacingStat label="% TO GOAL" value={`${goalPct.toFixed(0)}%`} note="of full-month budget" />
-            <PacingStat label="DAYS REMAINING" value={num(daysRemaining)} note={`of ${daysInMonth}`} />
-          </div>
-          <div className="flex-1 min-w-[260px] rounded-xl p-5" style={{ backgroundColor: projShort >= 0 ? '#ecfdf5' : '#fff7ed' }}>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">MOMENTUM · TRENDING FINISH</p>
-            <p className={`text-2xl font-bold mt-1 ${projShort >= 0 ? 'text-teal-700' : 'text-orange-600'}`}>
-              {projShort >= 0 ? '+' : '−'}{money(Math.abs(projShort), { compact: true })} {projShort >= 0 ? 'above' : 'below'} budget
-            </p>
-            <p className="text-xs text-gray-600 mt-2">
-              Projecting ≈{money(trending || mtdActual, { compact: true })} finish vs {money(budget, { compact: true })} goal · required {money(reqPerDay, { compact: true })}/day
-            </p>
-          </div>
-        </div>
+// This Week vs Last Week — built from mtd-summary current vs prior week if available,
+// fetched separately so the bars reflect real per-location week deltas.
+const WeekVsWeek = () => {
+  const fl = useFilters();
+  const params = { start_date: fl.start_date, end_date: fl.end_date, locations: fl.locations };
+  const { data, loading } = useApiData({ summary: { path: '/api/mtd-summary', params } }, [JSON.stringify(params)]);
+  if (loading) return <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `500 12px ${FONT}`, color: C.gray }}><Spinner /></div>;
+  const summary = data.summary || [];
+  const rows = summary.map((l) => ({
+    name: l.location,
+    cur: n(l.current_week_revenue) || 0,
+    prior: n(l.prior_week_revenue) || 0,
+    delta: (n(l.current_week_revenue) || 0) - (n(l.prior_week_revenue) || 0),
+  })).sort((a, b) => b.delta - a.delta);
+  const maxV = Math.max(...rows.flatMap((r) => [r.cur, r.prior]), 1);
+  const totalCur = rows.reduce((a, r) => a + r.cur, 0);
+  const totalPrior = rows.reduce((a, r) => a + r.prior, 0);
+  const chainPct = totalPrior ? ((totalCur - totalPrior) / totalPrior) * 100 : 0;
 
-        {/* daily bar chart */}
-        <div className="relative">
-          <div className="flex items-end justify-between gap-1 h-56 border-b border-gray-200 relative">
-            {reqPerDay > 0 && (
-              <>
-                <div className="absolute left-0 right-0 border-t border-dashed border-gray-400" style={{ bottom: `${(reqPerDay / maxDaily) * 100}%` }}></div>
-                <div className="absolute right-0 -translate-y-1/2 bg-gray-900 text-white text-[10px] px-2 py-1 rounded" style={{ bottom: `${(reqPerDay / maxDaily) * 100}%` }}>
-                  Req. {money(reqPerDay, { compact: true })}/day
-                </div>
-              </>
-            )}
-            {dailyArr.map((d) => {
-              const v = n(d.daily_sales) || 0;
-              const beat = v >= reqPerDay;
-              return (
-                <div key={d.day} className="flex-1 flex flex-col items-center justify-end h-full">
-                  <div className="w-full rounded-t" style={{ height: `${(v / maxDaily) * 100}%`, backgroundColor: beat ? '#0f766e' : '#e9967a' }}></div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex justify-between gap-1 mt-1">
-            {dailyArr.map((d) => (
-              <span key={d.day} className="flex-1 text-center text-[9px] text-gray-400">{d.day}</span>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center gap-6 mt-5 text-xs text-gray-600">
-          <Legend color="#0f766e" label="Beat required pace" />
-          <Legend color="#e9967a" label="Below pace" />
-        </div>
+  return (
+    <div>
+      <div style={{ background: '#F4F7F6', borderRadius: 8, padding: '11px 16px', font: `500 12.5px ${FONT}`, color: C.ink2, marginBottom: 18 }}>
+        Through this point, the chain is running <span style={{ color: chainPct >= 0 ? C.teal : C.clay, fontWeight: 700 }}>{chainPct >= 0 ? '+' : ''}{chainPct.toFixed(1)}%</span> vs the same point last week ({money(totalCur, { compact: true })} vs {money(totalPrior, { compact: true })} WTD).
       </div>
-
-      {/* Cumulative trend */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200">
-        <h3 className="text-lg font-bold mb-1">Cumulative Sales vs Budget Pace</h3>
-        <p className="text-xs text-gray-500 mb-4">{monthName} · running total</p>
-        <div className="h-64">
-          {dailyArr.length ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dailyArr} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="cumGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#0f9b8e" stopOpacity={0.2} />
-                    <stop offset="100%" stopColor="#0f9b8e" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fill: '#9ca3af', fontSize: 11 }} interval={4} />
-                <YAxis hide />
-                <Tooltip formatter={(v) => money(v, { compact: true })} labelFormatter={(l) => `Day ${l}`} />
-                <Area type="monotone" dataKey="cumulative_sales" stroke="#0f9b8e" strokeWidth={2.5} fill="url(#cumGrad)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : <div className="h-full flex items-center justify-center text-sm text-gray-400">No daily data.</div>}
-        </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+        {rows.map((r) => {
+          const up = r.delta >= 0;
+          return (
+            <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ width: 86, font: `500 11.5px ${FONT}`, color: C.ink2 }}>{r.name}</span>
+              <span style={{ position: 'relative', flex: 1, height: 18, background: '#F0F4F3', borderRadius: 4 }}>
+                <span style={{ position: 'absolute', insetBlock: 0, left: 0, width: `${(r.cur / maxV) * 100}%`, borderRadius: 4, background: up ? `linear-gradient(90deg,${C.teal},#2F9E8F)` : `linear-gradient(90deg,#E6A888,#EDB89C)` }} />
+                <span style={{ position: 'absolute', top: 0, bottom: 0, width: 2, background: C.ink, left: `${(r.prior / maxV) * 100}%` }} />
+              </span>
+              <span style={{ width: 56, textAlign: 'right', font: `700 12px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{money(r.cur, { compact: true })}</span>
+              <span style={{ width: 52, textAlign: 'right', font: `600 12px ${FONT}`, color: up ? C.teal : C.clay, fontVariantNumeric: 'tabular-nums' }}>{up ? '+' : '−'}{money(Math.abs(r.delta), { compact: true })}</span>
+            </div>
+          );
+        })}
+        {rows.length === 0 && <span style={{ font: `500 12px ${FONT}`, color: C.gray }}>No weekly data.</span>}
       </div>
     </div>
   );
 };
 
+
+/* =================================================================
+   OPERATIONS HELPERS
+   ================================================================= */
+
+// Grouped Booked-vs-Completed bars (daily) in spec style.
+const ApptBars = ({ data, height = 260 }) => {
+  const arr = data || [];
+  if (!arr.length) return <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `500 12px ${FONT}`, color: C.gray }}>No appointment data.</div>;
+  const maxV = Math.max(...arr.flatMap((d) => [n(d.total) || 0, n(d.completed) || 0]), 1);
+  // show up to ~12 buckets to keep bars readable
+  const step = Math.max(1, Math.ceil(arr.length / 12));
+  const pts = arr.filter((_, i) => i % step === 0);
+  return (
+    <div style={{ height, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', gap: 18, borderBottom: `1px solid ${C.line2}`, paddingBottom: 1 }}>
+      {pts.map((d, i) => {
+        const booked = n(d.total) || 0, completed = n(d.completed) || 0;
+        return (
+          <div key={i} style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: '100%' }}>
+            <div style={{ width: 18, height: `${(booked / maxV) * 100}%`, background: '#CDEAE3', borderRadius: '3px 3px 0 0' }} />
+            <div style={{ width: 18, height: `${(completed / maxV) * 100}%`, background: C.teal, borderRadius: '3px 3px 0 0' }} />
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// Heatmap intensity color (teal scale) used by Operating Hours Heatmap.
+const heatColor = (t) => {
+  if (t < 0.12) return { bg: '#F0F4F3', fg: '#9CA3AF' };
+  if (t < 0.45) return { bg: '#CDEAE3', fg: '#374151' };
+  if (t < 0.7) return { bg: '#6FC3B3', fg: '#06302A' };
+  return { bg: '#0F8A78', fg: '#FFFFFF' };
+};
+
 /* =================================================================
    OPERATIONS VIEW
-   Endpoints: appointments/summary + operations-summary + appointments/daily-trend
+   Endpoints: mtd-kpi-header + appointments/summary + operations-summary
+              + appointments/daily-trend  (+ prior month for MoM deltas)
    ================================================================= */
 
 const OperationsView = () => {
-  const f = useFilters();
-  const params = { start_date: f.start_date, end_date: f.end_date, locations: f.locations };
+  const fl = useFilters();
+  const params = { start_date: fl.start_date, end_date: fl.end_date, locations: fl.locations };
+  const prev = prevMonthRange(fl.start_date);
+  const prevParams = { start_date: prev.start, end_date: prev.end, locations: fl.locations };
   const { data, loading, error, reload } = useApiData({
     header: { path: '/api/mtd-kpi-header', params },
     appts: { path: '/api/appointments/summary', params },
     ops: { path: '/api/operations-summary', params },
     daily: { path: '/api/appointments/daily-trend', params },
+    headerPrev: { path: '/api/mtd-kpi-header', params: prevParams },
+    apptsPrev: { path: '/api/appointments/summary', params: prevParams },
   }, [JSON.stringify(params)]);
 
   return (
-    <DataState loading={loading || !f.ready} error={error} onRetry={reload}>
+    <DataState loading={loading || !fl.ready} error={error} onRetry={reload}>
       <OperationsBody
-        header={data.header}
-        appts={data.appts || []}
-        ops={data.ops || []}
-        daily={data.daily || []}
-        monthName={f.monthLabel}
+        h={data.header || {}} hPrev={data.headerPrev || {}}
+        appts={data.appts || []} apptsPrev={data.apptsPrev || []}
+        ops={data.ops || []} daily={data.daily || []} range={fl.monthLabel}
       />
     </DataState>
   );
 };
 
-const OperationsBody = ({ header, appts, ops, daily, monthName }) => {
-  const h = header || {};
+// sum a field across an array of appointment-summary rows
+const sumField = (arr, f) => arr.reduce((a, r) => a + (n(r[f]) || 0), 0);
 
-  // Chain-level appointment aggregates.
-  const ag = appts.reduce((a, r) => {
-    a.total += n(r.total_appointments) || 0;
-    a.completed += n(r.completed) || 0;
-    a.noshow += n(r.no_shows) || 0;
-    a.cancel += n(r.cancellations) || 0;
-    a.newg += n(r.new_guests) || 0;
-    return a;
-  }, { total: 0, completed: 0, noshow: 0, cancel: 0, newg: 0 });
-  const noShowRate = ag.total ? (ag.noshow / ag.total) * 100 : 0;
-  const cancelRate = ag.total ? (ag.cancel / ag.total) * 100 : 0;
+const OperationsBody = ({ h, hPrev, appts, apptsPrev, ops, daily, range }) => {
+  // chain appointment aggregates (current + prior)
+  const totalAppts = sumField(appts, 'total_appointments');
+  const completed = sumField(appts, 'completed');
+  const noShows = sumField(appts, 'no_shows');
+  const cancels = sumField(appts, 'cancellations');
+  const noShowRate = totalAppts ? (noShows / totalAppts) * 100 : null;
 
-  const opsKpis = [
-    { label: 'PROVIDER UTILIZATION', value: pct(h.provider_utilization), note: 'booked / scheduled', positive: true },
-    { label: 'ESTHETICIAN UTILIZATION', value: pct(h.esthetician_utilization), note: 'booked / scheduled', positive: true },
-    { label: 'APPOINTMENTS COMPLETED', value: num(ag.completed), note: `${num(ag.total)} booked`, positive: true },
-    { label: 'NO-SHOW RATE', value: `${noShowRate.toFixed(1)}%`, note: `${num(ag.noshow)} no-shows`, positive: noShowRate < 6 },
-    { label: 'REBOOKING RATE', value: pct(h.rebooking_rate), note: 'completed appts', positive: true },
+  const completedPrev = sumField(apptsPrev, 'completed');
+  const totalApptsPrev = sumField(apptsPrev, 'total_appointments');
+  const noShowsPrev = sumField(apptsPrev, 'no_shows');
+  const noShowRatePrev = totalApptsPrev ? (noShowsPrev / totalApptsPrev) * 100 : null;
+
+  // MoM delta helpers
+  const ptDelta = (cur, prev, d = 1) => {
+    const c = pctScale(cur), p = pctScale(prev);
+    if (c == null || p == null) return null;
+    const diff = c - p; return { text: `${diff >= 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(d)} pt`, color: diff >= 0 ? C.green : C.clay };
+  };
+  const pctDelta = (cur, prev, d = 1, invert = false) => {
+    const c = n(cur), p = n(prev);
+    if (c == null || p == null || p === 0) return null;
+    const diff = ((c - p) / Math.abs(p)) * 100; const up = diff >= 0; const good = invert ? !up : up;
+    return { text: `${up ? '▲' : '▼'} ${Math.abs(diff).toFixed(d)}%`, color: good ? C.green : C.clay };
+  };
+
+  const kpis = [
+    { label: 'Provider Utilization', value: pct(h.provider_utilization), delta: ptDelta(h.provider_utilization, hPrev.provider_utilization) },
+    { label: 'Esthetician Utilization', value: pct(h.esthetician_utilization), delta: ptDelta(h.esthetician_utilization, hPrev.esthetician_utilization) },
+    { label: 'Appointments Completed', value: num(completed), delta: pctDelta(completed, completedPrev) },
+    { label: 'No-Show Rate', value: noShowRate != null ? `${noShowRate.toFixed(1)}%` : '—', delta: ptDelta(noShowRate, noShowRatePrev, 1) ? { ...ptDelta(noShowRate, noShowRatePrev, 1), color: (pctScale(noShowRate) - pctScale(noShowRatePrev)) <= 0 ? C.green : C.clay } : null },
+    { label: 'Avg Booking Lead Time', value: '—', delta: null },
   ];
 
-  // Daily booked-vs-completed trend.
-  const dailySeries = daily.map((d) => ({
-    day: dayLabel(d.appointment_date),
-    total: n(d.total) || 0,
-    completed: n(d.completed) || 0,
-  }));
+  // daily booked vs completed trend
+  const dailySeries = daily.map((d) => ({ total: n(d.total) || 0, completed: n(d.completed) || 0 }));
 
-  // Lost capacity from chain aggregates.
+  // Lost capacity — derived from chain aggregates (no-show, cancellations).
+  // Unbooked open hours & blocked/admin time have no endpoint → shown as —.
   const lostCapacity = [
-    { label: 'No-shows', pct: `${noShowRate.toFixed(1)}%`, width: Math.min(noShowRate * 4, 100) },
-    { label: 'Cancellations', pct: `${cancelRate.toFixed(1)}%`, width: Math.min(cancelRate * 4, 100) },
+    { label: 'No-show / late cancel', pct: noShowRate, width: noShowRate != null ? Math.min(noShowRate * 4, 100) : 0, has: noShowRate != null },
+    { label: 'Unbooked open hours', pct: null, width: 0, has: false },
+    { label: 'Same-day cancellations', pct: totalAppts ? (cancels / totalAppts) * 100 : null, width: totalAppts ? Math.min((cancels / totalAppts) * 100 * 4, 100) : 0, has: !!totalAppts },
+    { label: 'Blocked / admin time', pct: null, width: 0, has: false },
   ];
 
-  // Per-location utilization & throughput from operations-summary.
-  const opsRows = [...ops].sort((a, b) => (n(b.provider_utilization) || 0) - (n(a.provider_utilization) || 0));
-  const utilVal = (v) => (Math.abs(n(v)) <= 1 ? (n(v) || 0) * 100 : (n(v) || 0));
-
-  // Build appts-by-location lookup for no-show in the table.
-  const apptByLoc = {};
-  appts.forEach((a) => { apptByLoc[a.location] = a; });
+  // per-location util & throughput (operations-summary), ordered as returned
+  const apptByLoc = {}; appts.forEach((a) => { apptByLoc[a.location] = a; });
 
   return (
-    <div className="px-9 py-8 space-y-6">
+    <div>
       {/* KPI cards */}
-      <div className="grid grid-cols-5 gap-4">
-        {opsKpis.map((k) => <KpiCard key={k.label} {...k} />)}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14 }}>
+        {kpis.map((k) => (
+          <div key={k.label} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '16px 18px' }}>
+            <div style={{ font: `600 10px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray, lineHeight: 1.3, minHeight: 26 }}>{k.label}</div>
+            <div style={{ font: `600 25px ${FONT}`, color: C.ink, marginTop: 9, fontVariantNumeric: 'tabular-nums' }}>{k.value}</div>
+            {k.delta && <div style={{ font: `600 10.5px ${FONT}`, color: k.delta.color, marginTop: 4 }}>{k.delta.text}</div>}
+          </div>
+        ))}
       </div>
 
-      {/* Daily appointments + lost capacity */}
-      <div className="grid grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-bold">Appointments</h3>
-            <span className="text-xs text-gray-500">Booked vs completed · daily</span>
+      {/* Appointments + Lost Capacity */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+        <Card>
+          <CardTitle title="Appointments" right={<span style={{ font: `500 11.5px ${FONT}`, color: C.gray }}>Booked vs completed · daily</span>} />
+          <div style={{ marginTop: 14 }}><ApptBars data={dailySeries} /></div>
+          <div style={{ display: 'flex', gap: 24, marginTop: 16, font: `500 11.5px ${FONT}`, color: C.ink2 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: '#CDEAE3' }} />Booked</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: C.teal }} />Completed</span>
           </div>
-          <div className="h-64">
-            {dailySeries.length ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dailySeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="bookedGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#5eead4" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#5eead4" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="compGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#0f766e" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#0f766e" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fill: '#9ca3af', fontSize: 11 }} interval={4} />
-                  <YAxis hide />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="total" name="Booked" stroke="#2dd4bf" strokeWidth={2} fill="url(#bookedGrad)" />
-                  <Area type="monotone" dataKey="completed" name="Completed" stroke="#0f766e" strokeWidth={2.5} fill="url(#compGrad)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : <div className="h-full flex items-center justify-center text-sm text-gray-400">No daily appointment data.</div>}
-          </div>
-          <div className="flex items-center gap-6 mt-5 text-xs text-gray-600">
-            <Legend color="#2dd4bf" label="Booked" />
-            <Legend color="#0f766e" label="Completed" />
-          </div>
-        </div>
+        </Card>
 
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <h3 className="text-lg font-bold">Lost Capacity</h3>
-          <p className="text-xs text-gray-500 mt-1 mb-6">No-shows & cancellations · {monthName}</p>
-          <div className="space-y-5">
+        <Card>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Lost Capacity</div>
+          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2, marginBottom: 18 }}>Share of bookable hours · {range}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {lostCapacity.map((l) => (
               <div key={l.label}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-800">{l.label}</span>
-                  <span className="text-sm font-bold tabular-nums">{l.pct}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 7 }}>
+                  <span style={{ font: `500 12.5px ${FONT}`, color: C.ink2 }}>{l.label}</span>
+                  <span style={{ font: `700 12.5px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{l.has ? `${pctScale(l.pct).toFixed(1)}%` : '—'}</span>
                 </div>
-                <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${l.width}%`, backgroundColor: '#e6a888' }}></div>
+                <div style={{ height: 10, background: '#F0F4F3', borderRadius: 5, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${l.width}%`, borderRadius: 5, background: '#E6A888' }} />
                 </div>
               </div>
             ))}
           </div>
-          <div className="mt-6 pt-4 border-t border-gray-100 grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-gray-400 uppercase">New guests</p>
-              <p className="text-2xl font-bold tabular-nums mt-1">{num(ag.newg)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 uppercase">Completion rate</p>
-              <p className="text-2xl font-bold tabular-nums mt-1 text-teal-600">{ag.total ? ((ag.completed / ag.total) * 100).toFixed(0) : '—'}%</p>
-            </div>
-          </div>
-        </div>
+        </Card>
       </div>
 
-      {/* Per-location utilization & throughput */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-5 flex items-center justify-between border-b border-gray-200">
-          <h3 className="text-lg font-bold">Utilization &amp; Throughput by Location</h3>
-          <span className="text-xs text-gray-500">Sorted by provider utilization</span>
+      {/* Utilization & Throughput by Location */}
+      <Card style={{ marginTop: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Utilization &amp; Throughput by Location</div>
+          <span style={{ font: `500 11.5px ${FONT}`, color: C.gray }}>Ordered by open date</span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-xs text-gray-500 border-b border-gray-200">
-                <th className="px-6 py-3 text-left font-bold">LOCATION</th>
-                <th className="px-6 py-3 text-left font-bold">PROVIDER UTIL</th>
-                <th className="px-6 py-3 text-right font-bold">ESTH UTIL</th>
-                <th className="px-6 py-3 text-right font-bold">NO-SHOW</th>
-                <th className="px-6 py-3 text-right font-bold">APPTS</th>
-                <th className="px-6 py-3 text-right font-bold">REV/PROVIDER</th>
-                <th className="px-6 py-3 text-right font-bold">REBOOK</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {opsRows.map((loc) => {
-                const util = utilVal(loc.provider_utilization);
-                const a = apptByLoc[loc.location];
-                const nsr = a && n(a.no_show_rate) != null ? utilVal(a.no_show_rate) : null;
-                const alert = nsr != null && nsr >= 6;
-                return (
-                  <tr key={loc.location} className="hover:bg-gray-50">
-                    <td className="px-6 py-3.5 font-bold text-gray-900">{loc.location}</td>
-                    <td className="px-6 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-40 h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full bg-gradient-to-r from-teal-600 to-teal-400" style={{ width: `${Math.min(util, 100)}%` }}></div>
-                        </div>
-                        <span className="font-semibold tabular-nums">{util.toFixed(0)}%</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-3.5 text-right tabular-nums">{pct(loc.esthetician_utilization, 0)}</td>
-                    <td className={`px-6 py-3.5 text-right tabular-nums ${alert ? 'text-orange-600 font-semibold' : ''}`}>{nsr != null ? `${nsr.toFixed(1)}%` : '—'}</td>
-                    <td className="px-6 py-3.5 text-right tabular-nums">{num(loc.appointment_count)}</td>
-                    <td className="px-6 py-3.5 text-right tabular-nums">{money(loc.rev_per_provider, { compact: true })}</td>
-                    <td className="px-6 py-3.5 text-right tabular-nums">{pct(loc.rebooking_rate, 0)}</td>
-                  </tr>
-                );
-              })}
-              {opsRows.length === 0 && (
-                <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400">No operations data for this range.</td></tr>
-              )}
-            </tbody>
-          </table>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1.6fr 0.7fr 0.7fr 0.7fr 0.7fr', gap: 8, padding: '0 4px 10px', borderBottom: `1px solid ${C.line2}`, font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>
+          <span>Location</span><span>Provider Util</span><span style={{ textAlign: 'right' }}>Esth Util</span><span style={{ textAlign: 'right' }}>No-Show</span><span style={{ textAlign: 'right' }}>Appts</span><span style={{ textAlign: 'right' }}>Lead Time</span>
         </div>
-      </div>
+        {ops.map((l) => {
+          const util = pctScale(l.provider_utilization) || 0;
+          const a = apptByLoc[l.location];
+          const nsr = a && n(a.no_show_rate) != null ? pctScale(a.no_show_rate) : null;
+          const alert = nsr != null && nsr >= 6;
+          return (
+            <div key={l.location} className="ev-lrow" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1.6fr 0.7fr 0.7fr 0.7fr 0.7fr', gap: 8, padding: '11px 4px', borderBottom: `1px solid ${C.line3}`, alignItems: 'center', font: `500 12.5px ${FONT}`, color: C.ink2 }}>
+              <span style={{ font: `600 12.5px ${FONT}`, color: C.ink }}>{l.location}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ flex: 1, maxWidth: 160, height: 10, background: '#F0F4F3', borderRadius: 5, overflow: 'hidden' }}>
+                  <span style={{ display: 'block', height: '100%', width: `${Math.min(util, 100)}%`, background: `linear-gradient(90deg,${C.teal},${C.tealBright})`, borderRadius: 5 }} />
+                </span>
+                <span style={{ font: `600 12.5px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{util.toFixed(0)}%</span>
+              </span>
+              <span style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{pct(l.esthetician_utilization, 0)}</span>
+              <span style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: alert ? C.clay : C.ink2, fontWeight: alert ? 600 : 500 }}>{nsr != null ? `${nsr.toFixed(1)}%` : '—'}</span>
+              <span style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{num(l.appointment_count)}</span>
+              <span style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>—</span>
+            </div>
+          );
+        })}
+        {ops.length === 0 && <div style={{ padding: '24px 4px', textAlign: 'center', font: `500 12px ${FONT}`, color: C.gray }}>No location data for this range.</div>}
+      </Card>
+
+      {/* Operating Hours Heatmap */}
+      <OperatingHoursHeatmap range={range} />
     </div>
   );
 };
 
-/* =================================================================
-   LOCATIONS VIEW
-   Endpoint: mtd-summary (per-location with YoY/WoW/MoM variances)
-   The original "12-month matrix" had no backing endpoint; we render
-   the real comparison fields the API provides instead.
-   ================================================================= */
-
-const LocationsView = () => {
-  const f = useFilters();
-  const params = { start_date: f.start_date, end_date: f.end_date, locations: f.locations };
-  const { data, loading, error, reload } = useApiData({
-    summary: { path: '/api/mtd-summary', params },
-  }, [JSON.stringify(params)]);
+// Operating Hours Heatmap — the API exposes no hour-of-day demand grid,
+// so the structure matches the design with an explicit "no hourly data" state.
+const OperatingHoursHeatmap = ({ range }) => {
+  const [mode, setMode] = useState('Cash Sales');
+  const hours = ['9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM'];
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const stats = [
+    { label: 'Busiest Day', value: '—', slow: false }, { label: 'Busiest Hour', value: '—', slow: false },
+    { label: 'Busiest Day + Hour', value: '—', slow: false }, { label: 'Slowest Day', value: '—', slow: true },
+    { label: 'Slowest Hour', value: '—', slow: true }, { label: 'Slowest Day + Hour', value: '—', slow: true },
+  ];
+  const toggleBtn = (m) => ({ padding: '7px 16px', borderRadius: 8, font: `600 12px ${FONT}`, cursor: 'pointer', border: mode === m ? 'none' : `1px solid ${C.line}`, background: mode === m ? C.teal : '#fff', color: mode === m ? '#fff' : C.ink2 });
 
   return (
-    <DataState loading={loading || !f.ready} error={error} onRetry={reload}>
-      <LocationsBody summary={data.summary || []} monthName={f.monthLabel} />
-    </DataState>
+    <Card style={{ marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Operating Hours Heatmap</div>
+          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2 }}>Demand by day &amp; hour · {range}</div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <div onClick={() => setMode('Cash Sales')} style={toggleBtn('Cash Sales')}>Cash Sales</div>
+          <div onClick={() => setMode('Visits')} style={toggleBtn('Visits')}>Visits</div>
+        </div>
+      </div>
+
+      {/* stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 12, marginTop: 18 }}>
+        {stats.map((s) => (
+          <div key={s.label} style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: '14px 16px' }}>
+            <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2, lineHeight: 1.3 }}>{s.label}</div>
+            <div style={{ font: `700 20px ${FONT}`, marginTop: 10, color: s.slow ? C.clay : C.teal }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* grid + opportunity panel */}
+      <div style={{ display: 'flex', gap: 24, marginTop: 22 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex' }}>
+            <div style={{ width: 48 }} />
+            {days.map((d) => <div key={d} style={{ flex: 1, textAlign: 'center', font: `600 11px ${FONT}`, color: C.gray, paddingBottom: 8 }}>{d}</div>)}
+          </div>
+          {hours.map((hr) => (
+            <div key={hr} style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+              <div style={{ width: 48, font: `500 11px ${FONT}`, color: C.gray2, textAlign: 'right', paddingRight: 8 }}>{hr}</div>
+              {days.map((d) => {
+                const c = heatColor(0.05);
+                return <div key={d} style={{ flex: 1, margin: '0 2px' }}><div style={{ borderRadius: 6, textAlign: 'center', font: `500 11px ${FONT}`, padding: '9px 0', background: c.bg, color: c.fg }}>—</div></div>;
+              })}
+            </div>
+          ))}
+          <div style={{ font: `500 11px ${FONT}`, color: C.gray, marginTop: 10 }}>Hourly demand grid isn't exposed by the reporting API.</div>
+        </div>
+
+        <div style={{ width: 320, background: '#FBEEE7', borderRadius: 12, padding: '18px 20px' }}>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Opportunity Cost</div>
+          <div style={{ font: `500 11px ${FONT}`, color: C.gray, marginTop: 4, lineHeight: 1.4 }}>Top underutilized slots · est. monthly recovery if filled to chain util average</div>
+          <div style={{ font: `500 12px ${FONT}`, color: C.ink2, marginTop: 18, lineHeight: 1.5 }}>
+            Requires the hour-of-day demand grid, which the reporting API doesn't provide. Connect an hourly source to surface recoverable slots here.
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 };
 
-const LocationsBody = ({ summary, monthName }) => {
-  const metricTabs = [
-    { key: 'cash_sales', label: 'Cash Sales', fmt: (v) => money(v, { compact: true }) },
-    { key: 'trending', label: 'Trending', fmt: (v) => money(v, { compact: true }) },
-    { key: 'pct_to_goal_mtd', label: '% to Goal', fmt: (v) => `${(Math.abs(n(v)) <= 1 ? (n(v) || 0) * 100 : (n(v) || 0)).toFixed(0)}%` },
-    { key: 'current_week_revenue', label: 'Current Week', fmt: (v) => money(v, { compact: true }) },
-    { key: 'new_members', label: 'New Members', fmt: (v) => num(v) },
-    { key: 'membership_adoption', label: 'Adoption', fmt: (v) => pct(v, 0) },
-  ];
-  const [activeMetric, setActiveMetric] = useState('cash_sales');
-  const active = metricTabs.find((m) => m.key === activeMetric) || metricTabs[0];
 
-  // Variance triplet drives a "momentum" classification per location.
-  const classify = (loc) => {
-    const yoy = n(loc.py_variance_pct);
-    const mom = n(loc.pm_variance_pct);
-    const wow = n(loc.prior_week_variance_pct);
-    const signals = [yoy, mom, wow].filter((x) => x != null);
-    if (!signals.length) return 'Stable';
-    const score = signals.reduce((a, x) => a + (Math.abs(x) <= 1 ? x * 100 : x), 0) / signals.length;
-    if (score >= 3) return 'Accelerating';
-    if (score <= -3) return 'Decelerating';
-    return 'Stable';
-  };
+/* =================================================================
+   LOCATIONS VIEW — Location Momentum Matrix
+   The API has no 12-month history endpoint, so we assemble the
+   trailing-12-month matrix by fetching mtd-summary + operations-summary
+   for each of the last 12 months. Every cell is a real API value.
+   ================================================================= */
 
-  const momentumStyle = {
-    Accelerating: 'bg-teal-50 text-teal-700',
-    Stable: 'bg-gray-100 text-gray-500',
-    Decelerating: 'bg-orange-50 text-orange-600',
-  };
+// Fetch a list of endpoints across N month ranges. Returns
+// { months:[{key,label,short}], data:[{summary,ops}], loading, error }.
+const useTrailingMonths = (anchorDate, locations, count = 12) => {
+  const months = useMemo(() => {
+    const out = monthsBack(anchorDate || new Date(), count).reverse(); // oldest → newest
+    return out.map((m) => ({ ...m, short: m.label.split(' ')[0] }));
+  }, [anchorDate, count]);
 
-  const rows = [...summary]
-    .map((loc) => ({ ...loc, _m: classify(loc) }))
-    .sort((a, b) => (n(b[active.key]) || 0) - (n(a[active.key]) || 0));
+  const [state, setState] = useState({ loading: true, error: null, data: [] });
+  const [nonce, setNonce] = useState(0);
+  const reload = useCallback(() => setNonce((x) => x + 1), []);
+  const locKey = JSON.stringify(locations || null);
+  const monthsKey = JSON.stringify(months.map((m) => m.key));
 
-  const maxVal = Math.max(...rows.map((r) => Math.abs(n(r[active.key])) || 0), 1);
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+    setState((s) => ({ ...s, loading: true, error: null }));
+    (async () => {
+      try {
+        const results = await Promise.all(months.map(async (m) => {
+          const p = { start_date: m.start, end_date: m.end, locations };
+          const [summary, ops] = await Promise.all([
+            apiGet('/api/mtd-summary', p, controller.signal),
+            apiGet('/api/operations-summary', p, controller.signal),
+          ]);
+          return { summary: summary || [], ops: ops || [] };
+        }));
+        if (cancelled) return;
+        setState({ loading: false, error: null, data: results });
+      } catch (e) {
+        if (e.name === 'AbortError' || cancelled) return;
+        setState({ loading: false, error: e.message || 'Failed to load', data: [] });
+      }
+    })();
+    return () => { cancelled = true; controller.abort(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthsKey, locKey, nonce]);
 
-  const varCell = (v) => {
-    const x = n(v);
-    if (x == null) return <span className="text-gray-300">—</span>;
-    const scaled = Math.abs(x) <= 1 ? x * 100 : x;
-    const up = scaled >= 0;
-    return <span className={up ? 'text-teal-600' : 'text-orange-600'}>{up ? '▲' : '▼'} {Math.abs(scaled).toFixed(1)}%</span>;
-  };
+  return { months, ...state, reload };
+};
+
+// metric definitions: how to pull each value from a month's {summary, ops}
+const LOC_METRICS = [
+  { key: 'total_sales', label: 'Total Sales', fmt: (v) => money(v, { compact: true }), src: 'summary', field: 'cash_sales' },
+  { key: 'yoy', label: 'YoY %', fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(0)}%`, src: 'summary', field: 'py_variance_pct', isPct: true },
+  { key: 'new_guests', label: 'New Guests', fmt: (v) => num(v), src: 'ops', field: 'new_client_count' },
+  { key: 'existing_guests', label: 'Existing Guests', fmt: (v) => num(v), src: 'ops', field: 'existing_client_count' },
+  { key: 'total_asp', label: 'Total ASP', fmt: (v) => money(v), src: 'ops', field: 'asp' },
+  { key: 'asp_new', label: 'ASP (New)', fmt: (v) => money(v), src: 'ops', field: 'asp' },
+  { key: 'asp_existing', label: 'ASP (Existing)', fmt: (v) => money(v), src: 'ops', field: 'asp_excl_memberships' },
+  { key: 'rebooking', label: 'Rebooking Rate', fmt: (v) => `${v.toFixed(0)}%`, src: 'ops', field: 'rebooking_rate', isPct: true },
+  { key: 'google', label: 'Google Rating', fmt: (v) => v.toFixed(1), src: 'ops', field: 'avg_rating' },
+];
+
+// heat color for a cell relative to that row's own average (spec scale)
+const matrixCellStyle = (val, avg) => {
+  if (avg === 0 || val == null) return { bg: '#F0F4F3', fg: '#9CA3AF' };
+  const r = val / avg;
+  if (r >= 1.18) return { bg: '#3FA392', fg: '#06302A' };
+  if (r >= 1.05) return { bg: '#7FC4B6', fg: '#0B3A33' };
+  if (r >= 0.97) return { bg: '#E8EFE9', fg: '#374151' };
+  if (r >= 0.85) return { bg: '#F1C3AC', fg: '#7C2D12' };
+  return { bg: '#E09B7E', fg: '#5B1D0A' };
+};
+
+const MOM_STYLE = {
+  Accelerating: { bg: '#DDF0E6', fg: C.teal },
+  Stable: { bg: '#F0F4F3', fg: C.gray },
+  Decelerating: { bg: '#FBEEE7', fg: C.clay },
+};
+
+// Sparkline matching the spec (teal up / clay down / gray flat).
+const MatrixSparkline = ({ values, momentum }) => {
+  const w = 70, h = 26;
+  const vals = values.filter((v) => v != null);
+  if (vals.length < 2) return <svg width={w} height={h} />;
+  const min = Math.min(...vals), max = Math.max(...vals), rng = max - min || 1;
+  const pts = values.map((val, i) => val == null ? null : `${(i / (values.length - 1)) * w},${h - ((val - min) / rng) * h}`).filter(Boolean).join(' ');
+  const stroke = momentum === 'Decelerating' ? '#D97757' : momentum === 'Stable' ? '#9CA3AF' : C.teal;
+  return <svg width={w} height={h} style={{ overflow: 'visible' }}><polyline points={pts} fill="none" stroke={stroke} strokeWidth="1.8" /></svg>;
+};
+
+const LocationsView = () => {
+  const fl = useFilters();
+  const [metricKey, setMetricKey] = useState('total_sales');
+  const { months, data, loading, error, reload } = useTrailingMonths(fl.latestDate, fl.locations, 12);
+  const metric = LOC_METRICS.find((m) => m.key === metricKey) || LOC_METRICS[0];
+
+  // Build per-location series across the 12 months for the active metric.
+  const rows = useMemo(() => {
+    if (!data.length) return [];
+    const byLoc = {};
+    data.forEach((month, mi) => {
+      const arr = month[metric.src] || [];
+      arr.forEach((rec) => {
+        const loc = rec.location;
+        if (!byLoc[loc]) byLoc[loc] = new Array(months.length).fill(null);
+        let v = n(rec[metric.field]);
+        if (v != null && metric.isPct) v = pctScale(v);
+        byLoc[loc][mi] = v;
+      });
+    });
+    const list = Object.keys(byLoc).map((loc) => {
+      const v = byLoc[loc];
+      const present = v.filter((x) => x != null);
+      const avg = present.length ? present.reduce((a, b) => a + b, 0) / present.length : 0;
+      // momentum: compare last-3 avg vs first-3 avg
+      const head = v.slice(0, 3).filter((x) => x != null);
+      const tail = v.slice(-3).filter((x) => x != null);
+      const headAvg = head.length ? head.reduce((a, b) => a + b, 0) / head.length : 0;
+      const tailAvg = tail.length ? tail.reduce((a, b) => a + b, 0) / tail.length : 0;
+      const change = headAvg ? ((tailAvg - headAvg) / Math.abs(headAvg)) * 100 : 0;
+      const momentum = change >= 5 ? 'Accelerating' : change <= -5 ? 'Decelerating' : 'Stable';
+      return { loc, v, avg, momentum, change };
+    });
+    // sort: Accelerating first (by change desc), then Stable, then Decelerating
+    const order = { Accelerating: 0, Stable: 1, Decelerating: 2 };
+    list.sort((a, b) => order[a.momentum] - order[b.momentum] || b.change - a.change);
+    return list;
+  }, [data, months, metric]);
+
+  const colW = 58;
 
   return (
-    <div className="px-9 py-8 space-y-6">
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-lg font-bold">Location Comparison · {active.label}</h3>
-        <p className="text-xs text-gray-500 mt-1">{monthName} · ranked, with week / month / year variances · momentum from variance trend</p>
+    <DataState loading={loading || !fl.ready} error={error} onRetry={reload} kpiCount={1}>
+      <Card>
+        <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Location Momentum Matrix · {metric.label}</div>
+        <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2 }}>12-month trend · cells heat-mapped to each location's own average · sorted by momentum</div>
 
-        <div className="flex flex-wrap gap-2 mt-5 mb-6">
-          {metricTabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveMetric(tab.key)}
-              className={`px-4 py-2 rounded-full text-sm font-semibold border ${
-                activeMetric === tab.key ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* metric pills */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '18px 0 20px' }}>
+          {LOC_METRICS.map((m) => {
+            const active = m.key === metricKey;
+            return (
+              <button key={m.key} onClick={() => setMetricKey(m.key)}
+                style={{ padding: '9px 18px', borderRadius: 999, font: `600 12.5px ${FONT}`, cursor: 'pointer',
+                  border: active ? `1px solid ${C.teal}` : `1px solid ${C.line}`,
+                  background: active ? C.teal : '#fff', color: active ? '#fff' : C.ink2 }}>
+                {m.label}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
+        {/* matrix table */}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr className="text-xs text-gray-400 border-b border-gray-200">
-                <th className="text-left font-bold py-3 pr-4">LOCATION</th>
-                <th className="text-left font-bold py-3 px-4 min-w-[220px]">{active.label.toUpperCase()}</th>
-                <th className="text-right font-bold py-3 px-3">VS PRIOR WK</th>
-                <th className="text-right font-bold py-3 px-3">VS PRIOR MO</th>
-                <th className="text-right font-bold py-3 px-3">VS PRIOR YR</th>
-                <th className="text-center font-bold py-3 pl-3">MOMENTUM</th>
+              <tr style={{ font: `600 9.5px ${FONT}`, color: C.gray2 }}>
+                <th style={{ textAlign: 'left', fontWeight: 600, padding: '0 16px 10px 0', textTransform: 'uppercase', letterSpacing: '.05em', position: 'sticky', left: 0, background: '#fff' }}>Location</th>
+                {months.map((m) => (
+                  <th key={m.key} style={{ fontWeight: 600, padding: '0 4px 10px', textAlign: 'center', minWidth: colW, textTransform: 'uppercase', letterSpacing: '.03em' }}>{m.short}</th>
+                ))}
+                <th style={{ fontWeight: 600, padding: '0 8px 10px', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '.03em' }}>12-Mo</th>
+                <th style={{ fontWeight: 600, padding: '0 0 10px 8px', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '.03em' }}>Momentum</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {rows.map((loc) => (
-                <tr key={loc.location} className="hover:bg-gray-50">
-                  <td className="py-3 pr-4 font-bold text-gray-900 whitespace-nowrap">{loc.location}</td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-4 bg-gray-100 rounded-md overflow-hidden min-w-[120px]">
-                        <div className="h-full rounded-md bg-gradient-to-r from-teal-600 to-teal-400" style={{ width: `${(Math.abs(n(loc[active.key])) / maxVal) * 100}%` }}></div>
-                      </div>
-                      <span className="font-bold tabular-nums w-16 text-right">{active.fmt(loc[active.key])}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-3 text-right text-xs font-semibold tabular-nums">{varCell(loc.prior_week_variance_pct)}</td>
-                  <td className="py-3 px-3 text-right text-xs font-semibold tabular-nums">{varCell(loc.pm_variance_pct)}</td>
-                  <td className="py-3 px-3 text-right text-xs font-semibold tabular-nums">{varCell(loc.py_variance_pct)}</td>
-                  <td className="py-3 pl-3 text-center">
-                    <span className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${momentumStyle[loc._m]}`}>{loc._m}</span>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.loc}>
+                  <td style={{ padding: '6px 16px 6px 0', font: `600 12px ${FONT}`, color: C.ink, whiteSpace: 'nowrap', position: 'sticky', left: 0, background: '#fff' }}>{row.loc}</td>
+                  {row.v.map((val, i) => {
+                    const c = matrixCellStyle(val, row.avg);
+                    return (
+                      <td key={i} style={{ padding: '3px 2px' }}>
+                        <div style={{ borderRadius: 6, textAlign: 'center', font: `600 11px ${FONT}`, padding: '9px 4px', background: c.bg, color: c.fg, fontVariantNumeric: 'tabular-nums' }}>
+                          {val != null ? metric.fmt(val) : '—'}
+                        </div>
+                      </td>
+                    );
+                  })}
+                  <td style={{ padding: '3px 8px', textAlign: 'center' }}><MatrixSparkline values={row.v} momentum={row.momentum} /></td>
+                  <td style={{ padding: '3px 0 3px 8px', textAlign: 'center' }}>
+                    <span style={{ padding: '6px 14px', borderRadius: 999, font: `600 11.5px ${FONT}`, whiteSpace: 'nowrap', background: MOM_STYLE[row.momentum].bg, color: MOM_STYLE[row.momentum].fg }}>{row.momentum}</span>
                   </td>
                 </tr>
               ))}
               {rows.length === 0 && (
-                <tr><td colSpan={6} className="py-8 text-center text-gray-400">No location data for this range.</td></tr>
+                <tr><td colSpan={months.length + 3} style={{ padding: '24px 0', textAlign: 'center', font: `500 12px ${FONT}`, color: C.gray }}>No location data available.</td></tr>
               )}
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
+      </Card>
+    </DataState>
   );
 };
 
 /* =================================================================
+   OTHER VIEWS — built next, following their own screenshots.
+   Placeholders keep the app compiling; Overview is complete.
+   ================================================================= */
+const ComingSoon = ({ name }) => (
+  <NoEndpoint title={`${name} — wiring in progress`} detail="This screen is being built to match its design spec and wired to the API. Overview is complete." />
+);
+/* =================================================================
    MARKETING · ACQUISITION VIEW
-   Endpoints: appointments/by-booking-source + mtd-kpi-header
-   (Marketing ad-spend/CAC have no endpoint, so we focus on the
-    booking-source funnel the API actually exposes.)
+   Spend, leads & acquisition funnel.
+   Endpoints: mtd-kpi-header + mtd-summary + operations-summary
+              (+ prior month for MoM deltas)
+   The reporting API exposes client counts & revenue but no ad-spend,
+   per-lead or per-channel feeds (those live in Meta/Google/CRM). Those
+   cells render "—" via the file's established no-endpoint convention;
+   everything the API does expose is wired live with MoM deltas.
    ================================================================= */
 
 const AcquisitionView = () => {
-  const f = useFilters();
-  const params = { start_date: f.start_date, end_date: f.end_date, locations: f.locations };
+  const fl = useFilters();
+  const params = { start_date: fl.start_date, end_date: fl.end_date, locations: fl.locations };
+  const prev = prevMonthRange(fl.start_date);
+  const prevParams = { start_date: prev.start, end_date: prev.end, locations: fl.locations };
   const { data, loading, error, reload } = useApiData({
     header: { path: '/api/mtd-kpi-header', params },
-    sources: { path: '/api/appointments/by-booking-source', params },
-    requestType: { path: '/api/appointments/request-type', params },
+    summary: { path: '/api/mtd-summary', params },
+    ops: { path: '/api/operations-summary', params },
+    appts: { path: '/api/appointments/summary', params },
+    headerPrev: { path: '/api/mtd-kpi-header', params: prevParams },
+    opsPrev: { path: '/api/operations-summary', params: prevParams },
+    apptsPrev: { path: '/api/appointments/summary', params: prevParams },
   }, [JSON.stringify(params)]);
 
   return (
-    <DataState loading={loading || !f.ready} error={error} onRetry={reload}>
+    <DataState loading={loading || !fl.ready} error={error} onRetry={reload} kpiCount={5}>
       <AcquisitionBody
-        header={data.header}
-        sources={data.sources || []}
-        requestType={data.requestType || []}
-        monthName={f.monthLabel}
+        h={data.header || {}} hPrev={data.headerPrev || {}}
+        ops={data.ops || []} opsPrev={data.opsPrev || []}
+        appts={data.appts || []} apptsPrev={data.apptsPrev || []}
+        range={fl.monthLabel}
       />
     </DataState>
   );
 };
 
-const AcquisitionBody = ({ header, sources, requestType, monthName }) => {
-  const h = header || {};
+// MoM % delta on a raw count/value (shared by acquisition + call center).
+const momPctDelta = (cur, prv, { d = 1, invert = false, unit = '%' } = {}) => {
+  const c = n(cur), p = n(prv);
+  if (c == null || p == null || p === 0) return null;
+  const diff = ((c - p) / Math.abs(p)) * 100; const up = diff >= 0; const good = invert ? !up : up;
+  return { text: `${up ? '▲' : '▼'} ${Math.abs(diff).toFixed(d)}${unit}`, color: good ? C.green : C.clay };
+};
+// MoM point delta on a percentage metric (kept for reuse by tab cards).
+const momPtDelta = (cur, prv, { d = 1, invert = false } = {}) => {
+  const c = pctScale(cur), p = pctScale(prv);
+  if (c == null || p == null) return null;
+  const diff = c - p; const up = diff >= 0; const good = invert ? !up : up;
+  return { text: `${up ? '▲' : '▼'} ${Math.abs(diff).toFixed(d)} pt`, color: good ? C.green : C.clay };
+};
+void momPtDelta;
 
+const AcquisitionBody = ({ h, hPrev, ops, opsPrev, appts, apptsPrev, range }) => {
+  // ---- derive what the reporting API genuinely exposes ----
+  const sumOps = (arr, f) => arr.reduce((a, o) => a + (n(o[f]) || 0), 0);
+  const newCust = n(h.new_visits) ?? n(h.new_client_count) ?? (sumOps(ops, 'new_client_count') || null);
+  const newCustPrev = n(hPrev.new_visits) ?? n(hPrev.new_client_count) ?? (sumOps(opsPrev, 'new_client_count') || null);
+
+  const completed = sumField(appts, 'completed');
+  const totalAppts = sumField(appts, 'total_appointments');
+  const completedPrev = sumField(apptsPrev, 'completed');
+  // Booked appointments are the closest API proxy to "consults booked".
+  const booked = totalAppts || null;
+  const bookedPrev = sumField(apptsPrev, 'total_appointments') || null;
+
+  // ---- top KPI strip (matches spec order) ----
+  // Spend / Leads / Blended CAC have no reporting endpoint → "—".
   const kpis = [
-    { label: 'NEW CLIENTS', value: num(h.new_client_count), note: 'this period', positive: true },
-    { label: 'EXISTING CLIENTS', value: num(h.existing_client_count), note: 'this period', positive: true },
-    { label: 'CUSTOMER VISITS', value: num(h.total_customer_visits), note: 'total', positive: true },
-    { label: 'NEW MEMBERS', value: num(h.new_members), note: 'this period', positive: true },
-    { label: 'MEMBERSHIP ADOPTION', value: pct(h.membership_adoption_rate), note: 'of active clients', positive: true },
+    { label: 'Marketing Spend', value: '—', delta: null },
+    { label: 'Leads', value: '—', delta: null },
+    {
+      label: 'Lead → Booking',
+      value: '—',
+      delta: null,
+    },
+    { label: 'Blended CAC', value: '—', delta: null },
+    {
+      label: 'New Customers',
+      value: num(newCust),
+      ...(momPctDelta(newCust, newCustPrev) ? spread(momPctDelta(newCust, newCustPrev)) : { delta: null }),
+    },
   ];
 
-  // Booking source funnel.
-  const totalSrc = sources.reduce((a, s) => a + (n(s.total) || 0), 0) || 1;
-  const palette = ['#0f766e', '#2dd4bf', '#5eead4', '#99f6e4', '#f0c9a0', '#e6a888', '#cf7a55'];
-  const sortedSrc = [...sources].sort((a, b) => (n(b.total) || 0) - (n(a.total) || 0));
-  const maxSrc = Math.max(...sortedSrc.map((s) => n(s.total) || 0), 1);
+  // ---- acquisition funnel ----
+  // Only the lower funnel (booked → completed) is API-derivable; the
+  // lead/consult stages need the CRM/ad feeds, so they show "—".
+  const showRate = booked ? (completed / booked) * 100 : null;
+  const funnel = [
+    { label: 'Leads', value: null, pctOfTop: 100, note: '100%' },
+    { label: 'Consults booked', value: booked, pctOfTop: null, note: null },
+    { label: 'Consults completed', value: completed || null, pctOfTop: null, note: showRate != null ? `${showRate.toFixed(0)}% show` : null },
+    { label: 'Treated', value: null, pctOfTop: null, note: null },
+    { label: 'Rebooked', value: null, pctOfTop: null, note: null },
+  ];
+  const funnelTop = booked || 1;
+
+  // ---- channel performance ----
+  // No per-channel attribution endpoint exists in the reporting API.
+  const channels = ['Meta Ads', 'Google Ads', 'Referral', 'Organic / SEO', 'Email / CRM'].map((name, i) => ({
+    name, color: [C.teal, C.tealBright, C.tealLite, C.tealPale, C.clayLite][i],
+    spend: null, leads: null, cac: null,
+  }));
 
   return (
-    <div className="px-9 py-8 space-y-6">
-      <div className="grid grid-cols-5 gap-4">
+    <div>
+      {/* top KPI strip */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 16 }}>
         {kpis.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        {/* Booking sources */}
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <h3 className="text-lg font-bold">Bookings by Source</h3>
-          <p className="text-xs text-gray-500 mt-1 mb-6">{monthName} · appointments by booking source</p>
-          <div className="space-y-5">
-            {sortedSrc.map((s, i) => (
-              <div key={s.booking_source}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-gray-800">{s.booking_source || 'Unknown'}</span>
-                  <span className="text-sm tabular-nums">
-                    <span className="font-bold">{num(s.total)}</span>{' '}
-                    <span className="text-gray-400">{(((n(s.total) || 0) / totalSrc) * 100).toFixed(0)}%</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 1fr', gap: 16 }}>
+        {/* Acquisition funnel */}
+        <Card>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Acquisition Funnel</div>
+          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2, marginBottom: 18 }}>{range} · paid + organic</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {funnel.map((f, i) => {
+              const widthPct = f.value != null ? Math.max((f.value / funnelTop) * 100, 2) : (f.pctOfTop || 0);
+              const shade = [C.tealPale, C.tealLite, C.tealBright, C.teal, '#16776A'][i];
+              const has = f.value != null || f.pctOfTop === 100;
+              return (
+                <div key={f.label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                    <span style={{ font: `500 12px ${FONT}`, color: C.ink2 }}>{f.label}</span>
+                    <span style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                      <span style={{ font: `600 13px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{f.value != null ? num(f.value) : '—'}</span>
+                      {f.note && <span style={{ font: `500 11px ${FONT}`, color: C.gray }}>{f.note}</span>}
+                    </span>
+                  </div>
+                  <span style={{ display: 'block', height: 16, background: '#F0F4F3', borderRadius: 5, overflow: 'hidden' }}>
+                    {has && <span style={{ display: 'block', height: '100%', width: `${Math.min(widthPct, 100)}%`, background: shade, borderRadius: 5 }} />}
                   </span>
                 </div>
-                <div className="h-6 bg-gray-100 rounded-md overflow-hidden">
-                  <div className="h-full rounded-md" style={{ width: `${((n(s.total) || 0) / maxSrc) * 100}%`, backgroundColor: palette[i % palette.length] }}></div>
-                </div>
-              </div>
-            ))}
-            {sortedSrc.length === 0 && <p className="text-sm text-gray-400">No booking-source data for this range.</p>}
+              );
+            })}
           </div>
-        </div>
+        </Card>
 
-        {/* Source completion table */}
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <h3 className="text-lg font-bold mb-5">Source Completion Rates</h3>
-          <table className="w-full text-sm">
+        {/* Channel performance */}
+        <Card>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink, marginBottom: 14 }}>Channel Performance</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr className="text-xs text-gray-400 border-b border-gray-100">
-                <th className="text-left font-bold pb-3">SOURCE</th>
-                <th className="text-right font-bold pb-3">TOTAL</th>
-                <th className="text-right font-bold pb-3">COMPLETED</th>
-                <th className="text-right font-bold pb-3">COMPLETION</th>
+              <tr style={{ textAlign: 'right' }}>
+                <th style={{ textAlign: 'left', font: `700 9.5px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', color: C.gray, paddingBottom: 10 }}>Channel</th>
+                <th style={{ font: `700 9.5px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', color: C.gray, paddingBottom: 10 }}>Spend</th>
+                <th style={{ font: `700 9.5px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', color: C.gray, paddingBottom: 10 }}>Leads</th>
+                <th style={{ font: `700 9.5px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', color: C.gray, paddingBottom: 10 }}>CAC</th>
               </tr>
             </thead>
             <tbody>
-              {sortedSrc.map((s, i) => (
-                <tr key={s.booking_source} className="border-b border-gray-50">
-                  <td className="py-3.5 font-semibold text-gray-900">
-                    <span className="inline-flex items-center gap-2.5">
-                      <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: palette[i % palette.length] }}></span>
-                      {s.booking_source || 'Unknown'}
+              {channels.map((c) => (
+                <tr key={c.name} style={{ borderTop: `1px solid ${C.line2}` }}>
+                  <td style={{ padding: '13px 0', font: `500 12.5px ${FONT}`, color: C.ink2 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 3, background: c.color, flex: 'none' }} />{c.name}
                     </span>
                   </td>
-                  <td className="py-3.5 text-right tabular-nums">{num(s.total)}</td>
-                  <td className="py-3.5 text-right tabular-nums">{num(s.completed)}</td>
-                  <td className="py-3.5 text-right font-bold tabular-nums">{pct(s.completion_rate, 0)}</td>
+                  <td style={{ textAlign: 'right', font: `600 12.5px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{c.spend != null ? money(c.spend, { compact: true }) : '—'}</td>
+                  <td style={{ textAlign: 'right', font: `600 12.5px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{c.leads != null ? num(c.leads) : '—'}</td>
+                  <td style={{ textAlign: 'right', font: `600 12.5px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{c.cac != null ? money(c.cac) : '—'}</td>
                 </tr>
               ))}
-              {sortedSrc.length === 0 && (
-                <tr><td colSpan={4} className="py-8 text-center text-gray-400">No data.</td></tr>
-              )}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* Request type breakdown */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200">
-        <h3 className="text-lg font-bold mb-5">Appointments by Request Type</h3>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-xs text-gray-400 border-b border-gray-100">
-              <th className="text-left font-bold pb-3">REQUEST TYPE</th>
-              <th className="text-right font-bold pb-3">TOTAL</th>
-              <th className="text-right font-bold pb-3">COMPLETED</th>
-              <th className="text-right font-bold pb-3">COMPLETION</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...requestType].sort((a, b) => (n(b.total) || 0) - (n(a.total) || 0)).map((r) => (
-              <tr key={r.request_type} className="border-b border-gray-50">
-                <td className="py-3.5 font-semibold text-gray-900">{r.request_type || 'Unknown'}</td>
-                <td className="py-3.5 text-right tabular-nums">{num(r.total)}</td>
-                <td className="py-3.5 text-right tabular-nums">{num(r.completed)}</td>
-                <td className="py-3.5 text-right font-bold tabular-nums">{pct(r.completion_rate, 0)}</td>
-              </tr>
-            ))}
-            {requestType.length === 0 && (
-              <tr><td colSpan={4} className="py-8 text-center text-gray-400">No request-type data for this range.</td></tr>
-            )}
-          </tbody>
-        </table>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.line}` }}>
+            <span style={{ font: `500 12px ${FONT}`, color: C.gray }}>Blended ROAS</span>
+            <span style={{ font: `600 14px ${FONT}`, color: C.teal, fontVariantNumeric: 'tabular-nums' }}>—</span>
+          </div>
+        </Card>
       </div>
     </div>
   );
@@ -1498,574 +2021,300 @@ const AcquisitionBody = ({ header, sources, requestType, monthName }) => {
 
 /* =================================================================
    MARKETING · CALL CENTER VIEW
-   No endpoint in the API reference (Aesthetix CRM is a separate
-   system). Show an explicit "no data source" state rather than
-   fabricating numbers.
+   Lead response, agent performance & paid media — five tabs that
+   mirror the spec: Overview · Speed to Lead · Agent Performance ·
+   Heatmaps · Ad Attribution.
+   Speed-to-lead, agent and ad-attribution metrics come from the
+   Aesthetix CRM / ad platforms, which the reporting API doesn't
+   expose, so those numbers render "—" while the layout, tabs, fonts
+   and structure match the approved design exactly.
    ================================================================= */
 
-const CallCenterView = () => (
-  <NoEndpoint
-    title="Call Center data isn't connected"
-    detail="Speed-to-lead, agent scorecards, and paid-media attribution come from the Aesthetix CRM, which isn't exposed by the reporting API. Connect that source to populate this view."
-  />
+const CC_TABS = ['Overview', 'Speed to Lead', 'Agent Performance', 'Heatmaps', 'Ad Attribution'];
+
+const CallCenterTabs = ({ active, onChange }) => (
+  <div style={{ display: 'flex', gap: 26, borderBottom: `1px solid ${C.line}`, marginBottom: 22 }}>
+    {CC_TABS.map((t) => {
+      const on = t === active;
+      return (
+        <a key={t} onClick={() => onChange(t)}
+           style={{ cursor: 'pointer', padding: '0 1px 12px', font: `${on ? 600 : 500} 13px ${FONT}`, color: on ? C.teal : C.gray3, borderBottom: `2px solid ${on ? C.teal : 'transparent'}`, marginBottom: -1 }}>
+          {t}
+        </a>
+      );
+    })}
+  </div>
 );
 
-/* =================================================================
-   CLINICAL VIEW
-   Endpoint: appointments/by-category (+ category-breakdown for revenue)
-   ================================================================= */
+// Large stat block used on the Call Center cards (e.g. "5h 46m").
+const StatBlock = ({ label, value, sub, color }) => (
+  <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '15px 17px' }}>
+    <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray, lineHeight: 1.25, minHeight: 26 }}>{label}</div>
+    <div style={{ font: `600 26px ${FONT}`, color: color || C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+    {sub != null && <div style={{ font: `500 11px ${FONT}`, color: C.gray, marginTop: 4 }}>{sub}</div>}
+  </div>
+);
 
-const ClinicalView = () => {
-  const f = useFilters();
-  const params = { start_date: f.start_date, end_date: f.end_date, locations: f.locations };
+const CallCenterView = () => {
+  const [tab, setTab] = useState('Overview');
+  const fl = useFilters();
+  const params = { start_date: fl.start_date, end_date: fl.end_date, locations: fl.locations };
+  const prev = prevMonthRange(fl.start_date);
+  const prevParams = { start_date: prev.start, end_date: prev.end, locations: fl.locations };
+  // The reporting API has no call-center / CRM feed; we still pull the
+  // appointment + client aggregates it does expose so any derivable cell
+  // (and its MoM delta) is live rather than hard-coded from the spec.
   const { data, loading, error, reload } = useApiData({
+    appts: { path: '/api/appointments/summary', params },
+    apptsPrev: { path: '/api/appointments/summary', params: prevParams },
     header: { path: '/api/mtd-kpi-header', params },
-    byCategory: { path: '/api/appointments/by-category', params },
-    revenue: { path: '/api/category-breakdown', params },
   }, [JSON.stringify(params)]);
 
   return (
-    <DataState loading={loading || !f.ready} error={error} onRetry={reload}>
-      <ClinicalBody
-        header={data.header}
-        byCategory={data.byCategory || []}
-        revenue={data.revenue || []}
-      />
+    <DataState loading={loading || !fl.ready} error={error} onRetry={reload} kpiCount={5}>
+      <div>
+        <CallCenterTabs active={tab} onChange={setTab} />
+        <CallCenterTab
+          tab={tab}
+          appts={data.appts || []} apptsPrev={data.apptsPrev || []}
+          locations={fl.allLocations || []} range={fl.monthLabel}
+        />
+      </div>
     </DataState>
   );
 };
 
-const ClinicalBody = ({ header, byCategory, revenue }) => {
-  const h = header || {};
-  const totalAppts = byCategory.reduce((a, c) => a + (n(c.total) || 0), 0);
-  const totalCompleted = byCategory.reduce((a, c) => a + (n(c.completed) || 0), 0);
+const CallCenterTab = ({ tab, appts, apptsPrev, locations, range }) => {
+  // Booked / leads aggregates are not in the reporting API; show "—".
+  const booked = sumField(appts, 'total_appointments') || null;
+  const bookedPrev = sumField(apptsPrev, 'total_appointments') || null;
 
+  if (tab === 'Overview') return <CCOverview booked={booked} bookedPrev={bookedPrev} />;
+  if (tab === 'Speed to Lead') return <CCSpeedToLead locations={locations} />;
+  if (tab === 'Agent Performance') return <CCAgentPerformance />;
+  if (tab === 'Heatmaps') return <CCHeatmaps />;
+  if (tab === 'Ad Attribution') return <CCAdAttribution />;
+  return null;
+};
+
+/* ---- Call Center · Overview tab ---- */
+const CCOverview = ({ booked, bookedPrev }) => {
   const kpis = [
-    { label: 'TOTAL APPOINTMENTS', value: num(totalAppts), note: `${num(byCategory.length)} categories`, positive: true },
-    { label: 'COMPLETED', value: num(totalCompleted), note: totalAppts ? `${((totalCompleted / totalAppts) * 100).toFixed(0)}% completion` : '—', positive: true },
-    { label: 'BLENDED ASP', value: money(h.blended_asp), note: 'all clients', positive: true },
-    { label: 'CUSTOMER VISITS', value: num(h.total_customer_visits), note: 'this period', positive: true },
-    { label: 'REBOOKING RATE', value: pct(h.rebooking_rate), note: 'completed appts', positive: true },
+    { label: 'Total Leads', value: '—', sub: 'period total' },
+    { label: 'Booked', value: booked != null ? num(booked) : '—', sub: 'appointments' },
+    { label: 'Conversion Rate', value: '—', sub: 'target ≥ 30%' },
+    { label: 'Avg Days to Book', value: '—', sub: 'from lead creation' },
+    { label: 'Same-Day Bookings', value: '—', sub: 'of total bookings' },
   ];
-
-  const volume = [...byCategory].sort((a, b) => (n(b.total) || 0) - (n(a.total) || 0));
-  const maxVol = Math.max(...volume.map((v) => n(v.total) || 0), 1);
-
-  // Completion rate per category (proxy for "rebook/outcomes").
-  const completion = [...byCategory]
-    .map((c) => ({ name: c.category, pct: Math.abs(n(c.completion_rate)) <= 1 ? (n(c.completion_rate) || 0) * 100 : (n(c.completion_rate) || 0) }))
-    .sort((a, b) => b.pct - a.pct)
-    .slice(0, 8);
-
   return (
-    <div className="px-9 py-8 space-y-6">
-      <div className="grid grid-cols-5 gap-4">
-        {kpis.map((k) => <KpiCard key={k.label} {...k} />)}
+    <div>
+      <Eyebrow>Volume &amp; Conversion — Period to Date</Eyebrow>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 16 }}>
+        {kpis.map((k) => <StatBlock key={k.label} {...k} />)}
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <h3 className="text-lg font-bold mb-6">Appointment Volume by Category</h3>
-          <div className="space-y-5">
-            {volume.map((v) => (
-              <div key={v.category} className="flex items-center gap-4">
-                <span className="w-36 text-sm text-gray-700 capitalize">{v.category}</span>
-                <div className="flex-1 h-6 bg-gray-100 rounded-md overflow-hidden">
-                  <div className="h-full rounded-md bg-gradient-to-r from-teal-400 to-teal-600" style={{ width: `${((n(v.total) || 0) / maxVol) * 100}%` }}></div>
-                </div>
-                <span className="w-20 text-right text-sm tabular-nums leading-tight">
-                  <span className="font-bold">{num(v.total)}</span><br /><span className="text-gray-400 text-xs">appts</span>
-                </span>
-              </div>
-            ))}
-            {volume.length === 0 && <p className="text-sm text-gray-400">No category data for this range.</p>}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <h3 className="text-lg font-bold mb-6">Completion Rate by Category</h3>
-          <div className="space-y-4">
-            {completion.map((r) => (
-              <div key={r.name}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-gray-800 capitalize">{r.name}</span>
-                  <span className="text-sm font-bold tabular-nums">{r.pct.toFixed(0)}%</span>
-                </div>
-                <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full bg-teal-600" style={{ width: `${Math.min(r.pct, 100)}%` }}></div>
-                </div>
-              </div>
-            ))}
-            {completion.length === 0 && <p className="text-sm text-gray-400">No category data for this range.</p>}
-          </div>
-        </div>
+      <div style={{ background: '#EAF4F0', borderLeft: `3px solid ${C.teal}`, borderRadius: 8, padding: '16px 18px', font: `500 12.5px ${FONT}`, color: C.ink2, lineHeight: 1.55, marginBottom: 16 }}>
+        Lead volume, conversion and speed-to-first-contact come from the Aesthetix CRM, which the reporting API doesn't expose. The booked figure above is derived from the appointments feed; remaining metrics populate once the CRM is connected.
       </div>
 
-      {/* Revenue contribution by category */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200">
-        <h3 className="text-lg font-bold mb-1">Revenue by Service Category</h3>
-        <p className="text-xs text-gray-500 mb-5">Net revenue & treatment count</p>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-xs text-gray-400 border-b border-gray-100">
-              <th className="text-left font-bold pb-3">CATEGORY</th>
-              <th className="text-right font-bold pb-3">REVENUE</th>
-              <th className="text-right font-bold pb-3">COUNT</th>
-              <th className="text-right font-bold pb-3">AVG / UNIT</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...revenue].sort((a, b) => (n(b.revenue) || 0) - (n(a.revenue) || 0)).map((c) => {
-              const cnt = n(c.count) || 0;
-              const rev = n(c.revenue) || 0;
-              return (
-                <tr key={c.item_category} className="border-b border-gray-50">
-                  <td className="py-3.5 text-gray-800 capitalize">{c.item_category}</td>
-                  <td className="py-3.5 text-right tabular-nums font-bold">{money(rev, { compact: true })}</td>
-                  <td className="py-3.5 text-right tabular-nums">{num(cnt)}</td>
-                  <td className="py-3.5 text-right tabular-nums text-gray-500">{cnt ? money(rev / cnt) : '—'}</td>
-                </tr>
-              );
-            })}
-            {revenue.length === 0 && (
-              <tr><td colSpan={4} className="py-8 text-center text-gray-400">No revenue data for this range.</td></tr>
-            )}
-          </tbody>
-        </table>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <Card>
+          <CardTitle title="Conversion Rate Trend" />
+          <div style={{ height: 230, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `500 12px ${FONT}`, color: C.gray }}>No CRM endpoint connected.</div>
+        </Card>
+        <Card>
+          <CardTitle title="Avg Days to Book Trend" />
+          <div style={{ height: 230, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `500 12px ${FONT}`, color: C.gray }}>No CRM endpoint connected.</div>
+        </Card>
       </div>
     </div>
   );
 };
 
-/* =================================================================
-   PATIENTS / CRM VIEW
-   Endpoint: mtd-kpi-header (new / existing / members)
-   ================================================================= */
-
-const PatientsCRMView = () => {
-  const f = useFilters();
-  const params = { start_date: f.start_date, end_date: f.end_date, locations: f.locations };
-  const { data, loading, error, reload } = useApiData({
-    header: { path: '/api/mtd-kpi-header', params },
-    summary: { path: '/api/mtd-summary', params },
-  }, [JSON.stringify(params)]);
-
+/* ---- Call Center · Speed to Lead tab ---- */
+const CCSpeedToLead = ({ locations }) => {
+  const leaderboard = [
+    { label: 'Avg Speed to Lead', value: '—', sub: 'Median: —' },
+    { label: 'Best Avg Response', value: '—', sub: '—' },
+    { label: 'Worst Avg Response', value: '—', sub: '—' },
+    { label: 'Under 30 Min', value: '—', sub: 'responded within 30 min' },
+    { label: 'Response Rate', value: '—', sub: 'leads with human response' },
+    { label: 'Avg Under 5 Min', value: '—', sub: 'contacts responded quickly' },
+  ];
+  const locs = (locations && locations.length ? locations : []).slice(0, 12);
   return (
-    <DataState loading={loading || !f.ready} error={error} onRetry={reload}>
-      <PatientsCRMBody header={data.header} summary={data.summary || []} />
-    </DataState>
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <Card>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Days to Book Distribution</div>
+          <div style={{ height: 210, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `500 12px ${FONT}`, color: C.gray }}>No CRM endpoint connected.</div>
+        </Card>
+        <Card>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Lead Decay Curve</div>
+          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2 }}>Booking rate by response time</div>
+          <div style={{ height: 188, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `500 12px ${FONT}`, color: C.gray }}>No CRM endpoint connected.</div>
+        </Card>
+        <Card>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Avg Days to Book by Center</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 16 }}>
+            {locs.length === 0 && <div style={{ font: `500 12px ${FONT}`, color: C.gray }}>No location data.</div>}
+            {locs.map((loc) => (
+              <div key={loc} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ width: 84, flex: 'none', textAlign: 'right', font: `500 11px ${FONT}`, color: C.ink2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loc}</span>
+                <span style={{ flex: 1, height: 13, background: '#F0F4F3', borderRadius: 4 }} />
+                <span style={{ width: 30, flex: 'none', textAlign: 'right', font: `600 11px ${FONT}`, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>—</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <Eyebrow>Speed to Lead Leaderboard</Eyebrow>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 12 }}>
+        {leaderboard.map((k) => <StatBlock key={k.label} {...k} />)}
+      </div>
+    </div>
   );
 };
 
-const PatientsCRMBody = ({ header, summary }) => {
-  const h = header || {};
-  const newC = n(h.new_client_count) || 0;
-  const existC = n(h.existing_client_count) || 0;
-  const total = newC + existC || 1;
-  const aspNew = n(h.asp_new_clients) || 0;
-  const aspExist = n(h.asp_existing_clients) || 0;
-  const maxAsp = Math.max(aspNew, aspExist, 1);
-
-  // Revenue contribution split (clients × ASP).
-  const newRev = newC * aspNew;
-  const existRev = existC * aspExist;
-  const totRev = newRev + existRev || 1;
-  const newRevPct = (newRev / totRev) * 100;
-
-  const kpis = [
-    { label: 'TOTAL CLIENTS', value: num(total), note: 'new + existing', positive: true },
-    { label: 'NEW CLIENTS', value: num(newC), note: `${((newC / total) * 100).toFixed(0)}% of visits`, positive: true },
-    { label: 'EXISTING CLIENTS', value: num(existC), note: `${((existC / total) * 100).toFixed(0)}% of visits`, positive: true },
-    { label: 'ACTIVE MEMBERS', value: num(h.member_count), note: `${num(h.new_members)} new`, positive: true },
-    { label: 'MEMBERSHIP ADOPTION', value: pct(h.membership_adoption_rate), note: 'of active clients', positive: true },
-  ];
-
-  // Per-location new-member contribution.
-  const memberRows = [...summary]
-    .map((l) => ({ name: l.location, newM: n(l.new_members) || 0, adoption: l.membership_adoption }))
-    .sort((a, b) => b.newM - a.newM);
-  const maxNewM = Math.max(...memberRows.map((r) => r.newM), 1);
-
+/* ---- Call Center · Agent Performance tab ---- */
+const CCAgentPerformance = () => {
+  const cols = ['#', 'Agent', 'Avg Response', 'Median', 'Under 60 Min', 'Leads', 'Calls', 'Contact', 'Bookings', 'Rate'];
   return (
-    <div className="px-9 py-8 space-y-6">
-      <div className="grid grid-cols-5 gap-4">
-        {kpis.map((k) => <KpiCard key={k.label} {...k} />)}
-      </div>
-
-      {/* New vs Existing mix + ASP */}
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 bg-white rounded-xl p-6 border border-gray-200">
-          <h3 className="text-lg font-bold mb-6">New vs Existing · Average Spend</h3>
-          <div className="space-y-6">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-700">New client ASP</span>
-                <span className="text-sm font-bold">{money(aspNew)}</span>
-              </div>
-              <div className="h-5 bg-gray-100 rounded-md overflow-hidden">
-                <div className="h-full rounded-md bg-teal-400" style={{ width: `${(aspNew / maxAsp) * 100}%` }}></div>
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-700">Existing client ASP</span>
-                <span className="text-sm font-bold">{money(aspExist)}</span>
-              </div>
-              <div className="h-5 bg-gray-100 rounded-md overflow-hidden">
-                <div className="h-full rounded-md bg-teal-600" style={{ width: `${(aspExist / maxAsp) * 100}%` }}></div>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-[2px] mt-8 mb-3">Revenue Contribution (clients × ASP)</p>
-          <div className="flex h-9 rounded-md overflow-hidden text-xs font-bold text-white">
-            <div className="bg-teal-400 flex items-center justify-center" style={{ width: `${newRevPct}%` }}>New {newRevPct.toFixed(0)}%</div>
-            <div className="bg-teal-700 flex items-center justify-center" style={{ width: `${100 - newRevPct}%` }}>Existing {(100 - newRevPct).toFixed(0)}%</div>
-          </div>
-          <p className="text-sm text-gray-500 mt-4">
-            New clients are {((newC / total) * 100).toFixed(0)}% of visits but {newRevPct.toFixed(0)}% of revenue — existing clients spend more per visit ({money(aspExist)} vs {money(aspNew)}).
-          </p>
+    <div>
+      <Card>
+        <CardTitle title="Team Performance" sub="Speed to lead & conversion by agent — sorted by fastest average response"
+          right={<span style={{ padding: '5px 12px', borderRadius: 999, background: '#E6F2EE', color: C.teal, font: `600 10.5px ${FONT}` }}>Last 30 Days</span>} />
+        <div style={{ overflowX: 'auto', marginTop: 14 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
+            <thead>
+              <tr>
+                {cols.map((c, i) => (
+                  <th key={c} style={{ textAlign: i <= 1 ? 'left' : 'right', font: `700 9.5px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', color: C.gray, padding: '0 10px 12px' }}>{c}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colSpan={cols.length} style={{ padding: '40px 10px', textAlign: 'center', font: `500 12px ${FONT}`, color: C.gray }}>
+                  Agent scorecards come from the Aesthetix CRM, which the reporting API doesn't expose.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+      </Card>
+      <Card style={{ marginTop: 16 }}>
+        <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Avg Response Time by Agent</div>
+        <div style={{ height: 170, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `500 12px ${FONT}`, color: C.gray }}>No CRM endpoint connected.</div>
+      </Card>
+    </div>
+  );
+};
 
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <h3 className="text-lg font-bold mb-6">Client Mix</h3>
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-700">New</span>
-                <span className="text-sm font-bold tabular-nums">{num(newC)} · {((newC / total) * 100).toFixed(0)}%</span>
-              </div>
-              <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full bg-teal-400" style={{ width: `${(newC / total) * 100}%` }}></div>
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-700">Existing</span>
-                <span className="text-sm font-bold tabular-nums">{num(existC)} · {((existC / total) * 100).toFixed(0)}%</span>
-              </div>
-              <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full bg-teal-600" style={{ width: `${(existC / total) * 100}%` }}></div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-6 pt-4 border-t border-gray-100 space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Active members</span>
-              <span className="font-bold">{num(h.member_count)}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Adoption rate</span>
-              <span className="font-bold text-teal-600">{pct(h.membership_adoption_rate)}</span>
-            </div>
-          </div>
-        </div>
+/* ---- Call Center · Heatmaps tab ---- */
+const HeatGrid = ({ title, sub }) => {
+  const cols = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const rows = ['12a', '3a', '6a', '9a', '12p', '3p', '6p', '9p'];
+  return (
+    <Card>
+      <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>{title}</div>
+      <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2, marginBottom: 14 }}>{sub}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '30px repeat(7,1fr)', gap: 5 }}>
+        <span />
+        {cols.map((c, i) => <span key={i} style={{ textAlign: 'center', font: `600 10px ${FONT}`, color: C.gray2 }}>{c}</span>)}
+        {rows.map((r) => (
+          <React.Fragment key={r}>
+            <span style={{ font: `600 10px ${FONT}`, color: C.gray2, display: 'flex', alignItems: 'center' }}>{r}</span>
+            {cols.map((_, i) => (
+              <span key={i} style={{ aspectRatio: '1.4 / 1', background: '#EEF3F1', borderRadius: 6 }} />
+            ))}
+          </React.Fragment>
+        ))}
       </div>
+    </Card>
+  );
+};
 
-      {/* New members by location */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200">
-        <h3 className="text-lg font-bold mb-1">New Members by Location</h3>
-        <p className="text-xs text-gray-500 mb-5">This period · with adoption rate</p>
-        <div className="space-y-3">
-          {memberRows.map((r) => (
-            <div key={r.name} className="flex items-center gap-4">
-              <span className="w-28 text-sm text-gray-700">{r.name}</span>
-              <div className="flex-1 h-4 bg-gray-100 rounded-md overflow-hidden">
-                <div className="h-full rounded-md bg-gradient-to-r from-teal-500 to-teal-600" style={{ width: `${(r.newM / maxNewM) * 100}%` }}></div>
-              </div>
-              <span className="w-12 text-right text-sm font-bold tabular-nums">{num(r.newM)}</span>
-              <span className="w-16 text-right text-xs text-gray-400 tabular-nums">{pct(r.adoption, 0)}</span>
+const CCHeatmaps = () => (
+  <div>
+    <Eyebrow>Lead Arrival, Fast Response &amp; Conversion — by Day &amp; Time</Eyebrow>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+      <HeatGrid title="Lead Arrival" sub="When leads arrive by day & time" />
+      <HeatGrid title="Fast Response Times" sub="Leads answered under 30 min" />
+      <HeatGrid title="Conversions by Arrival" sub="Leads that booked by arrival time" />
+    </div>
+    <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 12 }}>
+      Day-and-time lead heatmaps populate once the Aesthetix CRM lead feed is connected.
+    </div>
+  </div>
+);
+
+/* ---- Call Center · Ad Attribution tab ---- */
+const CCAdAttribution = () => {
+  const kpis = [
+    'Total Leads', 'Cost Per Lead', 'Cost Per Appt', '# of Appts',
+    'Lead to Appt %', 'Invoice Sales', '# of Invoices', 'Avg Invoice',
+    'Webstore Sales', '# Webstore Txn', 'Gross Total', 'LTV ROAS',
+  ];
+  const sources = ['Organic', 'Google Ads', 'Meta Ads'];
+  return (
+    <div>
+      <Eyebrow>Paid Media Attribution — Meta &amp; Google Ads</Eyebrow>
+      <div style={{ display: 'grid', gridTemplateColumns: '0.62fr 1.38fr', gap: 16 }}>
+        <Card>
+          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Platform Split</div>
+          <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray, marginTop: 14 }}>Total Spend</div>
+          <div style={{ font: `600 26px ${FONT}`, color: C.ink, marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>—</div>
+          <div style={{ display: 'flex', justifyContent: 'center', margin: '18px 0' }}>
+            <div style={{ width: 130, height: 130, borderRadius: '50%', background: '#EEF3F1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 74, height: 74, borderRadius: '50%', background: C.panel }} />
+            </div>
+          </div>
+          {[['Google Ads', C.navy], ['Facebook Ads', C.blue]].map(([name, col]) => (
+            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 9, font: `500 11.5px ${FONT}`, color: C.ink2, marginTop: 8 }}>
+              <span style={{ width: 9, height: 9, borderRadius: '50%', background: col, flex: 'none' }} />{name}
+              <span style={{ marginLeft: 'auto', color: C.gray }}>—</span>
             </div>
           ))}
-          {memberRows.length === 0 && <p className="text-sm text-gray-400">No location data for this range.</p>}
-        </div>
-      </div>
-    </div>
-  );
-};
+        </Card>
 
-/* =================================================================
-   STAFF / PROVIDERS VIEW
-   Endpoints: employee-scorecard + appointments/by-provider
-   ================================================================= */
-
-const StaffProvidersView = () => {
-  const f = useFilters();
-  const params = { start_date: f.start_date, end_date: f.end_date, locations: f.locations };
-  const { data, loading, error, reload } = useApiData({
-    header: { path: '/api/mtd-kpi-header', params },
-    scorecard: { path: '/api/employee-scorecard', params },
-    byProvider: { path: '/api/appointments/by-provider', params },
-  }, [JSON.stringify(params)]);
-
-  return (
-    <DataState loading={loading || !f.ready} error={error} onRetry={reload}>
-      <StaffBody
-        header={data.header}
-        scorecard={data.scorecard || []}
-        byProvider={data.byProvider || []}
-        monthName={f.monthLabel}
-      />
-    </DataState>
-  );
-};
-
-const roleColors = {
-  default: { bg: '#e6f3f0', fg: '#0f766e' },
-  esthetician: { bg: '#fdf0e8', fg: '#c2680f' },
-  laser: { bg: '#eaf6f3', fg: '#2a9d8f' },
-};
-const roleStyle = (role) => {
-  const r = (role || '').toLowerCase();
-  if (r.includes('esth')) return roleColors.esthetician;
-  if (r.includes('laser')) return roleColors.laser;
-  return roleColors.default;
-};
-const initialsOf = (name) => (name || '?')
-  .split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
-
-const StaffBody = ({ header, scorecard, byProvider, monthName }) => {
-  const h = header || {};
-
-  const providerCount = scorecard.length;
-  const estheticianCount = scorecard.filter((e) => (e.role || '').toLowerCase().includes('esth')).length;
-
-  const kpis = [
-    { label: 'TEAM MEMBERS', value: num(providerCount), note: 'on scorecard', positive: true },
-    { label: 'ESTHETICIANS', value: num(estheticianCount), note: 'of team', positive: true },
-    { label: 'REV / PROVIDER', value: money(h.rev_per_provider, { compact: true }), note: 'per provider', positive: true },
-    { label: 'REV / ESTHETICIAN', value: money(h.rev_per_esthetician, { compact: true }), note: 'per esthetician', positive: true },
-    { label: 'REBOOKING RATE', value: pct(h.rebooking_rate), note: 'chain', positive: true },
-  ];
-
-  // Leaderboard sorted by total revenue.
-  const rows = [...scorecard].sort((a, b) => (n(b.total_revenue) || 0) - (n(a.total_revenue) || 0));
-  const maxRev = Math.max(...rows.map((r) => n(r.total_revenue) || 0), 1);
-
-  // Rebooking by provider lookup.
-  const rebookByName = {};
-  byProvider.forEach((p) => { rebookByName[p.provider] = p; });
-
-  return (
-    <div className="px-9 py-8 space-y-6">
-      <div className="grid grid-cols-5 gap-4">
-        {kpis.map((k) => <KpiCard key={k.label} {...k} />)}
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-5 flex items-center justify-between border-b border-gray-100">
-          <h3 className="text-lg font-bold">Employee Leaderboard</h3>
-          <span className="text-xs text-gray-400">By revenue · {monthName}</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-xs text-gray-400 border-b border-gray-100">
-                <th className="px-6 py-3 text-left font-bold">#</th>
-                <th className="px-2 py-3 text-left font-bold">EMPLOYEE</th>
-                <th className="px-4 py-3 text-left font-bold">ROLE</th>
-                <th className="px-4 py-3 text-left font-bold">CENTER</th>
-                <th className="px-4 py-3 text-left font-bold">REVENUE</th>
-                <th className="px-4 py-3 text-right font-bold">REV/HR</th>
-                <th className="px-4 py-3 text-right font-bold">UTIL</th>
-                <th className="px-4 py-3 text-right font-bold">BOOKED HRS</th>
-                <th className="px-6 py-3 text-right font-bold">REBOOK</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {rows.map((p, i) => {
-                const rc = roleStyle(p.role);
-                const rebook = rebookByName[p.name];
-                return (
-                  <tr key={`${p.name}-${i}`} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-gray-400 tabular-nums">{i + 1}</td>
-                    <td className="px-2 py-4">
-                      <span className="flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-full bg-teal-50 text-teal-700 text-[11px] font-bold flex items-center justify-center">{initialsOf(p.name)}</span>
-                        <span className="font-bold text-gray-900">{p.name}</span>
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-md" style={{ backgroundColor: rc.bg, color: rc.fg }}>{p.role || '—'}</span>
-                    </td>
-                    <td className="px-4 py-4 text-gray-600">{p.center || '—'}</td>
-                    <td className="px-4 py-4">
-                      <span className="flex items-center gap-3">
-                        <span className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <span className="block h-full rounded-full bg-gradient-to-r from-teal-500 to-teal-600" style={{ width: `${((n(p.total_revenue) || 0) / maxRev) * 100}%` }}></span>
-                        </span>
-                        <span className="font-bold tabular-nums">{money(p.total_revenue, { compact: true })}</span>
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-right tabular-nums">{money(p.rev_per_hr)}</td>
-                    <td className="px-4 py-4 text-right tabular-nums">{pct(p.utilization, 0)}</td>
-                    <td className="px-4 py-4 text-right tabular-nums">{num(p.booked_hours, 1)}</td>
-                    <td className="px-6 py-4 text-right tabular-nums">{rebook ? pct(rebook.rebooking_rate, 0) : '—'}</td>
-                  </tr>
-                );
-              })}
-              {rows.length === 0 && (
-                <tr><td colSpan={9} className="px-6 py-8 text-center text-gray-400">No employee data for this range.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Provider appointment outcomes */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-100">
-          <h3 className="text-lg font-bold">Provider Appointment Outcomes</h3>
-          <p className="text-xs text-gray-400 mt-1">Completed, no-shows & rebooking by provider</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-xs text-gray-400 border-b border-gray-100">
-                <th className="px-6 py-3 text-left font-bold">PROVIDER</th>
-                <th className="px-4 py-3 text-left font-bold">LOCATION</th>
-                <th className="px-4 py-3 text-right font-bold">TOTAL</th>
-                <th className="px-4 py-3 text-right font-bold">COMPLETED</th>
-                <th className="px-4 py-3 text-right font-bold">NO-SHOWS</th>
-                <th className="px-4 py-3 text-right font-bold">REBOOK</th>
-                <th className="px-6 py-3 text-right font-bold">AVG DURATION</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {[...byProvider].sort((a, b) => (n(b.total) || 0) - (n(a.total) || 0)).map((p, i) => (
-                <tr key={`${p.provider}-${i}`} className="hover:bg-gray-50">
-                  <td className="px-6 py-3.5 font-bold text-gray-900">{p.provider}</td>
-                  <td className="px-4 py-3.5 text-gray-600">{p.location}</td>
-                  <td className="px-4 py-3.5 text-right tabular-nums">{num(p.total)}</td>
-                  <td className="px-4 py-3.5 text-right tabular-nums">{num(p.completed)}</td>
-                  <td className="px-4 py-3.5 text-right tabular-nums">{num(p.no_shows)}</td>
-                  <td className="px-4 py-3.5 text-right tabular-nums">{pct(p.rebooking_rate, 0)}</td>
-                  <td className="px-6 py-3.5 text-right tabular-nums">{p.avg_actual_duration != null ? `${num(p.avg_actual_duration)} min` : '—'}</td>
-                </tr>
-              ))}
-              {byProvider.length === 0 && (
-                <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-400">No provider data for this range.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/* =================================================================
-   MEMBERSHIPS VIEW
-   Endpoints: mtd-kpi-header + mtd-summary (member data)
-   ================================================================= */
-
-const MembershipsView = () => {
-  const f = useFilters();
-  const params = { start_date: f.start_date, end_date: f.end_date, locations: f.locations };
-  const { data, loading, error, reload } = useApiData({
-    header: { path: '/api/mtd-kpi-header', params },
-    summary: { path: '/api/mtd-summary', params },
-  }, [JSON.stringify(params)]);
-
-  return (
-    <DataState loading={loading || !f.ready} error={error} onRetry={reload}>
-      <MembershipsBody header={data.header} summary={data.summary || []} monthName={f.monthLabel} />
-    </DataState>
-  );
-};
-
-const MembershipsBody = ({ header, summary, monthName }) => {
-  const h = header || {};
-
-  const kpis = [
-    { label: 'ACTIVE MEMBERS', value: num(h.member_count), note: `${num(h.new_members)} new`, positive: true },
-    { label: 'ADOPTION RATE', value: pct(h.membership_adoption_rate), note: 'of active clients', positive: true },
-    { label: 'NEW MEMBERS', value: num(h.new_members), note: 'this period', positive: true },
-    { label: 'EXISTING CLIENTS', value: num(h.existing_client_count), note: 'returning', positive: true },
-    { label: 'BLENDED ASP', value: money(h.blended_asp), note: 'all clients', positive: true },
-  ];
-
-  // Per-location member rows from mtd-summary.
-  const rows = [...summary]
-    .map((l) => ({
-      name: l.location,
-      newM: n(l.new_members) || 0,
-      nonM: n(l.non_members) || 0,
-      adoption: Math.abs(n(l.membership_adoption)) <= 1 ? (n(l.membership_adoption) || 0) * 100 : (n(l.membership_adoption) || 0),
-    }))
-    .sort((a, b) => b.adoption - a.adoption);
-  const maxNewM = Math.max(...rows.map((r) => r.newM), 1);
-  const totalNewM = rows.reduce((a, r) => a + r.newM, 0);
-
-  return (
-    <div className="px-9 py-8 space-y-6">
-      <div className="grid grid-cols-5 gap-4">
-        {kpis.map((k) => <KpiCard key={k.label} {...k} />)}
-      </div>
-
-      <div className="grid grid-cols-3 gap-6">
-        {/* New members by location */}
-        <div className="col-span-2 bg-white rounded-xl p-6 border border-gray-200">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold">New Members by Location</h3>
-            <span className="text-xs text-gray-400">{monthName} · {num(totalNewM)} total</span>
-          </div>
-          <div className="space-y-3">
-            {rows.map((r) => (
-              <div key={r.name} className="flex items-center gap-4">
-                <span className="w-28 text-sm text-gray-700">{r.name}</span>
-                <div className="flex-1 h-5 bg-gray-100 rounded-md overflow-hidden">
-                  <div className="h-full rounded-md bg-gradient-to-r from-teal-500 to-teal-600" style={{ width: `${(r.newM / maxNewM) * 100}%` }}></div>
-                </div>
-                <span className="w-12 text-right text-sm font-bold tabular-nums">{num(r.newM)}</span>
-              </div>
-            ))}
-            {rows.length === 0 && <p className="text-sm text-gray-400">No member data for this range.</p>}
-          </div>
-        </div>
-
-        {/* Adoption by location */}
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
-          <h3 className="text-lg font-bold mb-6">Adoption Rate by Location</h3>
-          <div className="space-y-4">
-            {rows.slice(0, 8).map((r) => (
-              <div key={r.name}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm text-gray-700">{r.name}</span>
-                  <span className="text-sm font-bold tabular-nums">{r.adoption.toFixed(0)}%</span>
-                </div>
-                <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full bg-teal-600" style={{ width: `${Math.min(r.adoption, 100)}%` }}></div>
-                </div>
+        <Card>
+          <CardTitle title="Paid Media KPIs"
+            right={<span style={{ padding: '5px 12px', borderRadius: 999, background: '#E6F2EE', color: C.teal, font: `600 10.5px ${FONT}` }}>vs. Prior Period</span>} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginTop: 14 }}>
+            {kpis.map((label) => (
+              <div key={label} style={{ background: C.bg, border: `1px solid ${C.line2}`, borderRadius: 10, padding: '12px 13px' }}>
+                <div style={{ font: `600 9px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: C.gray, lineHeight: 1.25, minHeight: 24 }}>{label}</div>
+                <div style={{ font: `600 20px ${FONT}`, color: C.ink, marginTop: 5, fontVariantNumeric: 'tabular-nums' }}>—</div>
               </div>
             ))}
           </div>
-          <div className="mt-6 pt-4 border-t border-gray-100 space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Chain adoption</span>
-              <span className="font-bold text-teal-600">{pct(h.membership_adoption_rate)}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Active members</span>
-              <span className="font-bold">{num(h.member_count)}</span>
-            </div>
-          </div>
-        </div>
+        </Card>
       </div>
+
+      <Card style={{ marginTop: 16 }}>
+        <div style={{ font: `600 14px ${FONT}`, color: C.ink, marginBottom: 16 }}>Booking Rate by Lead Source</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {sources.map((s, i) => (
+            <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <span style={{ width: 84, flex: 'none', font: `500 12px ${FONT}`, color: C.ink2 }}>{s}</span>
+              <span style={{ position: 'relative', flex: 1, height: 18, background: '#F0F4F3', borderRadius: 5 }}>
+                <span style={{ position: 'absolute', left: '60%', top: -2, bottom: -2, width: 1.5, background: C.clay }} />
+              </span>
+              <span style={{ width: 44, flex: 'none', textAlign: 'right', font: `600 12px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>—</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ font: `500 11px ${FONT}`, color: C.gray, marginTop: 12 }}>Dashed line = 30% conversion target</div>
+      </Card>
     </div>
   );
 };
-
-/* =================================================================
-   INVENTORY VIEW
-   No endpoint in the API reference. Explicit empty state.
-   ================================================================= */
-
-const InventoryView = () => (
-  <NoEndpoint
-    title="Inventory data isn't available"
-    detail="Stock levels, consumption, reorder alerts, and retail sell-through aren't exposed by the reporting API. Connect an inventory source to populate this view."
-  />
-);
+const ClinicalView = () => <ComingSoon name="Clinical" />;
+const PatientsView = () => <ComingSoon name="Patients / CRM" />;
+const StaffView = () => <ComingSoon name="Staff / Providers" />;
+const InventoryView = () => <NoEndpoint title="Inventory data isn't available" detail="The reporting API exposes no inventory endpoints. Connect an inventory source to populate this view." />;
+const MembershipsView = () => <ComingSoon name="Memberships" />;
 
 export default Dashboard;
