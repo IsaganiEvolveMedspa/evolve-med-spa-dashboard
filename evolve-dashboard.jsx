@@ -648,6 +648,10 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
   // R53: Recognized Revenue = accrual-basis (from FULL_SALES via operations-summary)
   // Sum per-location recognized_revenue; fall back to cash if ops unavailable.
   const recRev = ops.reduce((a, o) => a + (n(o.recognized_revenue) || 0), 0) || cashMtd;
+  // R52: Recognized-Revenue Trending = sum of per-location `trending` from
+  // operations-summary (each = avg_daily_revenue × operating days, accrual-basis).
+  // This is the authoritative recognized projection — not a cash-pace estimate.
+  const recRevTrendingOps = ops.reduce((a, o) => a + (n(o.trending) || 0), 0) || null;
   // projected run-rate from daily trending if available
   const trending = n(daily?.trending);
   // R49: PY Variance % = (MTD - PY) / PY * 100
@@ -765,10 +769,10 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
   const avgDailyCash = opDaysElapsed ? mtdActual / opDaysElapsed : null;
   // Cash trending: prefer backend `trending` (authoritative R34); else compute.
   const cashTrending = trending || (avgDailyCash != null ? avgDailyCash * totalOpDays : null);
-  // R52 (Monthly Trend): Recognized-Revenue trend extrapolates RECOGNIZED revenue
-  // on the same operating-day pace — not cash. Prefer a backend recognized-trend
-  // field if exposed, else apply the operating-day run-rate to recRev.
-  const recRevTrending = n(daily?.recognized_trending)
+  // R52 (Monthly Trend): Recognized-Revenue trend. Prefer the real per-location
+  // recognized trending summed from operations-summary; fall back to an
+  // operating-day run-rate on recRev only if ops trending is unavailable.
+  const recRevTrending = recRevTrendingOps
     ?? (opDaysElapsed ? (recRev / opDaysElapsed) * totalOpDays : null);
 
   // ---- Budget attainment by location ----
