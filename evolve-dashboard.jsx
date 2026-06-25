@@ -7,7 +7,7 @@ import React, { useState, useEffect, useMemo, useCallback, createContext, useCon
    wired to the live FastAPI; the spec's demo values are not used.
    ================================================================= */
 
-const API_BASE = 'https://backend-production-0019.up.railway.app';
+const API_BASE = 'https://evolvedspadashboarddemo-production.up.railway.app';
 
 const C = {
   ink: '#0F1B1A', panel: '#fff', bg: '#F6F8F7', line: '#E6ECEA', line2: '#EEF3F1', line3: '#F4F7F6',
@@ -623,13 +623,11 @@ const OverviewView = () => {
     headerPrev: { path: '/api/mtd-kpi-header', params: prevParams },
     appts: { path: '/api/appointments/summary', params },
     apptsPrev: { path: '/api/appointments/summary', params: prevParams },
-    retention: { path: '/api/new-guest-return-rate', params },
-    retentionPrev: { path: '/api/new-guest-return-rate', params: prevParams },
   }, [JSON.stringify(params)]);
 
   return (
     <DataState loading={loading || !fl.ready} error={error} onRetry={reload}>
-      <OverviewBody h={data.header || {}} hPrev={data.headerPrev || {}} summary={data.summary || []} ops={data.ops || []} categories={data.categories || []} daily={data.daily} appts={data.appts || []} apptsPrev={data.apptsPrev || []} retention={data.retention || []} retentionPrev={data.retentionPrev || []} range={fl.monthLabel} />
+      <OverviewBody h={data.header || {}} hPrev={data.headerPrev || {}} summary={data.summary || []} ops={data.ops || []} categories={data.categories || []} daily={data.daily} appts={data.appts || []} apptsPrev={data.apptsPrev || []} range={fl.monthLabel} />
     </DataState>
   );
 };
@@ -641,56 +639,43 @@ const Medal = ({ color }) => (
   </svg>
 );
 
-const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsPrev, retention, retentionPrev, range }) => {
+const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsPrev, range }) => {
   // ---- hero cards ----
-  // R32: Cash Sales (MTD) = cumulative cash-basis sales (from FULL_CASH via mtd-kpi-header)
   const cashMtd = n(h.mtd_revenue);
-  // R53: Recognized Revenue = accrual-basis (from FULL_SALES via operations-summary)
-  // Sum per-location recognized_revenue; fall back to cash if ops unavailable.
-  const recRev = ops.reduce((a, o) => a + (n(o.recognized_revenue) || 0), 0) || cashMtd;
+  const recRev = n(h.mtd_revenue); // API exposes one revenue figure; reuse for recognized
   // projected run-rate from daily trending if available
   const trending = n(daily?.trending);
-  // R49: PY Variance % = (MTD - PY) / PY * 100
   const yoy = h.same_store_yoy;
 
   // Revenue MoM (current vs prior month) for the hero cards — preferred over
   // YoY when prior-year data is absent (e.g. first year of a location).
-  const cashMom = momPctDelta(h.mtd_revenue, hPrev.mtd_revenue);
-  const heroDelta = (arrowDelta(yoy).text !== '—') ? arrowDelta(yoy) : (cashMom || arrowDelta(yoy));
+  const revMom = momPctDelta(h.mtd_revenue, hPrev.mtd_revenue);
+  const heroDelta = (arrowDelta(yoy).text !== '—') ? arrowDelta(yoy) : (revMom || arrowDelta(yoy));
 
   // ---- FINANCIAL group ----
-  // R37: % to Goal MTD = MTD Cash Sales ÷ Monthly Budget
   const budgetPaceVal = (() => {
     const b = n(h.monthly_budget), r = n(h.mtd_revenue);
     if (!b || r === null) return null;
     return (r / b) * 100;
   })();
-  // R59: COGS Margin = COGS ÷ Recognized Revenue (est. — backend returns constant %)
+  // COGS margin = 100 − gross margin %; compute for current & prior for MoM.
   const cogsMargin = h.gross_margin_pct != null ? 100 - pctScale(h.gross_margin_pct) : null;
   const cogsMarginPrev = hPrev.gross_margin_pct != null ? 100 - pctScale(hPrev.gross_margin_pct) : null;
   const financial = [
     { label: '% to Budget · Variance to Goal', value: budgetPaceVal != null ? `${budgetPaceVal.toFixed(0)}%` : '—',
       delta: budgetPaceVal != null ? `${budgetPaceVal >= 100 ? '▲' : '▼'} ${Math.abs(100 - budgetPaceVal).toFixed(0)}% to goal` : null,
       deltaColor: budgetPaceVal >= 100 ? C.green : C.clay },
-    // R49: SSS Growth YoY %
     { label: 'SSS Growth YoY %', value: pct(yoy), ...spread(arrowDelta(yoy)) },
-    // R02: Prior Day Sales — MoM delta compares yesterday's cash sales against
-    // the equivalent prior-day figure from the prior-month header window.
     { label: 'Prior Day Sales', value: money(h.yesterday_revenue, { compact: true }), ...spreadOrNull(momPctDelta(h.yesterday_revenue, hPrev.yesterday_revenue)) },
-    // R18: ASP (New) = Cash Sales (New) less Recurring ÷ New Customers
     { label: 'ASP (New)', value: money(h.asp_new_clients), ...spreadOrNull(momPctDelta(h.asp_new_clients, hPrev.asp_new_clients)) },
-    // R19: ASP (Existing) = Cash Sales (Existing) less Recurring ÷ Existing Customers
     { label: 'ASP (Existing)', value: money(h.asp_existing_clients), ...spreadOrNull(momPctDelta(h.asp_existing_clients, hPrev.asp_existing_clients)) },
-    // R59: COGS Margin = COGS ÷ Revenue (est. — lower is better, so invert delta color)
+    // COGS margin going down is good (lower cost), so invert the delta color.
     { label: 'COGS Margin %', value: pct(cogsMargin), ...spreadOrNull(momPtDelta(cogsMargin, cogsMarginPrev, { invert: true })) },
-    // R60: Payroll Margin = Payroll ÷ Revenue (no payroll feed → blank)
     { label: 'Payroll Margin %', value: '—', delta: null },
   ];
 
   // ---- OPERATIONAL group ----
   // No-show / cancellation rates from appointments/summary (chain aggregate).
-  // R29: No-Shows = client didn't arrive and didn't cancel
-  // R30: Cancellations = visits cancelled by client
   const sumA = (arr, f) => arr.reduce((a, r) => a + (n(r[f]) || 0), 0);
   const totA = sumA(appts, 'total_appointments');
   const noShowRate = totA ? (sumA(appts, 'no_shows') / totA) * 100 : null;
@@ -700,48 +685,29 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
   const cancelRatePrev = totAPrev ? (sumA(apptsPrev, 'cancellations') / totAPrev) * 100 : null;
 
   const operational = [
+    // For no-show/cancellation, a decrease is good → invert color.
     { label: 'No-Show Rate', value: noShowRate != null ? `${noShowRate.toFixed(1)}%` : '—', ...spreadOrNull(momPtDelta(noShowRate, noShowRatePrev, { invert: true })) },
     { label: 'Cancellation Rate', value: cancelRate != null ? `${cancelRate.toFixed(1)}%` : '—', ...spreadOrNull(momPtDelta(cancelRate, cancelRatePrev, { invert: true })) },
-    // R52: Membership Adoption = New Memberships ÷ Non-Member Visits.
-    // Value uses the backend-computed rate (membership_adoption_rate); MoM delta
-    // is a point change vs the prior-month rate (it's a percentage metric).
     { label: 'Membership Adoption', value: pct(h.membership_adoption_rate), ...spreadOrNull(momPtDelta(h.membership_adoption_rate, hPrev.membership_adoption_rate)) },
-    // R66: Rev/Hr Provider = provider revenue ÷ provider utilized hours
     { label: 'Rev / Hr · Provider', value: money(h.rev_per_provider, { compact: true }), ...spreadOrNull(momPctDelta(h.rev_per_provider, hPrev.rev_per_provider)) },
-    // R67: Rev/Hr Esthetician = esthetician revenue ÷ esthetician hours
     { label: 'Rev / Hr · Esthetician', value: money(h.rev_per_esthetician, { compact: true }), ...spreadOrNull(momPctDelta(h.rev_per_esthetician, hPrev.rev_per_esthetician)) },
-    // R68: Provider Utilization = service hours ÷ scheduled hours
     { label: 'Utilization · Provider', value: pct(h.provider_utilization), ...spreadOrNull(momPtDelta(h.provider_utilization, hPrev.provider_utilization)) },
-    // R69: Esthetician Utilization = esthetician hours ÷ available hours
     { label: 'Utilization · Esthetician', value: pct(h.esthetician_utilization), ...spreadOrNull(momPtDelta(h.esthetician_utilization, hPrev.esthetician_utilization)) },
-    // R70: Rebooking Rate = % completed appts where client rebooked before leaving
     { label: 'Rebook Rate %', value: pct(h.rebooking_rate), ...spreadOrNull(momPtDelta(h.rebooking_rate, hPrev.rebooking_rate)) },
   ];
 
   // ---- MARKETING group ----
-  // R11/R64: New Customers = first closed invoice >$0 in center (Power BI authoritative)
+  // New Visit MTD — uses the accrual `new_visits` field (distinct new-visit
+  // invoices, DAX-matched), falling back to new_client_count if an older API
+  // build is deployed. MoM delta compares the same field for the prior month.
   const newVisits = h.new_visits != null ? h.new_visits : h.new_client_count;
   const newVisitsPrev = hPrev.new_visits != null ? hPrev.new_visits : hPrev.new_client_count;
-
-  // New Guest Return Rate · 90 Day — chain-wide matured-cohort rate from
-  // /api/new-guest-return-rate. Rate = (returned within 90d) / (matured new guests) × 100.
-  // Stays "—" until the retention endpoint is deployed.
-  const retRate90 = (rows) => {
-    const num90 = rows.reduce((a, r) => a + (n(r.matured_returned_90d) || 0), 0);
-    const den90 = rows.reduce((a, r) => a + (n(r.matured_new_guests) || 0), 0);
-    return den90 ? (num90 / den90) * 100 : null;
-  };
-  const returnRate = retRate90(retention || []);
-  const returnRatePrev = retRate90(retentionPrev || []);
-
   const marketing = [
     { label: 'New Customer Visits', value: num(newVisits), ...spreadOrNull(momPctDelta(newVisits, newVisitsPrev)) },
-    // R12/R65: Existing Customers = guests with prior purchase + payment >$0
     { label: 'Existing Customer Visits', value: num(h.existing_client_count), ...spreadOrNull(momPctDelta(h.existing_client_count, hPrev.existing_client_count)) },
     { label: 'MTD Ad Spend', value: '—', delta: null },
     { label: 'Client Acquisition Cost', value: '—', delta: null },
-    // 90-day return rate: matured cohort, wired to /api/new-guest-return-rate
-    { label: 'New Guest Return Rate · 90 Day', value: returnRate != null ? pct(returnRate) : '—', ...spreadOrNull(momPtDelta(returnRate, returnRatePrev)) },
+    { label: 'New Guest Return Rate · 90 Day', value: '—', delta: null },
   ];
 
   // ---- Sales to Budget chart ----
