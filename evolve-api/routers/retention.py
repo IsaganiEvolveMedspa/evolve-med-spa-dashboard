@@ -73,7 +73,12 @@ def get_new_guest_return_rate(
 
         sql = f"""
         WITH new_guests AS (
-            -- New guests: first_visit='yes', first PAID visit date in the window.
+            -- New guests: first_visit='yes', first PAID visit on/before (end_date - 90).
+            -- Cohort window ends 90 days before end_date so every guest here has had a
+            -- full 90-day window to return (the "matured cohort"). Lower bound left
+            -- open (from start of data) so the cohort is non-empty for any single
+            -- period — selecting only within [start,end] would exclude all matured
+            -- guests and the metric would always be 0/blank.
             SELECT
                 center_name,
                 guest_name,
@@ -81,7 +86,7 @@ def get_new_guest_return_rate(
             FROM {FULL_CASH}
             WHERE LOWER(first_visit) = 'yes'
               AND sales_collected_exc_tax > 0
-              AND CAST(payment_date AS DATE) BETWEEN '{s}' AND '{e}'
+              AND CAST(payment_date AS DATE) <= DATEADD(DAY, -90, CAST('{e}' AS DATE))
               {_CASH_PAY_FILTER}
               {loc_and}
             GROUP BY center_name, guest_name
@@ -96,6 +101,22 @@ def get_new_guest_return_rate(
              AND v.sales_collected_exc_tax > 0
              AND CAST(v.payment_date AS DATE) >  ng.first_visit_date
              AND CAST(v.payment_date AS DATE) <= DATEADD(DAY, 90, ng.first_visit_date)
+        ),
+        cohort_visits AS (
+            -- Total visits by the MATURED cohort (first visit 90+ days before end_date).
+            -- A "visit" = distinct (guest, day) with a paid cash row, matching the
+            -- visit definition used elsewhere. This is the denominator the KPI uses
+            -- (returned guests / total visits), per the agreed definition.
+            SELECT
+                ng.center_name,
+                COUNT(DISTINCT CONCAT(v.guest_name, '|', CAST(v.payment_date AS DATE))) AS total_visits
+            FROM new_guests ng
+            JOIN {FULL_CASH} v
+              ON v.guest_name  = ng.guest_name
+             AND v.center_name = ng.center_name
+             AND v.sales_collected_exc_tax > 0
+            WHERE ng.first_visit_date <= DATEADD(DAY, -90, CAST('{e}' AS DATE))
+            GROUP BY ng.center_name
         )
         SELECT
             ng.center_name AS location,
@@ -105,13 +126,19 @@ def get_new_guest_return_rate(
                                 THEN ng.guest_name END) AS matured_new_guests,
             COUNT(DISTINCT CASE WHEN ng.first_visit_date <= DATEADD(DAY, -90, CAST('{e}' AS DATE))
                                 THEN r.guest_name END)  AS matured_returned_90d,
+            MAX(cv.total_visits)                          AS cohort_total_visits,
+            -- Return-to-visit ratio: matured cohort guests who returned within 90d,
+            -- divided by total visits by that cohort. NOTE: this is a visit-count
+            -- ratio, NOT a 0-100% per-guest return rate (denominator is visits, not
+            -- guests), per the agreed definition.
             COUNT(DISTINCT CASE WHEN ng.first_visit_date <= DATEADD(DAY, -90, CAST('{e}' AS DATE))
                                 THEN r.guest_name END) * 100.0
-                / NULLIF(COUNT(DISTINCT CASE WHEN ng.first_visit_date <= DATEADD(DAY, -90, CAST('{e}' AS DATE))
-                                THEN ng.guest_name END), 0) AS new_guest_return_rate_90d
+                / NULLIF(MAX(cv.total_visits), 0) AS new_guest_return_rate_90d
         FROM new_guests ng
         LEFT JOIN returned r
           ON r.center_name = ng.center_name AND r.guest_name = ng.guest_name
+        LEFT JOIN cohort_visits cv
+          ON cv.center_name = ng.center_name
         GROUP BY ng.center_name
         ORDER BY ng.center_name
         """
