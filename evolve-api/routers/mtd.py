@@ -119,7 +119,13 @@ def get_mtd_kpi_header(
         where_sales, params_sales = build_date_filter(s, e, locations, date_col="sale_date")
         e_dt      = datetime.strptime(e, "%Y-%m-%d").date()
         s_dt      = datetime.strptime(s, "%Y-%m-%d").date()
-        yesterday = str(e_dt - timedelta(days=1))
+        yesterday = y_loc_pre, y_loc_pre_p = loc_in(locations)
+                    _lc = run_query(
+                        f"SELECT MAX(CAST(payment_date AS DATE)) AS d FROM {FULL_CASH} "
+                        f"WHERE CAST(payment_date AS DATE) <= '{e}' {y_loc_pre} {_CASH_PAY_FILTER}",
+                        y_loc_pre_p or None,
+                    )
+                    yesterday = str(_lc[0]["d"]) if _lc and _lc[0].get("d") else str(e_dt - timedelta(days=1))
 
         lm_end_dt   = e_dt.replace(day=1) - timedelta(days=1)
         lm_start_dt = lm_end_dt.replace(day=1)
