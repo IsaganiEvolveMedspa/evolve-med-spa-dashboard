@@ -123,6 +123,7 @@ def get_daily_kpis(
             FROM {FULL_APPT}
             WHERE CAST(appointment_date AS DATE) = '{effective_date}'
               AND add_on = 'No'
+              AND LOWER(status) != 'deleted'
             {loc_and}
             GROUP BY center_name
         )
