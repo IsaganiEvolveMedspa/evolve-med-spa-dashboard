@@ -666,7 +666,7 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
       delta: budgetPaceVal != null ? `${budgetPaceVal >= 100 ? '▲' : '▼'} ${Math.abs(100 - budgetPaceVal).toFixed(0)}% to goal` : null,
       deltaColor: budgetPaceVal >= 100 ? C.green : C.clay },
     { label: 'SSS Growth YoY %', value: pct(yoy), ...spread(arrowDelta(yoy)) },
-    { label: 'Prior Day Sales %', value: money(h.yesterday_revenue, { compact: true }), delta: `${num(h.yesterday_clients)} clients`, deltaColor: C.gray },
+    { label: 'Prior Day Sales', value: money(h.yesterday_revenue, { compact: true }), ...spreadOrNull(momPctDelta(h.yesterday_revenue, hPrev.yesterday_revenue)) },
     { label: 'ASP (New)', value: money(h.asp_new_clients), ...spreadOrNull(momPctDelta(h.asp_new_clients, hPrev.asp_new_clients)) },
     { label: 'ASP (Existing)', value: money(h.asp_existing_clients), ...spreadOrNull(momPctDelta(h.asp_existing_clients, hPrev.asp_existing_clients)) },
     // COGS margin going down is good (lower cost), so invert the delta color.
@@ -688,7 +688,7 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
     // For no-show/cancellation, a decrease is good → invert color.
     { label: 'No-Show Rate', value: noShowRate != null ? `${noShowRate.toFixed(1)}%` : '—', ...spreadOrNull(momPtDelta(noShowRate, noShowRatePrev, { invert: true })) },
     { label: 'Cancellation Rate', value: cancelRate != null ? `${cancelRate.toFixed(1)}%` : '—', ...spreadOrNull(momPtDelta(cancelRate, cancelRatePrev, { invert: true })) },
-    { label: 'Membership Adoption %', value: pct(h.membership_adoption_rate), delta: `${num(h.new_members)} new`, deltaColor: C.gray },
+    { label: 'Membership Adoption', value: pct(h.membership_adoption_rate), ...spreadOrNull(momPtDelta(h.membership_adoption_rate, hPrev.membership_adoption_rate)) },
     { label: 'Rev / Hr · Provider', value: money(h.rev_per_provider, { compact: true }), ...spreadOrNull(momPctDelta(h.rev_per_provider, hPrev.rev_per_provider)) },
     { label: 'Rev / Hr · Esthetician', value: money(h.rev_per_esthetician, { compact: true }), ...spreadOrNull(momPctDelta(h.rev_per_esthetician, hPrev.rev_per_esthetician)) },
     { label: 'Utilization · Provider', value: pct(h.provider_utilization), ...spreadOrNull(momPtDelta(h.provider_utilization, hPrev.provider_utilization)) },
