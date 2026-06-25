@@ -621,11 +621,13 @@ const OverviewView = () => {
     categories: { path: '/api/category-breakdown', params },
     daily: { path: '/api/mtd-daily-trend', params },
     headerPrev: { path: '/api/mtd-kpi-header', params: prevParams },
+    appts: { path: '/api/appointments/summary', params },
+    apptsPrev: { path: '/api/appointments/summary', params: prevParams },
   }, [JSON.stringify(params)]);
 
   return (
     <DataState loading={loading || !fl.ready} error={error} onRetry={reload}>
-      <OverviewBody h={data.header || {}} hPrev={data.headerPrev || {}} summary={data.summary || []} ops={data.ops || []} categories={data.categories || []} daily={data.daily} range={fl.monthLabel} />
+      <OverviewBody h={data.header || {}} hPrev={data.headerPrev || {}} summary={data.summary || []} ops={data.ops || []} categories={data.categories || []} daily={data.daily} appts={data.appts || []} apptsPrev={data.apptsPrev || []} range={fl.monthLabel} />
     </DataState>
   );
 };
@@ -637,7 +639,7 @@ const Medal = ({ color }) => (
   </svg>
 );
 
-const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, range }) => {
+const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsPrev, range }) => {
   // ---- hero cards ----
   const cashMtd = n(h.mtd_revenue);
   const recRev = n(h.mtd_revenue); // API exposes one revenue figure; reuse for recognized
@@ -645,34 +647,53 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, range }) => {
   const trending = n(daily?.trending);
   const yoy = h.same_store_yoy;
 
+  // Revenue MoM (current vs prior month) for the hero cards — preferred over
+  // YoY when prior-year data is absent (e.g. first year of a location).
+  const revMom = momPctDelta(h.mtd_revenue, hPrev.mtd_revenue);
+  const heroDelta = (arrowDelta(yoy).text !== '—') ? arrowDelta(yoy) : (revMom || arrowDelta(yoy));
+
   // ---- FINANCIAL group ----
   const budgetPaceVal = (() => {
     const b = n(h.monthly_budget), r = n(h.mtd_revenue);
     if (!b || r === null) return null;
     return (r / b) * 100;
   })();
+  // COGS margin = 100 − gross margin %; compute for current & prior for MoM.
+  const cogsMargin = h.gross_margin_pct != null ? 100 - pctScale(h.gross_margin_pct) : null;
+  const cogsMarginPrev = hPrev.gross_margin_pct != null ? 100 - pctScale(hPrev.gross_margin_pct) : null;
   const financial = [
     { label: '% to Budget · Variance to Goal', value: budgetPaceVal != null ? `${budgetPaceVal.toFixed(0)}%` : '—',
       delta: budgetPaceVal != null ? `${budgetPaceVal >= 100 ? '▲' : '▼'} ${Math.abs(100 - budgetPaceVal).toFixed(0)}% to goal` : null,
       deltaColor: budgetPaceVal >= 100 ? C.green : C.clay },
     { label: 'SSS Growth YoY %', value: pct(yoy), ...spread(arrowDelta(yoy)) },
     { label: 'Prior Day Sales', value: money(h.yesterday_revenue, { compact: true }), delta: `${num(h.yesterday_clients)} clients`, deltaColor: C.gray },
-    { label: 'ASP (New)', value: money(h.asp_new_clients), delta: null },
-    { label: 'ASP (Existing)', value: money(h.asp_existing_clients), delta: null },
-    { label: 'COGS Margin %', value: pct(h.gross_margin_pct != null ? 100 - pctScale(h.gross_margin_pct) : null), delta: null },
+    { label: 'ASP (New)', value: money(h.asp_new_clients), ...spreadOrNull(momPctDelta(h.asp_new_clients, hPrev.asp_new_clients)) },
+    { label: 'ASP (Existing)', value: money(h.asp_existing_clients), ...spreadOrNull(momPctDelta(h.asp_existing_clients, hPrev.asp_existing_clients)) },
+    // COGS margin going down is good (lower cost), so invert the delta color.
+    { label: 'COGS Margin %', value: pct(cogsMargin), ...spreadOrNull(momPtDelta(cogsMargin, cogsMarginPrev, { invert: true })) },
     { label: 'Payroll Margin %', value: '—', delta: null },
   ];
 
   // ---- OPERATIONAL group ----
+  // No-show / cancellation rates from appointments/summary (chain aggregate).
+  const sumA = (arr, f) => arr.reduce((a, r) => a + (n(r[f]) || 0), 0);
+  const totA = sumA(appts, 'total_appointments');
+  const noShowRate = totA ? (sumA(appts, 'no_shows') / totA) * 100 : null;
+  const cancelRate = totA ? (sumA(appts, 'cancellations') / totA) * 100 : null;
+  const totAPrev = sumA(apptsPrev, 'total_appointments');
+  const noShowRatePrev = totAPrev ? (sumA(apptsPrev, 'no_shows') / totAPrev) * 100 : null;
+  const cancelRatePrev = totAPrev ? (sumA(apptsPrev, 'cancellations') / totAPrev) * 100 : null;
+
   const operational = [
-    { label: 'No-Show Rate', value: '—', delta: null },
-    { label: 'Cancellation Rate', value: '—', delta: null },
+    // For no-show/cancellation, a decrease is good → invert color.
+    { label: 'No-Show Rate', value: noShowRate != null ? `${noShowRate.toFixed(1)}%` : '—', ...spreadOrNull(momPtDelta(noShowRate, noShowRatePrev, { invert: true })) },
+    { label: 'Cancellation Rate', value: cancelRate != null ? `${cancelRate.toFixed(1)}%` : '—', ...spreadOrNull(momPtDelta(cancelRate, cancelRatePrev, { invert: true })) },
     { label: 'Membership Adoption', value: pct(h.membership_adoption_rate), delta: `${num(h.new_members)} new`, deltaColor: C.gray },
-    { label: 'Rev / Hr · Provider', value: money(h.rev_per_provider, { compact: true }), delta: null },
-    { label: 'Rev / Hr · Esthetician', value: money(h.rev_per_esthetician, { compact: true }), delta: null },
-    { label: 'Utilization · Provider', value: pct(h.provider_utilization), delta: null },
-    { label: 'Utilization · Esthetician', value: pct(h.esthetician_utilization), delta: null },
-    { label: 'Rebook Rate %', value: pct(h.rebooking_rate), delta: null },
+    { label: 'Rev / Hr · Provider', value: money(h.rev_per_provider, { compact: true }), ...spreadOrNull(momPctDelta(h.rev_per_provider, hPrev.rev_per_provider)) },
+    { label: 'Rev / Hr · Esthetician', value: money(h.rev_per_esthetician, { compact: true }), ...spreadOrNull(momPctDelta(h.rev_per_esthetician, hPrev.rev_per_esthetician)) },
+    { label: 'Utilization · Provider', value: pct(h.provider_utilization), ...spreadOrNull(momPtDelta(h.provider_utilization, hPrev.provider_utilization)) },
+    { label: 'Utilization · Esthetician', value: pct(h.esthetician_utilization), ...spreadOrNull(momPtDelta(h.esthetician_utilization, hPrev.esthetician_utilization)) },
+    { label: 'Rebook Rate %', value: pct(h.rebooking_rate), ...spreadOrNull(momPtDelta(h.rebooking_rate, hPrev.rebooking_rate)) },
   ];
 
   // ---- MARKETING group ----
@@ -681,10 +702,9 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, range }) => {
   // build is deployed. MoM delta compares the same field for the prior month.
   const newVisits = h.new_visits != null ? h.new_visits : h.new_client_count;
   const newVisitsPrev = hPrev.new_visits != null ? hPrev.new_visits : hPrev.new_client_count;
-  const newVisitsDelta = momPctDelta(newVisits, newVisitsPrev);
   const marketing = [
-    { label: 'New Customer Visits', value: num(newVisits), ...(newVisitsDelta ? spread(newVisitsDelta) : { delta: null }) },
-    { label: 'Existing Customer Visits', value: num(h.existing_client_count), delta: null },
+    { label: 'New Customer Visits', value: num(newVisits), ...spreadOrNull(momPctDelta(newVisits, newVisitsPrev)) },
+    { label: 'Existing Customer Visits', value: num(h.existing_client_count), ...spreadOrNull(momPctDelta(h.existing_client_count, hPrev.existing_client_count)) },
     { label: 'MTD Ad Spend', value: '—', delta: null },
     { label: 'Client Acquisition Cost', value: '—', delta: null },
     { label: 'New Guest Return Rate · 90 Day', value: '—', delta: null },
@@ -743,10 +763,10 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, range }) => {
     <div>
       {/* hero trend cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-        <HeroCard label="Cash Sales" mtd={money(cashMtd, { compact: true })} mtdDelta={arrowDelta(yoy)}
-          proj={money(trending || (mtdActual && daysInMonth ? (mtdActual / Math.max(dailyArr.length, 1)) * daysInMonth : null), { compact: true })} projDelta={arrowDelta(yoy)} />
-        <HeroCard label="Recognized Revenue" mtd={money(recRev, { compact: true })} mtdDelta={arrowDelta(yoy)}
-          proj={money(trending || (mtdActual && daysInMonth ? (mtdActual / Math.max(dailyArr.length, 1)) * daysInMonth : null), { compact: true })} projDelta={arrowDelta(yoy)} />
+        <HeroCard label="Cash Sales" mtd={money(cashMtd, { compact: true })} mtdDelta={heroDelta}
+          proj={money(trending || (mtdActual && daysInMonth ? (mtdActual / Math.max(dailyArr.length, 1)) * daysInMonth : null), { compact: true })} projDelta={heroDelta} />
+        <HeroCard label="Recognized Revenue" mtd={money(recRev, { compact: true })} mtdDelta={heroDelta}
+          proj={money(trending || (mtdActual && daysInMonth ? (mtdActual / Math.max(dailyArr.length, 1)) * daysInMonth : null), { compact: true })} projDelta={heroDelta} />
       </div>
 
       {/* KPI groups */}
@@ -889,6 +909,8 @@ const LegendPill = ({ bg, color, children }) => (
 
 // helper to spread arrowDelta into KpiCard props
 function spread(d) { return { delta: d.text, deltaColor: d.color }; }
+// spread a MoM delta into KpiCard props, or render no subheader if unavailable
+function spreadOrNull(d) { return d ? { delta: d.text, deltaColor: d.color } : { delta: null }; }
 
 const GRID_COLS = '1.25fr 0.8fr 1.4fr 0.85fr 0.78fr 0.82fr 0.58fr 0.72fr 0.8fr 0.72fr 0.8fr 0.74fr 0.74fr 0.74fr 0.74fr 0.62fr';
 
