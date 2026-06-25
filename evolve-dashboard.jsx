@@ -1654,7 +1654,7 @@ const useTrailingMonths = (anchorDate, locations, count = 12) => {
     return out.map((m) => ({ ...m, short: m.label.split(' ')[0] }));
   }, [anchorDate, count]);
 
-  const [state, setState] = useState({ loading: true, error: null, data: [] });
+  const [state, setState] = useState({ loading: true, error: null, warning: null, data: [] });
   const [nonce, setNonce] = useState(0);
   const reload = useCallback(() => setNonce((x) => x + 1), []);
   const locKey = JSON.stringify(locations || null);
@@ -1663,22 +1663,59 @@ const useTrailingMonths = (anchorDate, locations, count = 12) => {
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
-    setState((s) => ({ ...s, loading: true, error: null }));
+    setState((s) => ({ ...s, loading: true, error: null, warning: null }));
     (async () => {
+      // Each month pulls two independent endpoints. A single month (or a single
+      // endpoint within a month) can fail server-side — e.g. operations-summary
+      // 500ing on one month's data — without that meaning the whole matrix is
+      // unavailable. So every call is isolated: a failure degrades to [] for that
+      // cell instead of rejecting the entire view. We only show the hard error
+      // screen if literally nothing loaded (a real outage); partial gaps surface
+      // as a soft warning and the matrix still renders from what succeeded.
+      const safe = async (path, p) => {
+        try {
+          const r = await apiGet(path, p, controller.signal);
+          return { ok: true, rows: r || [] };
+        } catch (e) {
+          if (e.name === 'AbortError') throw e; // let abort bubble to cancel cleanly
+          return { ok: false, rows: [], err: e.message || 'failed' };
+        }
+      };
+
       try {
+        let summaryFails = 0;
+        let opsFails = 0;
         const results = await Promise.all(months.map(async (m) => {
           const p = { start_date: m.start, end_date: m.end, locations };
           const [summary, ops] = await Promise.all([
-            apiGet('/api/mtd-summary', p, controller.signal),
-            apiGet('/api/operations-summary', p, controller.signal),
+            safe('/api/mtd-summary', p),
+            safe('/api/operations-summary', p),
           ]);
-          return { summary: summary || [], ops: ops || [] };
+          if (!summary.ok) summaryFails += 1;
+          if (!ops.ok) opsFails += 1;
+          return { summary: summary.rows, ops: ops.rows, ok: summary.ok || ops.ok };
         }));
         if (cancelled) return;
-        setState({ loading: false, error: null, data: results });
+
+        const totalEndpoints = months.length * 2;
+        const totalFails = summaryFails + opsFails;
+        // Hard error only when every single call failed (genuine outage).
+        if (totalFails >= totalEndpoints) {
+          setState({ loading: false, error: 'Couldn\u2019t reach the reporting API.', warning: null, data: [] });
+          return;
+        }
+        // Otherwise render what we have, and note any partial gaps.
+        let warning = null;
+        if (opsFails > 0 || summaryFails > 0) {
+          const parts = [];
+          if (opsFails > 0) parts.push(`operations data for ${opsFails} month${opsFails > 1 ? 's' : ''}`);
+          if (summaryFails > 0) parts.push(`sales data for ${summaryFails} month${summaryFails > 1 ? 's' : ''}`);
+          warning = `Some months are partial — couldn\u2019t load ${parts.join(' and ')}. Showing the rest.`;
+        }
+        setState({ loading: false, error: null, warning, data: results });
       } catch (e) {
         if (e.name === 'AbortError' || cancelled) return;
-        setState({ loading: false, error: e.message || 'Failed to load', data: [] });
+        setState({ loading: false, error: e.message || 'Failed to load', warning: null, data: [] });
       }
     })();
     return () => { cancelled = true; controller.abort(); };
@@ -1732,7 +1769,7 @@ const MatrixSparkline = ({ values, momentum }) => {
 const LocationsView = () => {
   const fl = useFilters();
   const [metricKey, setMetricKey] = useState('total_sales');
-  const { months, data, loading, error, reload } = useTrailingMonths(fl.latestDate, fl.locations, 12);
+  const { months, data, loading, error, warning, reload } = useTrailingMonths(fl.latestDate, fl.locations, 12);
   const metric = LOC_METRICS.find((m) => m.key === metricKey) || LOC_METRICS[0];
 
   // Build per-location series across the 12 months for the active metric.
@@ -1772,6 +1809,11 @@ const LocationsView = () => {
 
   return (
     <DataState loading={loading || !fl.ready} error={error} onRetry={reload} kpiCount={1}>
+      {warning && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#FBF1E8', border: `1px solid #F0DCC9`, borderRadius: 10, padding: '11px 15px', marginBottom: 14, font: `500 12px ${FONT}`, color: C.clay }}>
+          <span style={{ font: `700 13px ${FONT}` }}>!</span>{warning}
+        </div>
+      )}
       <Card>
         <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Location Momentum Matrix · {metric.label}</div>
         <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2 }}>12-month trend · cells heat-mapped to each location's own average · sorted by momentum</div>
