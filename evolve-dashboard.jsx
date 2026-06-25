@@ -719,7 +719,8 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
   ];
 
   // ---- MARKETING group ----
-  // R11/R64: New Customers = first closed invoice >$0 in center (Power BI authoritative)
+  // R13: Visits (New) = guests whose first invoice date in center occurred in period.
+  // (Distinct from New Customers R11 — this card tracks visits, hence "New Customer Visits".)
   const newVisits = h.new_visits != null ? h.new_visits : h.new_client_count;
   const newVisitsPrev = hPrev.new_visits != null ? hPrev.new_visits : hPrev.new_client_count;
 
@@ -751,6 +752,24 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
   const mtdActual = dailyArr.reduce((a, d) => a + (n(d.daily_sales) || 0), 0) || cashMtd || 0;
   const budgetMtd = budget && daysInMonth ? (budget / daysInMonth) * dailyArr.length : null;
   const paceToBudget = budget ? (mtdActual / budget) * 100 : null;
+
+  // ---- Spec-aligned projections (R33/R34) ----
+  // R33 Avg. Daily Sales = MTD Cash Sales ÷ OPERATING days elapsed (not calendar).
+  // R34 Trending = Avg. Daily Sales × Total Operating Days in month.
+  // Operating days are days the location actually transacted; the daily-sales
+  // array (one row per operating day) is the best available proxy. Total
+  // operating days come from the API when present, else fall back to the
+  // elapsed-day pace projected over the remaining calendar of the month.
+  const opDaysElapsed = dailyArr.filter((d) => n(d.daily_sales) != null).length || dailyArr.length || null;
+  const totalOpDays = n(daily?.total_operating_days) || n(daily?.operating_days_in_month) || daysInMonth;
+  const avgDailyCash = opDaysElapsed ? mtdActual / opDaysElapsed : null;
+  // Cash trending: prefer backend `trending` (authoritative R34); else compute.
+  const cashTrending = trending || (avgDailyCash != null ? avgDailyCash * totalOpDays : null);
+  // R52 (Monthly Trend): Recognized-Revenue trend extrapolates RECOGNIZED revenue
+  // on the same operating-day pace — not cash. Prefer a backend recognized-trend
+  // field if exposed, else apply the operating-day run-rate to recRev.
+  const recRevTrending = n(daily?.recognized_trending)
+    ?? (opDaysElapsed ? (recRev / opDaysElapsed) * totalOpDays : null);
 
   // ---- Budget attainment by location ----
   const attain = [...summary]
@@ -826,9 +845,9 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
       {/* hero trend cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <HeroCard label="Cash Sales" mtd={money(cashMtd, { compact: true })} mtdDelta={heroDelta}
-          proj={money(trending || (mtdActual && daysInMonth ? (mtdActual / Math.max(dailyArr.length, 1)) * daysInMonth : null), { compact: true })} projDelta={heroDelta} />
+          proj={money(cashTrending, { compact: true })} projDelta={heroDelta} />
         <HeroCard label="Recognized Revenue" mtd={money(recRev, { compact: true })} mtdDelta={heroDelta}
-          proj={money(trending || (mtdActual && daysInMonth ? (mtdActual / Math.max(dailyArr.length, 1)) * daysInMonth : null), { compact: true })} projDelta={heroDelta} />
+          proj={money(recRevTrending, { compact: true })} projDelta={heroDelta} />
       </div>
 
       {/* KPI groups */}
@@ -859,13 +878,13 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, height: 0, borderTop: `2px dashed #AAB7B3` }} />Run Rate</span>
               </div>
             } />
-          <PacingChart daily={dailyArr} budget={budget} trending={trending} daysInMonth={daysInMonth} />
+          <PacingChart daily={dailyArr} budget={budget} trending={cashTrending} daysInMonth={daysInMonth} />
           <div style={{ display: 'flex', gap: 26, marginTop: 6, paddingTop: 12, borderTop: `1px solid ${C.line2}`, flexWrap: 'wrap' }}>
             {[
               ['Net Sales MTD', money(mtdActual, { compact: true }), C.ink],
               ['Budget (MTD)', budgetMtd != null ? money(budgetMtd, { compact: true }) : '—', C.ink],
               ['Pace to Budget', paceToBudget != null ? `${paceToBudget.toFixed(0)}%` : '—', paceToBudget >= 100 ? C.ink : C.clay],
-              ['Projected (Run Rate)', money(trending, { compact: true }), C.ink],
+              ['Projected (Run Rate)', money(cashTrending, { compact: true }), C.ink],
               ['Full-Month Budget', money(budget, { compact: true }), C.ink],
             ].map(([l, v, col]) => (
               <div key={l} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -2056,8 +2075,10 @@ void momPtDelta;
 const AcquisitionBody = ({ h, hPrev, ops, opsPrev, appts, apptsPrev, range }) => {
   // ---- derive what the reporting API genuinely exposes ----
   const sumOps = (arr, f) => arr.reduce((a, o) => a + (n(o[f]) || 0), 0);
-  const newCust = n(h.new_visits) ?? n(h.new_client_count) ?? (sumOps(ops, 'new_client_count') || null);
-  const newCustPrev = n(hPrev.new_visits) ?? n(hPrev.new_client_count) ?? (sumOps(opsPrev, 'new_client_count') || null);
+  // R11/R64: New Customers = first closed invoice >$0 (Power BI authoritative).
+  // Use new_client_count, NOT new_visits (which is Visits-New, R13 — a distinct KPI).
+  const newCust = n(h.new_client_count) ?? (sumOps(ops, 'new_client_count') || null);
+  const newCustPrev = n(hPrev.new_client_count) ?? (sumOps(opsPrev, 'new_client_count') || null);
 
   const completed = sumField(appts, 'completed');
   const totalAppts = sumField(appts, 'total_appointments');
