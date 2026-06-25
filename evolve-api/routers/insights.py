@@ -78,7 +78,7 @@ _INSIGHTS_SCHEMA = [
 ]
 
 
-def if BQ_CLIENT:     _ensure_insights_table() else:     print("[WARN] BQ_CLIENT is None — insights cache table check skipped.") -> None:
+def _ensure_insights_table() -> None:
     """Create the AI insights cache table if it doesn't already exist."""
     dataset_ref = BQ_CLIENT.dataset(DATASET, project=PROJECT_ID)
     table_ref   = dataset_ref.table(INSIGHTS_TABLE)
@@ -99,7 +99,10 @@ def if BQ_CLIENT:     _ensure_insights_table() else:     print("[WARN] BQ_CLIENT
 
 
 # Run table check once at import time (fast — just a get_table call)
-_ensure_insights_table()
+if BQ_CLIENT:
+    _ensure_insights_table()
+else:
+    print("[WARN] BQ_CLIENT is None - insights cache table check skipped.")
 
 
 # ─── Request / response models ─────────────────────────────────────────────────
