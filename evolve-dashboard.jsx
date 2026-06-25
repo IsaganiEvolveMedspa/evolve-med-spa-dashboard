@@ -779,8 +779,11 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
   ];
   // build conic-gradient
   let acc = 0; const stops = serviceMix.map((s) => { const start = acc; acc += s.pct * 3.6; return `${s.color} ${start}deg ${acc}deg`; }).join(',');
-  // injectable share = neuro+filler+other_injectables if present
-  const injCats = ['neurotoxins', 'filler', 'other_injectables'];
+  // injectable share = the "Injectables" category (this endpoint returns top-level
+  // item_category, so it's a single "Injectables" row), falling back to summing the
+  // sub-category names (neurotoxins/filler/other_injectables) if a finer breakdown
+  // is ever returned instead.
+  const injCats = ['injectables', 'neurotoxins', 'filler', 'other_injectables'];
   const injSum = serviceCats.filter((c) => injCats.includes((c.item_category || '').toLowerCase())).reduce((a, c) => a + (n(c.revenue) || 0), 0);
   const injPct = Math.round((injSum / totalCat) * 100);
 
