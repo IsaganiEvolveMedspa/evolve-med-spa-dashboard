@@ -756,8 +756,36 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
     a.recRev += n(o.recognized_revenue) || 0;
     a.newCust += n(o.new_client_count) || 0;
     a.existCust += n(o.existing_client_count) || 0;
+    // collect per-row series for chain-level aggregates
+    if (n(o.cogs_pct) != null) a._cogs.push(n(o.cogs_pct));
+    if (n(o.payroll_pct) != null) a._payroll.push(n(o.payroll_pct));
+    if (n(o.gross_margin_pct) != null) a._gm.push(n(o.gross_margin_pct));
+    // revenue-weighted ASP (weight by recognized revenue so big centers count more)
+    const w = n(o.recognized_revenue) || 0;
+    if (n(o.asp) != null) { a._aspW += n(o.asp) * w; a._aspWsum += w; }
+    if (n(o.asp_excl_memberships) != null) { a._aspXW += n(o.asp_excl_memberships) * w; a._aspXWsum += w; }
+    // simple averages for utilization / rev-hr / rebook (only real values)
+    if (n(o.provider_utilization) != null) a._pu.push(n(o.provider_utilization));
+    if (n(o.rev_per_provider) != null) a._prh.push(n(o.rev_per_provider));
+    if (n(o.esthetician_utilization) != null) a._eu.push(n(o.esthetician_utilization));
+    if (n(o.rev_per_esthetician) != null) a._erh.push(n(o.rev_per_esthetician));
+    if (n(o.rebooking_rate) != null) a._rb.push(n(o.rebooking_rate));
     return a;
-  }, { cash: 0, budget: 0, trending: 0, newM: 0, recRev: 0, newCust: 0, existCust: 0 });
+  }, { cash: 0, budget: 0, trending: 0, newM: 0, recRev: 0, newCust: 0, existCust: 0,
+       _cogs: [], _payroll: [], _gm: [], _aspW: 0, _aspWsum: 0, _aspXW: 0, _aspXWsum: 0,
+       _pu: [], _prh: [], _eu: [], _erh: [], _rb: [] });
+  // derive chain-level summary stats
+  const avg = (arr) => arr.length ? arr.reduce((x, y) => x + y, 0) / arr.length : null;
+  totals.cogsPct = avg(totals._cogs);
+  totals.payrollPct = avg(totals._payroll);
+  totals.gmPct = avg(totals._gm);
+  totals.asp = totals._aspWsum ? totals._aspW / totals._aspWsum : null;
+  totals.aspX = totals._aspXWsum ? totals._aspXW / totals._aspXWsum : null;
+  totals.provUtil = avg(totals._pu);
+  totals.provRevHr = avg(totals._prh);
+  totals.esthUtil = avg(totals._eu);
+  totals.esthRevHr = avg(totals._erh);
+  totals.rebook = avg(totals._rb);
 
   return (
     <div>
@@ -979,12 +1007,19 @@ const LocationTable = ({ rows, totals }) => {
             <span style={{ fontVariantNumeric: 'tabular-nums' }}>{money(totals.trending, { compact: true })}</span>
             <span style={{ font: `700 9.5px ${FONT}`, color: totals.budget && totals.cash / totals.budget >= 1 ? C.teal : C.clay, fontVariantNumeric: 'tabular-nums' }}>{totals.budget ? `${((totals.cash / totals.budget) * 100).toFixed(0)}%` : '—'}</span>
           </span>
-          <span style={{ ...cell, fontWeight: 700, color: C.ink }}>{money(totals.recRev, { compact: true })}</span><span style={cell}>—</span><span style={cell}>—</span><span style={cell}>—</span>
+          <span style={{ ...cell, fontWeight: 700, color: C.ink }}>{money(totals.recRev, { compact: true })}</span>
+          <span style={cell}>{totals.cogsPct != null ? pct(totals.cogsPct, 1) : '—'}</span>
+          <span style={cell}>{totals.payrollPct != null ? pct(totals.payrollPct, 1) : '—'}</span>
+          <span style={cell}>{totals.gmPct != null ? pct(totals.gmPct, 0) : '—'}</span>
           <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{num(totals.newCust)}</span>
-          <span style={cell}>{num(totals.existCust)}</span><span style={cell}>—</span><span style={cell}>—</span>
-          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>—</span><span style={cell}>—</span>
-          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>—</span><span style={cell}>—</span>
-          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>—</span>
+          <span style={cell}>{num(totals.existCust)}</span>
+          <span style={cell}>{totals.asp != null ? money(totals.asp) : '—'}</span>
+          <span style={cell}>{totals.aspX != null ? money(totals.aspX) : '—'}</span>
+          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{totals.provUtil != null ? pct(totals.provUtil, 0) : '—'}</span>
+          <span style={cell}>{totals.provRevHr != null ? money(totals.provRevHr) : '—'}</span>
+          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{totals.esthUtil != null ? pct(totals.esthUtil, 0) : '—'}</span>
+          <span style={cell}>{totals.esthRevHr != null ? money(totals.esthRevHr) : '—'}</span>
+          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{totals.rebook != null ? pct(totals.rebook, 0) : '—'}</span>
         </div>
       )}
     </div>
@@ -1201,9 +1236,20 @@ const FinanceBody = ({ h, monthly, daily, categories, range }) => {
     return { label: c.item_category, amount: money(c.revenue, { compact: true }), pctTxt: `${w.toFixed(1)}%`, width: w, cogsWidth: 38 };
   });
 
-  // Injectables scatter from category counts (volume) vs rev/unit
-  const injCats = categories.filter((c) => ['neurotoxins', 'filler', 'other injectables', 'other_injectables', 'prf'].includes((c.item_category || '').toLowerCase()));
-  const scatterPts = injCats.map((c) => { const cnt = n(c.count) || 1; const rev = n(c.revenue) || 0; return { x: cnt, y: rev / cnt, name: c.item_category }; });
+  // Injectables scatter from category counts (volume) vs rev/unit.
+  // category-breakdown returns item_category (e.g. "Injectables", "Skin
+  // Rejuvenation"), NOT the sub-categories (Filler/Toxin/PRF), which live in
+  // item_sub_category and aren't exposed here. So match the real top-level
+  // category names rather than sub-type names.
+  const injMatch = (name) => {
+    const c = (name || '').toLowerCase();
+    return c.includes('inject') || c === 'neurotoxins' || c === 'filler' || c === 'prf'
+      || c === 'skin rejuvenation' || c === 'other injectables' || c === 'other_injectables';
+  };
+  const injCats = categories.filter((c) => injMatch(c.item_category));
+  const scatterPts = injCats
+    .map((c) => { const cnt = n(c.count) || 0; const rev = n(c.revenue) || 0; return cnt > 0 ? { x: cnt, y: rev / cnt, name: c.item_category } : null; })
+    .filter(Boolean);
 
   return (
     <div>
@@ -1237,7 +1283,7 @@ const FinanceBody = ({ h, monthly, daily, categories, range }) => {
         </Card>
 
         <Card>
-          <CardTitle title="Margin Trend"
+          <CardTitle title="Margin Trend" sub="Modeled margin ratios by location · COGS & payroll are flat assumptions, so lines sit level"
             right={<div style={{ display: 'flex', gap: 14, font: `500 11px ${FONT}`, color: C.ink2 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2.5, background: C.teal, borderRadius: 2 }} />Gross</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 2.5, background: C.clayLite, borderRadius: 2 }} />COGS</span>
@@ -1347,11 +1393,17 @@ const FinanceBody = ({ h, monthly, daily, categories, range }) => {
   );
 };
 
-// This Week vs Last Week — built from mtd-summary current vs prior week if available,
-// fetched separately so the bars reflect real per-location week deltas.
+// This Week vs Last Week — a rolling WTD snapshot anchored to the latest date
+// that actually has data, NOT the selected month-end. Anchoring to a historical
+// month-end (e.g. viewing Jul 2025 -> week ending 2025-07-31) lands the
+// "current week" window on days with no collections, which made every location
+// read $0 / −100%. Using latestDate keeps this a true recent-week comparison.
 const WeekVsWeek = () => {
   const fl = useFilters();
-  const params = { start_date: fl.start_date, end_date: fl.end_date, locations: fl.locations };
+  // end_date = latest available data date; start_date is left for the API to
+  // derive (it computes the last-7-days window from end_date). Locations still
+  // honor the current filter.
+  const params = { end_date: fl.latestDate || fl.end_date, locations: fl.locations };
   const { data, loading } = useApiData({ summary: { path: '/api/mtd-summary', params } }, [JSON.stringify(params)]);
   if (loading) return <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `500 12px ${FONT}`, color: C.gray }}><Spinner /></div>;
   const summary = data.summary || [];
@@ -1365,11 +1417,18 @@ const WeekVsWeek = () => {
   const totalCur = rows.reduce((a, r) => a + r.cur, 0);
   const totalPrior = rows.reduce((a, r) => a + r.prior, 0);
   const chainPct = totalPrior ? ((totalCur - totalPrior) / totalPrior) * 100 : 0;
+  // If the current-week window has no data at all (common for fully historical
+  // months), don't render a misleading "−100%"; show an explanatory state.
+  const noCurrentData = totalCur === 0 && totalPrior > 0;
 
   return (
     <div>
       <div style={{ background: '#F4F7F6', borderRadius: 8, padding: '11px 16px', font: `500 12.5px ${FONT}`, color: C.ink2, marginBottom: 18 }}>
-        Through this point, the chain is running <span style={{ color: chainPct >= 0 ? C.teal : C.clay, fontWeight: 700 }}>{chainPct >= 0 ? '+' : ''}{chainPct.toFixed(1)}%</span> vs the same point last week ({money(totalCur, { compact: true })} vs {money(totalPrior, { compact: true })} WTD).
+        {noCurrentData ? (
+          <span>No sales recorded yet in the current week — showing last week's pace ({money(totalPrior, { compact: true })} WTD) for reference.</span>
+        ) : (
+          <span>Through this point, the chain is running <span style={{ color: chainPct >= 0 ? C.teal : C.clay, fontWeight: 700 }}>{chainPct >= 0 ? '+' : ''}{chainPct.toFixed(1)}%</span> vs the same point last week ({money(totalCur, { compact: true })} vs {money(totalPrior, { compact: true })} WTD).</span>
+        )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         {rows.map((r) => {
