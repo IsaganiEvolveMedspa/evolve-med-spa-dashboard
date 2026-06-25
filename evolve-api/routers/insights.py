@@ -78,7 +78,7 @@ _INSIGHTS_SCHEMA = [
 ]
 
 
-def _ensure_insights_table() -> None:
+def if BQ_CLIENT:     _ensure_insights_table() else:     print("[WARN] BQ_CLIENT is None — insights cache table check skipped.") -> None:
     """Create the AI insights cache table if it doesn't already exist."""
     dataset_ref = BQ_CLIENT.dataset(DATASET, project=PROJECT_ID)
     table_ref   = dataset_ref.table(INSIGHTS_TABLE)
