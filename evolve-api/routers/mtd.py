@@ -78,6 +78,26 @@ _BUDGET_VALUES = """(VALUES
     ('Waldorf, MD',       35000.0)
 ) AS budget_lookup(location, monthly_budget)"""
 
+# Same budget figures as a Python dict, so the header can compute a
+# location-aware budget without a parameterized SQL round-trip.
+_BUDGET_BY_LOCATION = {
+    'Bel Air, MD':     167500.0,
+    'Bridgewater, NJ':  50000.0,
+    'Denville, NJ':    165000.0,
+    'Frederick, MD':   147500.0,
+    'Hoboken, NJ':     267500.0,
+    'Jersey City, NJ': 250000.0,
+    'Lancaster, PA':    50000.0,
+    'Montclair, NJ':   192500.0,
+    'Old Bridge, NJ':   97500.0,
+    'Red Bank, NJ':    160000.0,
+    'Ridgewood, NJ':   150000.0,
+    'Short Hills, NJ': 167500.0,
+    'Tribeca, NY':      50000.0,
+    'Waldorf, MD':      35000.0,
+}
+
+
 
 @router.get("/api/mtd-kpi-header")
 def get_mtd_kpi_header(
@@ -115,6 +135,14 @@ def get_mtd_kpi_header(
         appt_loc, appt_loc_p = loc_in(locations)
         y_loc,    y_loc_p    = loc_in(locations)
 
+        # Location-aware monthly budget (was hardcoded 1,950,000 — wrong under any
+        # location filter). Sum the per-location budget dict for selected centers.
+        # Computed in Python (no SQL placeholders) to avoid any param-binding risk.
+        if locations:
+            monthly_budget_val = float(sum(_BUDGET_BY_LOCATION.get(l, 0.0) for l in locations))
+        else:
+            monthly_budget_val = float(sum(_BUDGET_BY_LOCATION.values()))
+
         sql = f"""
         WITH guest_classification AS (
             -- One row per guest_name: is_new=1 if ANY row in period has first_visit='yes'.
@@ -138,8 +166,14 @@ def get_mtd_kpi_header(
                 COUNT(DISTINCT CASE WHEN gc.is_new = 0 THEN c.guest_name END)                                 AS existing_client_count,
                 COUNT(DISTINCT CASE WHEN LOWER(c.member) = 'yes'        THEN c.guest_name END)                AS member_count,
                 COUNT(DISTINCT CASE WHEN c.item_category = 'Memberships' THEN c.guest_name END)               AS new_members,
+                -- Membership Adoption Rate = New Memberships / Non-Member unique guests * 100.
+                -- Denominator uses the `member` flag (non-members only), per KPI spec —
+                -- NOT all guests. NOTE: spec's true numerator is memberships *created*
+                -- this month from Bi_DimMembershipUser_s3 (Creation Date = Start Date in
+                -- month); this cash-derived count is a proxy until that table is wired.
                 COUNT(DISTINCT CASE WHEN c.item_category = 'Memberships' THEN c.guest_name END) * 1.0
-                    / NULLIF(COUNT(DISTINCT c.guest_name), 0) * 100                                            AS membership_adoption_rate,
+                    / NULLIF(COUNT(DISTINCT CASE WHEN LOWER(c.member) = 'no'
+                                                  THEN c.guest_name END), 0) * 100                             AS membership_adoption_rate,
                 SUM(CASE WHEN c.item_category != 'Memberships' THEN c.sales_collected_exc_tax ELSE 0 END) * 1.0
                     / NULLIF(COUNT(DISTINCT CASE WHEN c.item_category != 'Memberships'
                                                   AND c.sales_collected_exc_tax > 0
@@ -266,7 +300,7 @@ def get_mtd_kpi_header(
             pv.rev_per_provider_hr    AS rev_per_provider,
             pv.rev_per_esthetician_hr AS rev_per_esthetician,
             ROUND((1 - 0.20 - 0.22 * 1.12) * 100, 1)                                          AS gross_margin_pct,
-            1950000.0                                                                             AS monthly_budget,
+            {monthly_budget_val}                                                                  AS monthly_budget,
             rb.rebooking_rate
         FROM mtd m
         CROSS JOIN yesterday_data  y
@@ -342,7 +376,8 @@ def get_mtd_summary(
                              BETWEEN DATEADD(DAY, -6, '{e}') AND '{e}'
                          THEN sales_collected_exc_tax ELSE 0 END)                                             AS current_week_revenue,
                 COUNT(DISTINCT CASE WHEN item_category = 'Memberships'  THEN guest_code END)                  AS new_members,
-                COUNT(DISTINCT CASE WHEN item_category != 'Memberships' THEN guest_code END)                  AS non_members,
+                -- Non-members via the `member` flag (spec), not by purchase category.
+                COUNT(DISTINCT CASE WHEN LOWER(member) = 'no'           THEN guest_code END)                  AS non_members,
                 COUNT(DISTINCT guest_code)                                                                     AS total_guests
             FROM {FULL_CASH}
             {where}
@@ -398,7 +433,8 @@ def get_mtd_summary(
                 / NULLIF(COALESCE(py.py_revenue, 0), 0) * 100                           AS py_variance_pct,
             c.new_members,
             c.non_members,
-            c.new_members * 1.0 / NULLIF(c.total_guests, 0) * 100                      AS membership_adoption
+            -- Adoption = New Memberships / Non-Members (member flag), per spec.
+            c.new_members * 1.0 / NULLIF(c.non_members, 0) * 100                       AS membership_adoption
         FROM current_period c
         LEFT JOIN budget_lookup b  ON c.center_name = b.location
         LEFT JOIN prior_week  pw ON c.center_name = pw.center_name
