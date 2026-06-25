@@ -648,10 +648,6 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
   // R53: Recognized Revenue = accrual-basis (from FULL_SALES via operations-summary)
   // Sum per-location recognized_revenue; fall back to cash if ops unavailable.
   const recRev = ops.reduce((a, o) => a + (n(o.recognized_revenue) || 0), 0) || cashMtd;
-  // R52: Recognized-Revenue Trending = sum of per-location `trending` from
-  // operations-summary (each = avg_daily_revenue × operating days, accrual-basis).
-  // This is the authoritative recognized projection — not a cash-pace estimate.
-  const recRevTrendingOps = ops.reduce((a, o) => a + (n(o.trending) || 0), 0) || null;
   // projected run-rate from daily trending if available
   const trending = n(daily?.trending);
   // R49: PY Variance % = (MTD - PY) / PY * 100
@@ -723,8 +719,7 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
   ];
 
   // ---- MARKETING group ----
-  // R13: Visits (New) = guests whose first invoice date in center occurred in period.
-  // (Distinct from New Customers R11 — this card tracks visits, hence "New Customer Visits".)
+  // R11/R64: New Customers = first closed invoice >$0 in center (Power BI authoritative)
   const newVisits = h.new_visits != null ? h.new_visits : h.new_client_count;
   const newVisitsPrev = hPrev.new_visits != null ? hPrev.new_visits : hPrev.new_client_count;
 
@@ -757,33 +752,24 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
   const budgetMtd = budget && daysInMonth ? (budget / daysInMonth) * dailyArr.length : null;
   const paceToBudget = budget ? (mtdActual / budget) * 100 : null;
 
-  // ---- Spec-aligned projections (R33/R34) ----
-  // R33 Avg. Daily Sales = MTD Cash Sales ÷ OPERATING days elapsed (not calendar).
-  // R34 Trending = Avg. Daily Sales × Total Operating Days in month.
-  // Operating days are days the location actually transacted; the daily-sales
-  // array (one row per operating day) is the best available proxy. Total
-  // operating days come from the API when present, else fall back to the
-  // elapsed-day pace projected over the remaining calendar of the month.
-  const opDaysElapsed = dailyArr.filter((d) => n(d.daily_sales) != null).length || dailyArr.length || null;
-  const totalOpDays = n(daily?.total_operating_days) || n(daily?.operating_days_in_month) || daysInMonth;
-  const avgDailyCash = opDaysElapsed ? mtdActual / opDaysElapsed : null;
-  // Cash trending: prefer backend `trending` (authoritative R34); else compute.
-  const cashTrending = trending || (avgDailyCash != null ? avgDailyCash * totalOpDays : null);
-  // R52 (Monthly Trend): Recognized-Revenue trend. Prefer the real per-location
-  // recognized trending summed from operations-summary; fall back to an
-  // operating-day run-rate on recRev only if ops trending is unavailable.
-  const recRevTrending = recRevTrendingOps
-    ?? (opDaysElapsed ? (recRev / opDaysElapsed) * totalOpDays : null);
-
   // ---- Budget attainment by location ----
   const attain = [...summary]
     .map((l) => ({ name: l.location, pace: pctScale(l.pct_to_goal_mtd) }))
     .filter((l) => l.pace != null)
     .sort((a, b) => b.pace - a.pace);
 
-  // ---- service mix donut ----
-  const totalCat = categories.reduce((a, c) => a + (n(c.revenue) || 0), 0) || 1;
-  const sortedCat = [...categories].sort((a, b) => (n(b.revenue) || 0) - (n(a.revenue) || 0));
+  // ---- service vs product classification ----
+  // category-breakdown has no item_type, so classify by item_category: anything
+  // under "Retail" is a product; Memberships is neither (recurring plan, excluded
+  // from both mixes); everything else is a service.
+  const isProductCat = (c) => /^retail/i.test((c.item_category || '').trim());
+  const isMembershipCat = (c) => /^membership/i.test((c.item_category || '').trim());
+  const serviceCats = categories.filter((c) => !isProductCat(c) && !isMembershipCat(c));
+  const productCats = categories.filter((c) => isProductCat(c));
+
+  // ---- service mix donut (services only, by revenue) ----
+  const totalCat = serviceCats.reduce((a, c) => a + (n(c.revenue) || 0), 0) || 1;
+  const sortedCat = [...serviceCats].sort((a, b) => (n(b.revenue) || 0) - (n(a.revenue) || 0));
   const topCats = sortedCat.slice(0, 5);
   const otherSum = sortedCat.slice(5).reduce((a, c) => a + (n(c.revenue) || 0), 0);
   const donutColors = [C.teal, C.tealBright, C.tealLite, C.tealPale, C.clayLite, '#C9D6D2'];
@@ -795,11 +781,11 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
   let acc = 0; const stops = serviceMix.map((s) => { const start = acc; acc += s.pct * 3.6; return `${s.color} ${start}deg ${acc}deg`; }).join(',');
   // injectable share = neuro+filler+other_injectables if present
   const injCats = ['neurotoxins', 'filler', 'other_injectables'];
-  const injSum = categories.filter((c) => injCats.includes((c.item_category || '').toLowerCase())).reduce((a, c) => a + (n(c.revenue) || 0), 0);
+  const injSum = serviceCats.filter((c) => injCats.includes((c.item_category || '').toLowerCase())).reduce((a, c) => a + (n(c.revenue) || 0), 0);
   const injPct = Math.round((injSum / totalCat) * 100);
 
-  // ---- product mix (by category count) ----
-  const byCount = [...categories].sort((a, b) => (n(b.count) || 0) - (n(a.count) || 0)).slice(0, 7);
+  // ---- product mix (products only, by unit count) ----
+  const byCount = [...productCats].sort((a, b) => (n(b.count) || 0) - (n(a.count) || 0)).slice(0, 7);
   const maxCount = Math.max(...byCount.map((c) => n(c.count) || 0), 1);
 
   // ---- location performance table (merge mtd-summary + operations-summary) ----
@@ -849,9 +835,9 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
       {/* hero trend cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <HeroCard label="Cash Sales" mtd={money(cashMtd, { compact: true })} mtdDelta={heroDelta}
-          proj={money(cashTrending, { compact: true })} projDelta={heroDelta} />
+          proj={money(trending || (mtdActual && daysInMonth ? (mtdActual / Math.max(dailyArr.length, 1)) * daysInMonth : null), { compact: true })} projDelta={heroDelta} />
         <HeroCard label="Recognized Revenue" mtd={money(recRev, { compact: true })} mtdDelta={heroDelta}
-          proj={money(recRevTrending, { compact: true })} projDelta={heroDelta} />
+          proj={money(trending || (mtdActual && daysInMonth ? (mtdActual / Math.max(dailyArr.length, 1)) * daysInMonth : null), { compact: true })} projDelta={heroDelta} />
       </div>
 
       {/* KPI groups */}
@@ -882,13 +868,13 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, height: 0, borderTop: `2px dashed #AAB7B3` }} />Run Rate</span>
               </div>
             } />
-          <PacingChart daily={dailyArr} budget={budget} trending={cashTrending} daysInMonth={daysInMonth} />
+          <PacingChart daily={dailyArr} budget={budget} trending={trending} daysInMonth={daysInMonth} />
           <div style={{ display: 'flex', gap: 26, marginTop: 6, paddingTop: 12, borderTop: `1px solid ${C.line2}`, flexWrap: 'wrap' }}>
             {[
               ['Net Sales MTD', money(mtdActual, { compact: true }), C.ink],
               ['Budget (MTD)', budgetMtd != null ? money(budgetMtd, { compact: true }) : '—', C.ink],
               ['Pace to Budget', paceToBudget != null ? `${paceToBudget.toFixed(0)}%` : '—', paceToBudget >= 100 ? C.ink : C.clay],
-              ['Projected (Run Rate)', money(cashTrending, { compact: true }), C.ink],
+              ['Projected (Run Rate)', money(trending, { compact: true }), C.ink],
               ['Full-Month Budget', money(budget, { compact: true }), C.ink],
             ].map(([l, v, col]) => (
               <div key={l} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -2079,10 +2065,8 @@ void momPtDelta;
 const AcquisitionBody = ({ h, hPrev, ops, opsPrev, appts, apptsPrev, range }) => {
   // ---- derive what the reporting API genuinely exposes ----
   const sumOps = (arr, f) => arr.reduce((a, o) => a + (n(o[f]) || 0), 0);
-  // R11/R64: New Customers = first closed invoice >$0 (Power BI authoritative).
-  // Use new_client_count, NOT new_visits (which is Visits-New, R13 — a distinct KPI).
-  const newCust = n(h.new_client_count) ?? (sumOps(ops, 'new_client_count') || null);
-  const newCustPrev = n(hPrev.new_client_count) ?? (sumOps(opsPrev, 'new_client_count') || null);
+  const newCust = n(h.new_visits) ?? n(h.new_client_count) ?? (sumOps(ops, 'new_client_count') || null);
+  const newCustPrev = n(hPrev.new_visits) ?? n(hPrev.new_client_count) ?? (sumOps(opsPrev, 'new_client_count') || null);
 
   const completed = sumField(appts, 'completed');
   const totalAppts = sumField(appts, 'total_appointments');
