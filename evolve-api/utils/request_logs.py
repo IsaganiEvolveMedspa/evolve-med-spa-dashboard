@@ -52,7 +52,7 @@ _API_LOG_SCHEMA = [
 ]
 
 
-def _ensure_api_log_table() -> None:
+def if BQ_CLIENT:     _ensure_api_log_table() else:     print("[WARN] BQ_CLIENT is None — api_log table check skipped.") -> None:
     """Create the api_log table in BigQuery if it doesn't already exist."""
     dataset_ref = BQ_CLIENT.dataset(DATASET, project=PROJECT_ID)
     table_ref   = dataset_ref.table(API_LOG_TABLE)
@@ -73,7 +73,12 @@ def _ensure_api_log_table() -> None:
 
 _ensure_api_log_table()
 
-
+def insert_log_row(row: dict) -> None:
+    """Write a single row to api_log via BigQuery streaming insert."""
+    if not BQ_CLIENT:
+        return
+    try:
+      
 def insert_log_row(row: dict) -> None:
     """Write a single row to api_log via BigQuery streaming insert."""
     try:
