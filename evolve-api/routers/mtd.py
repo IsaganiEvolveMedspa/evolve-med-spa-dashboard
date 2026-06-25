@@ -119,13 +119,25 @@ def get_mtd_kpi_header(
         where_sales, params_sales = build_date_filter(s, e, locations, date_col="sale_date")
         e_dt      = datetime.strptime(e, "%Y-%m-%d").date()
         s_dt      = datetime.strptime(s, "%Y-%m-%d").date()
-        yesterday = y_loc_pre, y_loc_pre_p = loc_in(locations)
-                    _lc = run_query(
-                        f"SELECT MAX(CAST(payment_date AS DATE)) AS d FROM {FULL_CASH} "
-                        f"WHERE CAST(payment_date AS DATE) <= '{e}' {y_loc_pre} {_CASH_PAY_FILTER}",
-                        y_loc_pre_p or None,
-                    )
-                    yesterday = str(_lc[0]["d"]) if _lc and _lc[0].get("d") else str(e_dt - timedelta(days=1))
+
+        # "Prior Day Sales" = the most recent day that actually has cash data at or
+        # before end_date (for the selected locations) — NOT end_date - 1. Cash data
+        # lags the calendar, so anchoring to end_date - 1 returns $0 whenever the
+        # selected range runs ahead of the loaded data (e.g. end_date=month-end but
+        # data only through the 22nd). Resolve the real latest data day instead.
+        y_loc_pre, y_loc_pre_p = loc_in(locations)
+        last_cash_sql = f"""
+        SELECT MAX(CAST(payment_date AS DATE)) AS d
+        FROM {FULL_CASH}
+        WHERE CAST(payment_date AS DATE) <= '{e}'
+        {y_loc_pre}
+        {_CASH_PAY_FILTER}
+        """
+        _lc = run_query(last_cash_sql, y_loc_pre_p or None)
+        yesterday = (
+            str(_lc[0]["d"]) if _lc and _lc[0].get("d")
+            else str(e_dt - timedelta(days=1))
+        )
 
         lm_end_dt   = e_dt.replace(day=1) - timedelta(days=1)
         lm_start_dt = lm_end_dt.replace(day=1)
