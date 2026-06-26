@@ -143,12 +143,17 @@ def get_mtd_kpi_header(
         lm_end_dt   = e_dt.replace(day=1) - timedelta(days=1)
         lm_start_dt = lm_end_dt.replace(day=1)
 
+        # Prior-year window must cover the SAME elapsed days as the (partial) current
+        # month. Anchoring py_end to e_dt (often month-end) compares a partial current
+        # month against a FULL prior-year month, biasing YoY negative. Anchor instead to
+        # `yesterday` — the latest day that actually has current cash data.
+        _lc_dt = datetime.strptime(yesterday, "%Y-%m-%d").date()
         try:
             py_start = str(s_dt.replace(year=s_dt.year - 1))
-            py_end   = str(e_dt.replace(year=e_dt.year - 1))
+            py_end   = str(_lc_dt.replace(year=_lc_dt.year - 1))
         except ValueError:
             py_start = str(s_dt - timedelta(days=365))
-            py_end   = str(e_dt - timedelta(days=365))
+            py_end   = str(_lc_dt - timedelta(days=365))
 
         sched_block, sched_x = build_sched_filter(s, e, locations)
         appt_loc, appt_loc_p = loc_in(locations)

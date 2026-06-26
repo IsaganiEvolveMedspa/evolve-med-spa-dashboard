@@ -81,7 +81,10 @@ const money = (v, { compact = false, decimals, floor = false } = {}) => {
   }
   return `$${x.toLocaleString(undefined, { maximumFractionDigits: decimals ?? 0 })}`;
 };
-const pctScale = (v) => { const x = n(v); if (x === null) return null; return Math.abs(x) <= 1 ? x * 100 : x; };
+// Backend returns every rate already as a percentage (0-100), so DO NOT rescale.
+// The old "abs(x) <= 1 ? x*100 : x" heuristic wrongly multiplied genuine sub-1%
+// values (e.g. a 0.18% membership-adoption rate) up to 18.3%.
+const pctScale = (v) => n(v);
 const pct = (v, d = 1) => { const x = pctScale(v); return x === null ? '—' : `${x.toFixed(d)}%`; };
 const num = (v, d = 0) => { const x = n(v); return x === null ? '—' : x.toLocaleString(undefined, { maximumFractionDigits: d }); };
 const arrowDelta = (v, { unit = '%', d = 1, invert = false } = {}) => {

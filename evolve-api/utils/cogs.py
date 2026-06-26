@@ -4,11 +4,13 @@ COGS margin helper.
 COGS Margin % = total cost of goods / sales accrual * 100, joined at location grain.
 
   - total cost of goods : SUM(cost_of_goods) from BRONZE_ZENOTI_COST_OF_GOODS
-  - sales accrual       : SUM(total_sales_exc_tax) from the sales accrual table,
-                          deduped to one row per invoice first. total_sales_exc_tax
-                          is an invoice-level total repeated on every line item, so a
-                          plain SUM over the line-item-grain table double-counts by
-                          line count. MAX-per-invoice then SUM gives the true accrual.
+  - sales accrual       : SUM(sales_exc_tax) from the sales accrual table (line-item
+                          grain, summed = net accrual sales). This matches how
+                          recognized_revenue / ASP already sum the sales table.
+                          NOTE: do NOT use total_sales_exc_tax deduped by invoice_id —
+                          invoice_id is unique per LINE here, so it never dedupes and
+                          the invoice total gets summed once per line, inflating the
+                          denominator ~300x (verified: $459M vs the real ~$1.4M).
 
 Computed as a separate lookup (rather than extra CTEs in the large operations /
 mtd queries) to keep it isolated from those queries' positional-parameter ordering.
@@ -36,13 +38,9 @@ def fetch_cogs_and_accrual(
         GROUP BY center_name
     """
     accrual_sql = f"""
-        SELECT center_name, SUM(inv_total) AS accrual_sales
-        FROM (
-            SELECT center_name, invoice_id, MAX(total_sales_exc_tax) AS inv_total
-            FROM {FULL_SALES}
-            {sales_where}
-            GROUP BY center_name, invoice_id
-        ) inv
+        SELECT center_name, SUM(sales_exc_tax) AS accrual_sales
+        FROM {FULL_SALES}
+        {sales_where}
         GROUP BY center_name
     """
 
