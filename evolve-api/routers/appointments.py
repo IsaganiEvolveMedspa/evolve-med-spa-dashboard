@@ -50,8 +50,8 @@ def get_appointments_summary(
             SUM(CASE WHEN add_on = 'No' AND LOWER(status) = 'no show'  THEN 1.0 ELSE 0 END)
                 / NULLIF(SUM(CASE WHEN add_on = 'No' AND LOWER(status) != 'deleted' THEN 1 ELSE 0 END), 0)
                 * 100                                                                               AS no_show_rate,
-            SUM(CASE WHEN add_on = 'No' AND LOWER(status) = 'cancelled' THEN 1.0 ELSE 0 END)
-                / NULLIF(SUM(CASE WHEN add_on = 'No' AND LOWER(status) != 'deleted' THEN 1 ELSE 0 END), 0)
+            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'cancelled' THEN invoice_no END) * 1.0
+                / NULLIF(COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) != 'deleted' THEN invoice_no END), 0)
                 * 100                                                                               AS cancellation_rate,
             SUM(CASE WHEN add_on = 'No' AND LOWER(status) = 'closed' AND LOWER(rebooked) = 'yes' THEN 1.0 ELSE 0 END)
                 / NULLIF(SUM(CASE WHEN add_on = 'No' AND LOWER(status) = 'closed' THEN 1 ELSE 0 END), 0)

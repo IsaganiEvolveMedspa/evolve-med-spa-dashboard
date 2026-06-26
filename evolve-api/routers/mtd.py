@@ -245,7 +245,7 @@ def get_mtd_kpi_header(
             SELECT
                 LOWER(job_name)                                                                     AS role,
                 SUM({hhmm_to_hours('booked_hours')}) * 1.0
-                    / NULLIF(SUM({hhmm_to_hours('scheduled_hours')}), 0) * 100                      AS utilization_pct
+                    / NULLIF(SUM({hhmm_to_hours('scheduled_hours')} + {hhmm_to_hours('block_out_hours_paid')}), 0) * 100      AS utilization_pct
             FROM {FULL_SCHEDULE}
             {sched_block}
             GROUP BY job_name

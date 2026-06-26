@@ -51,7 +51,7 @@ def get_employee_utilization(
         pivot_cols = ",\n        ".join(
             f"SUM(CASE WHEN CAST(date AS DATE) = '{d}' THEN {hhmm_to_hours('booked_hours')} ELSE 0 END)"
             f" * 1.0"
-            f" / NULLIF(SUM(CASE WHEN CAST(date AS DATE) = '{d}' THEN {hhmm_to_hours('scheduled_hours')} ELSE 0 END), 0)"
+            f" / NULLIF(SUM(CASE WHEN CAST(date AS DATE) = '{d}' THEN {hhmm_to_hours('scheduled_hours')} + {hhmm_to_hours('block_out_hours_paid')} ELSE 0 END), 0)"
             f" * 100 AS d_{d.strftime('%Y%m%d')}"
             for d in date_range
         )
@@ -63,7 +63,7 @@ def get_employee_utilization(
             center_name                                                                     AS center,
             job_name                                                                        AS role,
             employee_name                                                                   AS name,
-            SUM({hhmm_to_hours('booked_hours')}) * 1.0 / NULLIF(SUM({hhmm_to_hours('scheduled_hours')}), 0) * 100 AS tot,
+            SUM({hhmm_to_hours('booked_hours')}) * 1.0 / NULLIF(SUM({hhmm_to_hours('scheduled_hours')} + {hhmm_to_hours('block_out_hours_paid')}), 0) * 100 AS tot,
             {pivot_cols}
         FROM {FULL_SCHEDULE}
         WHERE CAST(date AS DATE) BETWEEN '{s}' AND '{e}'
@@ -197,8 +197,9 @@ def get_employee_scorecard(
                 center_name,
                 job_name,
                 employee_name,
-                SUM({hhmm_to_hours('booked_hours')})    AS booked_hours,
-                SUM({hhmm_to_hours('scheduled_hours')}) AS scheduled_hours
+                SUM({hhmm_to_hours('booked_hours')})        AS booked_hours,
+                SUM({hhmm_to_hours('scheduled_hours')})     AS scheduled_hours,
+                SUM({hhmm_to_hours('block_out_hours_paid')}) AS blocked_hours
             FROM {FULL_SCHEDULE}
             WHERE CAST(date AS DATE) BETWEEN '{s}' AND '{e}'
               AND job_name IN ('Treatment Provider', 'Esthetician')
@@ -228,7 +229,7 @@ def get_employee_scorecard(
             s.center_name                                                                   AS center,
             s.job_name                                                                      AS role,
             s.employee_name                                                                 AS name,
-            s.booked_hours * 1.0 / NULLIF(s.scheduled_hours, 0) * 100                     AS utilization,
+            s.booked_hours * 1.0 / NULLIF(s.scheduled_hours + s.blocked_hours, 0) * 100   AS utilization,
             COALESCE(r.total_revenue, 0) * 1.0 / NULLIF(s.booked_hours, 0)                AS rev_per_hr,
             COALESCE(r.total_revenue, 0)                                                    AS total_revenue,
             s.booked_hours,

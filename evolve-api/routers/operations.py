@@ -25,10 +25,10 @@ def _schedule_and_rev_ctes(sched_block, where, full_schedule, full_sales):
         SELECT
             center_name,
             SUM(CASE WHEN job_name = 'Treatment Provider' THEN {hhmm_to_hours("booked_hours")} ELSE 0 END) * 1.0
-                / NULLIF(SUM(CASE WHEN job_name = 'Treatment Provider' THEN {hhmm_to_hours("scheduled_hours")} ELSE 0 END), 0)
+                / NULLIF(SUM(CASE WHEN job_name = 'Treatment Provider' THEN {hhmm_to_hours("scheduled_hours")} + {hhmm_to_hours("block_out_hours_paid")} ELSE 0 END), 0)
                 * 100 AS provider_utilization,
             SUM(CASE WHEN job_name = 'Esthetician' THEN {hhmm_to_hours("booked_hours")} ELSE 0 END) * 1.0
-                / NULLIF(SUM(CASE WHEN job_name = 'Esthetician' THEN {hhmm_to_hours("scheduled_hours")} ELSE 0 END), 0)
+                / NULLIF(SUM(CASE WHEN job_name = 'Esthetician' THEN {hhmm_to_hours("scheduled_hours")} + {hhmm_to_hours("block_out_hours_paid")} ELSE 0 END), 0)
                 * 100 AS esthetician_utilization
         FROM {full_schedule}
         {sched_block}
