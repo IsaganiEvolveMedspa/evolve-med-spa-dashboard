@@ -4,7 +4,7 @@ from typing import Optional, List
 
 from fastapi import APIRouter, Query, Request
 
-from config import FULL_SALES
+from config import FULL_SALES, FULL_COGS
 from db import run_query, serialize_rows
 from utils.filters import build_date_filter
 from utils.errors import log_and_raise_from_request
@@ -52,31 +52,33 @@ def get_product_mix(
     end_date:   Optional[str]       = Query(None),
     locations:  Optional[List[str]] = Query(None),
 ):
-    """Revenue and units by PRODUCT NAME (item_name) for products — Product Mix table."""
+    """Unit consumption by PRODUCT NAME — Product Mix table.
+
+    Sourced from the cost-of-goods consumption table (has product_name + qty).
+    Dysport is dosed at ~3x Botox units, so its qty is divided by 3.
+    """
     try:
         today = datetime.utcnow().date()
         e = end_date   or str(today)
         s = start_date or str(today.replace(day=1))
-        where, params = build_date_filter(s, e, locations)
+        where, params = build_date_filter(s, e, locations, date_col="transaction_date")
 
         prod_guard = (
-            "AND item_type = 'Product' AND item_name IS NOT NULL"
+            "AND product_name IS NOT NULL"
             if where else
-            "WHERE item_type = 'Product' AND item_name IS NOT NULL"
+            "WHERE product_name IS NOT NULL"
         )
 
-        # Dysport is dosed at ~3x Botox units, so its qty is divided by 3 to make
-        # unit consumption comparable across products.
         sql = f"""
         SELECT
-            item_name          AS product_name,
-            SUM(sales_exc_tax) AS revenue,
-            SUM(CASE WHEN UPPER(item_name) LIKE '%DYSPORT%' THEN qty / 3.0 ELSE qty END) AS units,
+            product_name,
+            SUM(CASE WHEN UPPER(product_name) LIKE '%DYSPORT%' THEN qty / 3.0 ELSE qty END) AS units,
+            SUM(cost_of_goods) AS cost,
             COUNT(*)           AS count
-        FROM {FULL_SALES}
+        FROM {FULL_COGS}
         {where}
         {prod_guard}
-        GROUP BY item_name
+        GROUP BY product_name
         ORDER BY units DESC
         """
         return run_query(sql, params or None)
