@@ -8,6 +8,7 @@ from config import FULL_SALES, FULL_CASH, FULL_SCHEDULE, FULL_APPT
 from db import run_query, serialize_rows
 from utils.filters import build_date_filter, build_sched_filter, merge_params, loc_in, hhmm_to_hours
 from utils.cogs import fetch_cogs_and_accrual, cogs_margin_pct, gross_margin_pct
+from utils.ad_spend import mtd_ad_spend, client_acquisition_cost
 from utils.errors import log_and_raise_from_request
 
 router = APIRouter()
@@ -346,6 +347,10 @@ def get_mtd_kpi_header(
         tot_accrual = sum(v.get("accrual", 0) for v in cm.values())
         result["cogs_margin_pct"]  = cogs_margin_pct(tot_cogs, tot_accrual)
         result["gross_margin_pct"] = gross_margin_pct(tot_cogs, tot_accrual)
+        # MTD Ad Spend (chain-level, from bundled Google/FB ad export) + CAC.
+        result["mtd_ad_spend"] = mtd_ad_spend(s, e)
+        result["client_acquisition_cost"] = client_acquisition_cost(
+            result.get("mtd_ad_spend"), result.get("new_client_count"))
         return result
 
     except Exception as exc:

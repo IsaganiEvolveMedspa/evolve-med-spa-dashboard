@@ -743,8 +743,10 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
     { label: 'New Customer Visits', value: num(newVisits), ...spreadOrNull(momPctDelta(newVisits, newVisitsPrev)) },
     // R12/R65: Existing Customers = guests with prior purchase + payment >$0
     { label: 'Existing Customer Visits', value: num(h.existing_client_count), ...spreadOrNull(momPctDelta(h.existing_client_count, hPrev.existing_client_count)) },
-    { label: 'MTD Ad Spend', value: '—', delta: null },
-    { label: 'Client Acquisition Cost', value: '—', delta: null },
+    // R: MTD Ad Spend = SUM(Google + FB ad spend) for the month (chain-level, bundled export)
+    { label: 'MTD Ad Spend', value: h.mtd_ad_spend != null ? money(h.mtd_ad_spend, { compact: true }) : '—', ...spreadOrNull(momPctDelta(h.mtd_ad_spend, hPrev.mtd_ad_spend)) },
+    // R: Client Acquisition Cost = MTD Ad Spend / New Customers
+    { label: 'Client Acquisition Cost', value: h.client_acquisition_cost != null ? money(h.client_acquisition_cost) : '—', ...spreadOrNull(momPctDelta(h.client_acquisition_cost, hPrev.client_acquisition_cost, { invert: true })) },
     // 90-day return rate: matured cohort, wired to /api/new-guest-return-rate
     { label: 'New Guest Return Rate · 90 Day', value: returnRate != null ? pct(returnRate) : '—', ...spreadOrNull(momPtDelta(returnRate, returnRatePrev)) },
   ];
