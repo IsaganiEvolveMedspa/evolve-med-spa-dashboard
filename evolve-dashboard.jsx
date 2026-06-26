@@ -624,6 +624,7 @@ const OverviewView = () => {
     summary: { path: '/api/mtd-summary', params },
     ops: { path: '/api/operations-summary', params },
     categories: { path: '/api/category-breakdown', params },
+    products: { path: '/api/product-mix', params },
     daily: { path: '/api/mtd-daily-trend', params },
     headerPrev: { path: '/api/mtd-kpi-header', params: prevParams },
     appts: { path: '/api/appointments/summary', params },
@@ -634,7 +635,7 @@ const OverviewView = () => {
 
   return (
     <DataState loading={loading || !fl.ready} error={error} onRetry={reload}>
-      <OverviewBody h={data.header || {}} hPrev={data.headerPrev || {}} summary={data.summary || []} ops={data.ops || []} categories={data.categories || []} daily={data.daily} appts={data.appts || []} apptsPrev={data.apptsPrev || []} retention={data.retention || []} retentionPrev={data.retentionPrev || []} range={fl.monthLabel} />
+      <OverviewBody h={data.header || {}} hPrev={data.headerPrev || {}} summary={data.summary || []} ops={data.ops || []} categories={data.categories || []} products={data.products || []} daily={data.daily} appts={data.appts || []} apptsPrev={data.apptsPrev || []} retention={data.retention || []} retentionPrev={data.retentionPrev || []} range={fl.monthLabel} />
     </DataState>
   );
 };
@@ -646,7 +647,7 @@ const Medal = ({ color }) => (
   </svg>
 );
 
-const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsPrev, retention, retentionPrev, range }) => {
+const OverviewBody = ({ h, hPrev, summary, ops, categories, products, daily, appts, apptsPrev, retention, retentionPrev, range }) => {
   // ---- hero cards ----
   // R32: Cash Sales (MTD) = cumulative cash-basis sales (from FULL_CASH via mtd-kpi-header)
   const cashMtd = n(h.mtd_revenue);
@@ -794,9 +795,13 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
   const injSum = serviceCats.filter((c) => injCats.includes((c.item_category || '').toLowerCase())).reduce((a, c) => a + (n(c.revenue) || 0), 0);
   const injPct = Math.round((injSum / totalCat) * 100);
 
-  // ---- product mix (products only, by unit count) ----
-  const byCount = [...productCats].sort((a, b) => (n(b.count) || 0) - (n(a.count) || 0)).slice(0, 7);
-  const maxCount = Math.max(...byCount.map((c) => n(c.count) || 0), 1);
+  // ---- product mix (by PRODUCT NAME, from /api/product-mix) ----
+  // Falls back to the old category-level rows if the product-mix feed is empty.
+  const byCount = (products && products.length
+    ? [...products].sort((a, b) => (n(b.revenue) || 0) - (n(a.revenue) || 0))
+    : [...productCats].sort((a, b) => (n(b.count) || 0) - (n(a.count) || 0))
+  ).slice(0, 7);
+  const maxCount = Math.max(...byCount.map((c) => n(c.revenue) || 0), 1);
 
   // ---- location performance table (merge mtd-summary + operations-summary) ----
   const opsByLoc = {};
@@ -944,19 +949,19 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
 
         <Card>
           <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Product Mix</div>
-          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2 }}>Unit consumption · {range}</div>
+          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2 }}>Revenue by product · {range}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 18 }}>
             {byCount.map((p, i) => (
-              <div key={p.item_category} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div key={p.product_name ?? p.item_category} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ width: 16, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i < 3 && <Medal color={MEDAL[i]} />}</span>
-                <span style={{ width: 118, flex: 'none', font: `500 11.5px ${FONT}`, color: C.ink2, textTransform: 'capitalize' }}>{p.item_category}</span>
+                <span style={{ width: 118, flex: 'none', font: `500 11.5px ${FONT}`, color: C.ink2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.product_name ?? p.item_category}>{p.product_name ?? p.item_category}</span>
                 <span style={{ flex: 1, height: 14, background: '#F0F4F3', borderRadius: 4, overflow: 'hidden' }}>
-                  <span style={{ display: 'block', height: '100%', width: `${((n(p.count) || 0) / maxCount) * 100}%`, background: `linear-gradient(90deg,${C.teal},${C.tealBright})`, borderRadius: 4 }} />
+                  <span style={{ display: 'block', height: '100%', width: `${((n(p.revenue) || 0) / maxCount) * 100}%`, background: `linear-gradient(90deg,${C.teal},${C.tealBright})`, borderRadius: 4 }} />
                 </span>
-                <span style={{ width: 64, flex: 'none', textAlign: 'right', font: `600 11.5px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{num(p.count)}</span>
+                <span style={{ width: 64, flex: 'none', textAlign: 'right', font: `600 11.5px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{money(p.revenue, { compact: true })}</span>
               </div>
             ))}
-            {byCount.length === 0 && <span style={{ font: `500 12px ${FONT}`, color: C.gray }}>No category data.</span>}
+            {byCount.length === 0 && <span style={{ font: `500 12px ${FONT}`, color: C.gray }}>No product data.</span>}
           </div>
         </Card>
       </div>
