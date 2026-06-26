@@ -4,9 +4,10 @@ from typing import Optional, List
 
 from fastapi import APIRouter, Query, Request
 
-from config import FULL_SALES, FULL_SCHEDULE, FULL_APPT
+from config import FULL_SALES, FULL_SCHEDULE, FULL_APPT, FULL_COGS
 from db import run_query, serialize_rows
 from utils.filters import build_date_filter, build_sched_filter, merge_params, loc_in, hhmm_to_hours
+from utils.cogs import fetch_cogs_and_accrual, cogs_margin_pct, gross_margin_pct, PAYROLL_MARGIN_PCT
 from utils.errors import log_and_raise_from_request
 
 router = APIRouter()
@@ -145,9 +146,7 @@ def get_operations_summary(
             s.recognized_revenue,
             s.avg_daily_revenue,
             s.avg_daily_revenue * {days_in_month}               AS trending,
-            ROUND(20.0,         1)                               AS cogs_pct,
             ROUND(22.0 * 1.12,  1)                               AS payroll_pct,
-            ROUND((1 - 0.20 - 0.22 * 1.12) * 100, 1)           AS gross_margin_pct,
             s.asp,
             s.asp_excl_memberships,
             s.appointment_count,
@@ -166,7 +165,16 @@ def get_operations_summary(
         LEFT JOIN rebooking     rb  ON s.center_name = rb.center_name
         ORDER BY s.center_name
         """
-        return serialize_rows(run_query(sql, merge_params(all_params, appt_loc_params) or None))
+        rows = run_query(sql, merge_params(all_params, appt_loc_params) or None)
+        # COGS Margin % = total cost_of_goods / sales accrual, per location.
+        # Gross margin % = 100 − real COGS margin % − modeled payroll margin %.
+        cm = fetch_cogs_and_accrual(s, e, locations)
+        for row in rows:
+            c = cm.get(row["location"], {})
+            cogs, accrual = c.get("cogs", 0), c.get("accrual", 0)
+            row["cogs_pct"]         = cogs_margin_pct(cogs, accrual)
+            row["gross_margin_pct"] = gross_margin_pct(cogs, accrual)
+        return serialize_rows(rows)
 
     except Exception as exc:
         log_and_raise_from_request(exc, request)
@@ -263,7 +271,25 @@ def get_monthly_trend(
         LEFT JOIN rebooking     rb  ON s.center_name = rb.center_name
         ORDER BY s.center_name
         """
-        return serialize_rows(run_query(sql, merge_params(all_params, appt_loc_params) or None))
+        rows = run_query(sql, merge_params(all_params, appt_loc_params) or None)
+        # Real COGS drives the margin waterfall (off the sales-accrual base):
+        #   cogs_est ($)         = total cost_of_goods
+        #   cogs_margin (%)      = cogs / accrual
+        #   payroll_costs_est ($)= accrual × modeled payroll %
+        #   gross_margin ($)     = accrual − cogs − payroll
+        #   gross_margin_pct (%) = 100 − cogs % − payroll % (payroll still modeled)
+        cm = fetch_cogs_and_accrual(s, e, locations)
+        payroll_frac = PAYROLL_MARGIN_PCT / 100
+        for row in rows:
+            c = cm.get(row["location"], {})
+            cogs, accrual = c.get("cogs", 0), c.get("accrual", 0)
+            payroll = accrual * payroll_frac
+            row["cogs_est"]          = round(cogs, 2)
+            row["cogs_margin"]       = cogs_margin_pct(cogs, accrual)
+            row["payroll_costs_est"] = round(payroll, 2)
+            row["gross_margin"]      = round(accrual - cogs - payroll, 2) if accrual else None
+            row["gross_margin_pct"]  = gross_margin_pct(cogs, accrual)
+        return serialize_rows(rows)
 
     except Exception as exc:
         log_and_raise_from_request(exc, request)

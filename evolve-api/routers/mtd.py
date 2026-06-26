@@ -7,6 +7,7 @@ from fastapi import APIRouter, Query, Request
 from config import FULL_SALES, FULL_CASH, FULL_SCHEDULE, FULL_APPT
 from db import run_query, serialize_rows
 from utils.filters import build_date_filter, build_sched_filter, merge_params, loc_in, hhmm_to_hours
+from utils.cogs import fetch_cogs_and_accrual, cogs_margin_pct, gross_margin_pct
 from utils.errors import log_and_raise_from_request
 
 router = APIRouter()
@@ -332,7 +333,15 @@ def get_mtd_kpi_header(
         # where_sales (provider_rev accrual sales), appt_loc
         all_params = merge_params(params, params, y_loc_p, y_loc_p, y_loc_p, sched_x, params_sales, appt_loc_p)
         rows = run_query(sql, all_params or None)
-        return rows[0] if rows else {}
+        result = rows[0] if rows else {}
+        # COGS Margin % = total cost_of_goods / sales accrual, aggregated over selected centers.
+        # Gross margin % = 100 − real COGS margin % − modeled payroll margin %.
+        cm = fetch_cogs_and_accrual(s, e, locations)
+        tot_cogs    = sum(v.get("cogs", 0)    for v in cm.values())
+        tot_accrual = sum(v.get("accrual", 0) for v in cm.values())
+        result["cogs_margin_pct"]  = cogs_margin_pct(tot_cogs, tot_accrual)
+        result["gross_margin_pct"] = gross_margin_pct(tot_cogs, tot_accrual)
+        return result
 
     except Exception as exc:
         log_and_raise_from_request(exc, request)

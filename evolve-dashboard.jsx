@@ -500,7 +500,7 @@ const PacingChart = ({ daily, budget, trending, daysInMonth }) => {
 
   const gridYs = [0, 0.25, 0.5, 0.75, 1].map((t) => padT + t * innerH);
   const leftLabels = [1, 0.75, 0.5, 0.25, 0].map((t) => money(maxDaily * t, { compact: true }));
-  const rightLabels = [1, 0.75, 0.5, 0.25, 0].map((t) => money(maxCum * t, { compact: true, decimals: 1 }));
+  const rightLabels = [1, 0.75, 0.5, 0.25, 0].map((t) => money(maxCum * t, { compact: true }));
 
   return (
     <svg viewBox={`0 -10 ${W} ${H}`} style={{ width: '100%', height: 340, display: 'block', marginTop: 8 }}>
@@ -665,9 +665,9 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
     if (!b || r === null) return null;
     return (r / b) * 100;
   })();
-  // R59: COGS Margin = COGS ÷ Recognized Revenue (est. — backend returns constant %)
-  const cogsMargin = h.gross_margin_pct != null ? 100 - pctScale(h.gross_margin_pct) : null;
-  const cogsMarginPrev = hPrev.gross_margin_pct != null ? 100 - pctScale(hPrev.gross_margin_pct) : null;
+  // R59: COGS Margin % = total COGS ÷ sales accrual (real, from BRONZE_ZENOTI_COST_OF_GOODS)
+  const cogsMargin = h.cogs_margin_pct != null ? pctScale(h.cogs_margin_pct) : null;
+  const cogsMarginPrev = hPrev.cogs_margin_pct != null ? pctScale(hPrev.cogs_margin_pct) : null;
   const financial = [
     { label: '% to Budget · Variance to Goal', value: budgetPaceVal != null ? `${budgetPaceVal.toFixed(0)}%` : '—',
       delta: budgetPaceVal != null ? `${budgetPaceVal >= 100 ? '▲' : '▼'} ${Math.abs(100 - budgetPaceVal).toFixed(0)}% to goal` : null,
@@ -878,6 +878,7 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
               ['Budget (MTD)', budgetMtd != null ? money(budgetMtd, { compact: true }) : '—', C.ink],
               ['Pace to Budget', paceToBudget != null ? `${paceToBudget.toFixed(0)}%` : '—', paceToBudget >= 100 ? C.ink : C.clay],
               ['Projected (Run Rate)', money(trending, { compact: true }), C.ink],
+              ['Projected (Run Rate) %', budget ? `${((trending / budget) * 100).toFixed(0)}%` : '—', budget && (trending / budget) * 100 >= 100 ? C.ink : C.clay],
               ['Full-Month Budget', money(budget, { compact: true }), C.ink],
             ].map(([l, v, col]) => (
               <div key={l} style={{ display: 'flex', flexDirection: 'column' }}>
