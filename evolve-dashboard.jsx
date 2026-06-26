@@ -69,13 +69,15 @@ const useApiData = (endpoints, deps) => {
 
 /* ---- format helpers ---- */
 const n = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v));
-const money = (v, { compact = false, decimals } = {}) => {
+const money = (v, { compact = false, decimals, floor = false } = {}) => {
   const x = n(v); if (x === null) return '—';
+  // floor: truncate to `decimals` instead of rounding (so values never round up).
+  const fx = (val, d) => (floor ? (Math.floor(val * 10 ** d) / 10 ** d) : val).toFixed(d);
   if (compact) {
     const a = Math.abs(x);
-    if (a >= 1e6) return `$${(x / 1e6).toFixed(decimals ?? 2)}M`;
-    if (a >= 1e3) return `$${(x / 1e3).toFixed(decimals ?? 0)}K`;
-    return `$${x.toFixed(decimals ?? 0)}`;
+    if (a >= 1e6) return `$${fx(x / 1e6, decimals ?? 2)}M`;
+    if (a >= 1e3) return `$${fx(x / 1e3, decimals ?? 0)}K`;
+    return `$${fx(x, decimals ?? 0)}`;
   }
   return `$${x.toLocaleString(undefined, { maximumFractionDigits: decimals ?? 0 })}`;
 };
@@ -837,7 +839,7 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, daily, appts, apptsP
     <div>
       {/* hero trend cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-        <HeroCard label="Cash Sales" mtd={money(cashMtd, { compact: true })} mtdDelta={heroDelta}
+        <HeroCard label="Cash Sales" mtd={money(cashMtd, { compact: true, floor: true })} mtdDelta={heroDelta}
           proj={money(trending || (mtdActual && daysInMonth ? (mtdActual / Math.max(dailyArr.length, 1)) * daysInMonth : null), { compact: true })} projDelta={heroDelta} />
         <HeroCard label="Recognized Revenue" mtd={money(recRev, { compact: true })} mtdDelta={heroDelta}
           proj={money(trending || (mtdActual && daysInMonth ? (mtdActual / Math.max(dailyArr.length, 1)) * daysInMonth : null), { compact: true })} projDelta={heroDelta} />
@@ -1020,7 +1022,7 @@ const LocationTable = ({ rows, totals }) => {
         return (
           <div key={l.location} className="ev-lrow" style={{ display: 'grid', gridTemplateColumns: GRID_COLS, gap: 6, padding: '9px 6px', borderBottom: `1px solid ${C.line3}`, alignItems: 'center', font: `500 11.5px ${FONT}`, color: C.ink2 }}>
             <span style={{ fontWeight: 600, color: C.ink }}>{l.location}</span>
-            <span style={{ ...cell, fontWeight: 600, color: C.ink }}>{money(l.cash_sales, { compact: true })}</span>
+            <span style={{ ...cell, fontWeight: 600, color: C.ink }}>{money(l.cash_sales, { compact: true, floor: true })}</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
               <PaceBar pace={pace} color={(pace ?? 0) >= 100 ? C.teal : C.clayLite} />
               <span style={{ width: 50, flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.2 }}>
@@ -1049,7 +1051,7 @@ const LocationTable = ({ rows, totals }) => {
       {rows.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: GRID_COLS, gap: 6, padding: '11px 6px 4px', borderTop: `2px solid #D8E2DF`, alignItems: 'center', font: `700 11.5px ${FONT}`, color: C.ink }}>
           <span style={{ font: `700 10px ${FONT}`, letterSpacing: '.1em', textTransform: 'uppercase', color: C.teal }}>Total · {rows.length} Loc</span>
-          <span style={cell}>{money(totals.cash, { compact: true })}</span>
+          <span style={cell}>{money(totals.cash, { compact: true, floor: true })}</span>
           <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.2 }}>
             <span style={{ fontVariantNumeric: 'tabular-nums' }}>{money(totals.trending, { compact: true })}</span>
             <span style={{ font: `700 9.5px ${FONT}`, color: totals.budget && totals.cash / totals.budget >= 1 ? C.teal : C.clay, fontVariantNumeric: 'tabular-nums' }}>{totals.budget ? `${((totals.cash / totals.budget) * 100).toFixed(0)}%` : '—'}</span>
