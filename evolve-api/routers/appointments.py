@@ -42,19 +42,20 @@ def get_appointments_summary(
         sql = f"""
         SELECT
             center_name                                                                             AS location,
-            SUM(CASE WHEN add_on = 'No' AND LOWER(status) != 'deleted' THEN 1 ELSE 0 END)          AS total_appointments,
-            SUM(CASE WHEN add_on = 'No' AND LOWER(status) = 'closed'   THEN 1 ELSE 0 END)          AS completed,
-            SUM(CASE WHEN add_on = 'No' AND LOWER(status) = 'no show'  THEN 1 ELSE 0 END)          AS no_shows,
-            SUM(CASE WHEN add_on = 'No' AND LOWER(status) = 'cancelled' THEN 1 ELSE 0 END)         AS cancellations,
-            SUM(CASE WHEN add_on = 'No' AND LOWER(status) = 'deleted'  THEN 1 ELSE 0 END)          AS deleted,
-            SUM(CASE WHEN add_on = 'No' AND LOWER(status) = 'no show'  THEN 1.0 ELSE 0 END)
-                / NULLIF(SUM(CASE WHEN add_on = 'No' AND LOWER(status) != 'deleted' THEN 1 ELSE 0 END), 0)
+            -- Counts are by unique invoice_no (one visit = one invoice, not N service rows).
+            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) != 'deleted'  THEN invoice_no END) AS total_appointments,
+            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'closed'    THEN invoice_no END) AS completed,
+            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'no show'   THEN invoice_no END) AS no_shows,
+            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'cancelled' THEN invoice_no END) AS cancellations,
+            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'deleted'   THEN invoice_no END) AS deleted,
+            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'no show'   THEN invoice_no END) * 1.0
+                / NULLIF(COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) != 'deleted' THEN invoice_no END), 0)
                 * 100                                                                               AS no_show_rate,
             COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'cancelled' THEN invoice_no END) * 1.0
                 / NULLIF(COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) != 'deleted' THEN invoice_no END), 0)
                 * 100                                                                               AS cancellation_rate,
-            SUM(CASE WHEN add_on = 'No' AND LOWER(status) = 'closed' AND LOWER(rebooked) = 'yes' THEN 1.0 ELSE 0 END)
-                / NULLIF(SUM(CASE WHEN add_on = 'No' AND LOWER(status) = 'closed' THEN 1 ELSE 0 END), 0)
+            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'closed' AND LOWER(rebooked) = 'yes' THEN invoice_no END) * 1.0
+                / NULLIF(COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'closed' THEN invoice_no END), 0)
                 * 100                                                                               AS rebooking_rate,
             SUM(CASE WHEN add_on = 'No' AND LOWER(first_visit) = 'yes' AND LOWER(status) = 'closed' THEN 1 ELSE 0 END)
                                                                                                     AS new_guests,

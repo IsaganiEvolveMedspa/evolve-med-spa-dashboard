@@ -132,8 +132,8 @@ def get_operations_summary(
         rebooking AS (
             SELECT
                 center_name,
-                SUM(CASE WHEN LOWER(rebooked) = 'yes' THEN 1.0 ELSE 0 END)
-                    / NULLIF(COUNT(*), 0) * 100 AS rebooking_rate
+                COUNT(DISTINCT CASE WHEN LOWER(rebooked) = 'yes' THEN invoice_no END) * 1.0
+                    / NULLIF(COUNT(DISTINCT invoice_no), 0) * 100 AS rebooking_rate
             FROM {FULL_APPT}
             WHERE CAST(appointment_date AS DATE) BETWEEN '{s}' AND '{e}'
               AND LOWER(status) = 'closed'
@@ -233,8 +233,8 @@ def get_monthly_trend(
         rebooking AS (
             SELECT
                 center_name,
-                SUM(CASE WHEN LOWER(rebooked) = 'yes' THEN 1.0 ELSE 0 END)
-                    / NULLIF(COUNT(*), 0) * 100 AS rebooking_rate
+                COUNT(DISTINCT CASE WHEN LOWER(rebooked) = 'yes' THEN invoice_no END) * 1.0
+                    / NULLIF(COUNT(DISTINCT invoice_no), 0) * 100 AS rebooking_rate
             FROM {FULL_APPT}
             WHERE CAST(appointment_date AS DATE) BETWEEN '{s}' AND '{e}'
               AND LOWER(status) = 'closed'
