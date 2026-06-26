@@ -65,17 +65,19 @@ def get_product_mix(
             "WHERE item_type = 'Product' AND item_name IS NOT NULL"
         )
 
+        # Dysport is dosed at ~3x Botox units, so its qty is divided by 3 to make
+        # unit consumption comparable across products.
         sql = f"""
         SELECT
             item_name          AS product_name,
             SUM(sales_exc_tax) AS revenue,
-            SUM(qty)           AS units,
+            SUM(CASE WHEN UPPER(item_name) LIKE '%DYSPORT%' THEN qty / 3.0 ELSE qty END) AS units,
             COUNT(*)           AS count
         FROM {FULL_SALES}
         {where}
         {prod_guard}
         GROUP BY item_name
-        ORDER BY revenue DESC
+        ORDER BY units DESC
         """
         return run_query(sql, params or None)
 
