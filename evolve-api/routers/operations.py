@@ -95,7 +95,9 @@ def get_operations_summary(
 
         where,       params    = build_date_filter(s, e, locations)
         sched_block, sched_x   = build_sched_filter(s, e, locations)
-        all_params              = merge_params(params, sched_x, params)
+        # Param order must match the SQL: sales WHERE, schedule_agg sched_block,
+        # sched_by_employee sched_block, sales_by_employee WHERE (sched_block appears TWICE).
+        all_params              = merge_params(params, sched_x, sched_x, params)
 
         days_in_month = calendar.monthrange(
             datetime.strptime(e, "%Y-%m-%d").year,
@@ -199,7 +201,8 @@ def get_monthly_trend(
 
         where,       params   = build_date_filter(s, e, locations)
         sched_block, sched_x  = build_sched_filter(s, e, locations)
-        all_params             = merge_params(params, sched_x, params)
+        # sched_block appears TWICE in the shared CTEs — supply sched_x twice.
+        all_params             = merge_params(params, sched_x, sched_x, params)
 
         days_in_month = calendar.monthrange(
             datetime.strptime(e, "%Y-%m-%d").year,

@@ -337,9 +337,10 @@ def get_mtd_kpi_header(
         CROSS JOIN rebooking       rb
         """
         # params order: guest_classification where, mtd where, yesterday_data y_loc,
-        # last_month_data y_loc, prior_year y_loc, sched_block (provider_rev sch),
-        # where_sales (provider_rev accrual sales), appt_loc
-        all_params = merge_params(params, params, y_loc_p, y_loc_p, y_loc_p, sched_x, params_sales, appt_loc_p)
+        # last_month_data y_loc, prior_year y_loc, sched_block (schedule_util),
+        # sched_block (provider_rev sch), where_sales (provider_rev accrual sales), appt_loc.
+        # NOTE: sched_block appears TWICE (schedule_util + provider_rev) → sched_x twice.
+        all_params = merge_params(params, params, y_loc_p, y_loc_p, y_loc_p, sched_x, sched_x, params_sales, appt_loc_p)
         rows = run_query(sql, all_params or None)
         result = rows[0] if rows else {}
         # COGS Margin % = total cost_of_goods / sales accrual, aggregated over selected centers.
