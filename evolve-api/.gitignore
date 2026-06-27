@@ -6,5 +6,7 @@ __pycache__/
 venv/
 bigquery_service_account.json
 
-# Ad-spend data file IS read at runtime by utils/ad_spend.py — must be deployed.
+# Data files read at runtime — must be deployed.
 !data/ad_spend_daily.json
+!data/payroll_schedules.json
+!data/operating_days.json

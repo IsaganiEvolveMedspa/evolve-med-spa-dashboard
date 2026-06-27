@@ -7,7 +7,8 @@ from fastapi import APIRouter, Query, Request
 from config import FULL_SALES, FULL_SCHEDULE, FULL_APPT, FULL_COGS
 from db import run_query, serialize_rows
 from utils.filters import build_date_filter, build_sched_filter, merge_params, loc_in, hhmm_to_hours
-from utils.cogs import fetch_cogs_and_accrual, cogs_margin_pct, gross_margin_pct, PAYROLL_MARGIN_PCT
+from utils.cogs import fetch_cogs_and_accrual, cogs_margin_pct
+from utils.payroll import compute_salary_by_center
 from utils.errors import log_and_raise_from_request
 
 router = APIRouter()
@@ -26,10 +27,10 @@ def _schedule_and_rev_ctes(sched_block, where, full_schedule, full_sales):
         SELECT
             center_name,
             SUM(CASE WHEN job_name = 'Treatment Provider' THEN {hhmm_to_hours("booked_hours")} ELSE 0 END) * 1.0
-                / NULLIF(SUM(CASE WHEN job_name = 'Treatment Provider' THEN {hhmm_to_hours("scheduled_hours")} + {hhmm_to_hours("block_out_hours_paid")} ELSE 0 END), 0)
+                / NULLIF(SUM(CASE WHEN job_name = 'Treatment Provider' THEN {hhmm_to_hours("scheduled_hours")} - {hhmm_to_hours("block_out_hours_paid")} ELSE 0 END), 0)
                 * 100 AS provider_utilization,
             SUM(CASE WHEN job_name = 'Esthetician' THEN {hhmm_to_hours("booked_hours")} ELSE 0 END) * 1.0
-                / NULLIF(SUM(CASE WHEN job_name = 'Esthetician' THEN {hhmm_to_hours("scheduled_hours")} + {hhmm_to_hours("block_out_hours_paid")} ELSE 0 END), 0)
+                / NULLIF(SUM(CASE WHEN job_name = 'Esthetician' THEN {hhmm_to_hours("scheduled_hours")} - {hhmm_to_hours("block_out_hours_paid")} ELSE 0 END), 0)
                 * 100 AS esthetician_utilization
         FROM {full_schedule}
         {sched_block}
@@ -146,7 +147,6 @@ def get_operations_summary(
             s.recognized_revenue,
             s.avg_daily_revenue,
             s.avg_daily_revenue * {days_in_month}               AS trending,
-            ROUND(22.0 * 1.12,  1)                               AS payroll_pct,
             s.asp,
             s.asp_excl_memberships,
             s.appointment_count,
@@ -166,14 +166,18 @@ def get_operations_summary(
         ORDER BY s.center_name
         """
         rows = run_query(sql, merge_params(all_params, appt_loc_params) or None)
-        # COGS Margin % = total cost_of_goods / sales accrual, per location.
-        # Gross margin % = 100 − real COGS margin % − modeled payroll margin %.
-        cm = fetch_cogs_and_accrual(s, e, locations)
+        # Per-location: COGS %, real payroll/salary %, gross % = 100 − cogs% − payroll%.
+        cm  = fetch_cogs_and_accrual(s, e, locations)
+        sal = compute_salary_by_center(s, e, locations)
         for row in rows:
-            c = cm.get(row["location"], {})
+            loc = row["location"]
+            c = cm.get(loc, {})
             cogs, accrual = c.get("cogs", 0), c.get("accrual", 0)
-            row["cogs_pct"]         = cogs_margin_pct(cogs, accrual)
-            row["gross_margin_pct"] = gross_margin_pct(cogs, accrual)
+            cogs_m    = cogs_margin_pct(cogs, accrual)
+            payroll_m = sal.get(loc, {}).get("salary_margin")
+            row["cogs_pct"]         = cogs_m
+            row["payroll_pct"]      = payroll_m
+            row["gross_margin_pct"] = (100 - (cogs_m or 0) - (payroll_m or 0)) if accrual else None
         return serialize_rows(rows)
 
     except Exception as exc:
@@ -272,23 +276,29 @@ def get_monthly_trend(
         ORDER BY s.center_name
         """
         rows = run_query(sql, merge_params(all_params, appt_loc_params) or None)
-        # Real COGS drives the margin waterfall (off the sales-accrual base):
+        # Real COGS + real salary drive the margin waterfall (off the sales-accrual base):
         #   cogs_est ($)         = total cost_of_goods
         #   cogs_margin (%)      = cogs / accrual
-        #   payroll_costs_est ($)= accrual × modeled payroll %
-        #   gross_margin ($)     = accrual − cogs − payroll
-        #   gross_margin_pct (%) = 100 − cogs % − payroll % (payroll still modeled)
-        cm = fetch_cogs_and_accrual(s, e, locations)
-        payroll_frac = PAYROLL_MARGIN_PCT / 100
+        #   payroll_costs_est ($)= real salary (base + ffs + comm + benefits)
+        #   payroll_margin (%)   = salary / accrual
+        #   gross_margin ($)     = accrual − cogs − salary
+        #   gross_margin_pct (%) = 100 − cogs % − payroll %
+        cm  = fetch_cogs_and_accrual(s, e, locations)
+        sal = compute_salary_by_center(s, e, locations)
         for row in rows:
-            c = cm.get(row["location"], {})
+            loc = row["location"]
+            c = cm.get(loc, {})
             cogs, accrual = c.get("cogs", 0), c.get("accrual", 0)
-            payroll = accrual * payroll_frac
+            sm = sal.get(loc, {})
+            payroll   = sm.get("salary", 0) or 0
+            cogs_m    = cogs_margin_pct(cogs, accrual)
+            payroll_m = sm.get("salary_margin")
             row["cogs_est"]          = round(cogs, 2)
-            row["cogs_margin"]       = cogs_margin_pct(cogs, accrual)
+            row["cogs_margin"]       = cogs_m
             row["payroll_costs_est"] = round(payroll, 2)
+            row["payroll_margin"]    = payroll_m
             row["gross_margin"]      = round(accrual - cogs - payroll, 2) if accrual else None
-            row["gross_margin_pct"]  = gross_margin_pct(cogs, accrual)
+            row["gross_margin_pct"]  = (100 - (cogs_m or 0) - (payroll_m or 0)) if accrual else None
         return serialize_rows(rows)
 
     except Exception as exc:

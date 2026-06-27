@@ -7,8 +7,10 @@ from fastapi import APIRouter, Query, Request
 from config import FULL_SALES, FULL_CASH, FULL_SCHEDULE, FULL_APPT
 from db import run_query, serialize_rows
 from utils.filters import build_date_filter, build_sched_filter, merge_params, loc_in, hhmm_to_hours
-from utils.cogs import fetch_cogs_and_accrual, cogs_margin_pct, gross_margin_pct
+from utils.cogs import fetch_cogs_and_accrual, cogs_margin_pct
 from utils.ad_spend import mtd_ad_spend, client_acquisition_cost
+from utils.payroll import compute_salary_by_center, salary_margin_pct
+from utils.operating_days import cash_run_rate
 from utils.errors import log_and_raise_from_request
 
 router = APIRouter()
@@ -252,7 +254,7 @@ def get_mtd_kpi_header(
             SELECT
                 LOWER(job_name)                                                                     AS role,
                 SUM({hhmm_to_hours('booked_hours')}) * 1.0
-                    / NULLIF(SUM({hhmm_to_hours('scheduled_hours')} + {hhmm_to_hours('block_out_hours_paid')}), 0) * 100      AS utilization_pct
+                    / NULLIF(SUM({hhmm_to_hours('scheduled_hours')} - {hhmm_to_hours('block_out_hours_paid')}), 0) * 100      AS utilization_pct
             FROM {FULL_SCHEDULE}
             {sched_block}
             GROUP BY job_name
@@ -341,12 +343,22 @@ def get_mtd_kpi_header(
         rows = run_query(sql, all_params or None)
         result = rows[0] if rows else {}
         # COGS Margin % = total cost_of_goods / sales accrual, aggregated over selected centers.
-        # Gross margin % = 100 − real COGS margin % − modeled payroll margin %.
         cm = fetch_cogs_and_accrual(s, e, locations)
         tot_cogs    = sum(v.get("cogs", 0)    for v in cm.values())
         tot_accrual = sum(v.get("accrual", 0) for v in cm.values())
-        result["cogs_margin_pct"]  = cogs_margin_pct(tot_cogs, tot_accrual)
-        result["gross_margin_pct"] = gross_margin_pct(tot_cogs, tot_accrual)
+        cogs_m = cogs_margin_pct(tot_cogs, tot_accrual)
+        result["cogs_margin_pct"] = cogs_m
+        # Real payroll/salary margin (salary model) replaces the modeled 24.64%.
+        sal        = compute_salary_by_center(s, e, locations)
+        tot_salary = sum(v["salary"]        for v in sal.values())
+        tot_sales  = sum(v["sales_accrual"] for v in sal.values())
+        payroll_m  = salary_margin_pct(tot_salary, tot_sales)
+        result["payroll_margin_pct"] = payroll_m
+        # Gross margin % = 100 − real COGS margin % − real payroll margin %.
+        result["gross_margin_pct"] = (100 - (cogs_m or 0) - (payroll_m or 0)) if tot_sales else None
+        # Cash Sales run rate = Σ_loc (MTD cash / working days elapsed) × total working days.
+        # Working days from the Operating Schedule; elapsed counts through the latest data day.
+        result["cash_run_rate"] = cash_run_rate(s, e, locations, yesterday)
         # MTD Ad Spend (chain-level, from bundled Google/FB ad export) + CAC.
         result["mtd_ad_spend"] = mtd_ad_spend(s, e)
         result["client_acquisition_cost"] = client_acquisition_cost(

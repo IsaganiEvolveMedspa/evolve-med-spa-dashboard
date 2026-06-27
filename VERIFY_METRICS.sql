@@ -154,7 +154,7 @@ WHERE CAST(appointment_date AS DATE) BETWEEN @s AND @e AND LOWER(status)='closed
                  THEN CAST(SUBSTRING(scheduled_hours,1,CHARINDEX(':',scheduled_hours)-1) AS FLOAT)
                     + CAST(SUBSTRING(scheduled_hours,CHARINDEX(':',scheduled_hours)+1,LEN(scheduled_hours)) AS FLOAT)/60.0
                  ELSE COALESCE(TRY_CAST(scheduled_hours AS FLOAT),0) END)
-      + SUM(CASE WHEN block_out_hours_paid LIKE '%:%'
+      - SUM(CASE WHEN block_out_hours_paid LIKE '%:%'
                  THEN CAST(SUBSTRING(block_out_hours_paid,1,CHARINDEX(':',block_out_hours_paid)-1) AS FLOAT)
                     + CAST(SUBSTRING(block_out_hours_paid,CHARINDEX(':',block_out_hours_paid)+1,LEN(block_out_hours_paid)) AS FLOAT)/60.0
                  ELSE COALESCE(TRY_CAST(block_out_hours_paid AS FLOAT),0) END) AS avail
@@ -198,3 +198,15 @@ UNION ALL SELECT 'Rev/Hr Esthetician',
     CAST(SUM(CASE WHEN job_name='Esthetician' THEN rev    ELSE 0 END)
        / NULLIF(SUM(CASE WHEN job_name='Esthetician' THEN booked ELSE 0 END),0) AS DECIMAL(18,2)), '$182'
 FROM joined;
+
+/* ---------- F) PAYROLL / SALARY MARGIN ----------
+   Salary margin needs 250 inlined wage/FFS rates, so it lives in its own generated
+   file: VERIFY_PAYROLL.sql (regenerate via scripts/build_payroll_json.py + the
+   generator). Run that script for per-location salary, components, and salary_margin_pct. */
+
+/* ---------- G) CASH RUN RATE (working days) ----------
+   Working-days run rate inlines the current month's per-location open days, so it lives
+   in its own generated file: VERIFY_RUNRATE.sql (regenerate monthly from operating_days.json).
+   Returns per-location mtd_cash | elapsed_wd | total_wd | run_rate, plus a CHAIN TOTAL.
+   NOTE: the "Cash Run Rate (Projected)" row in section A above uses the OLD data-days x calendar
+   formula and is superseded by VERIFY_RUNRATE.sql. */

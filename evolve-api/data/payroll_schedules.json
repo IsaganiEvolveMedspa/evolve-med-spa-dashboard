@@ -1,0 +1,981 @@
+{
+"benefits_factor": 0.125,
+"commission_rate": 0.15,
+"ffs": {
+"add-on 2nd area ipl photofacial": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"add-on 2nd area pca peel": {
+"latest_ffs": 7.5,
+"per_syringe": false
+},
+"add-on 2nd microneedling area": {
+"latest_ffs": 8.0,
+"per_syringe": false
+},
+"add-on 2nd morpheus8 area": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"add-on clear and brilliant 2nd area": {
+"latest_ffs": 6.0,
+"per_syringe": false
+},
+"add-on clear and brilliant 3rd area": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"add-on morpheus8 - prime tip": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"add-on morpheus8 - resurfacing tip": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"b12-injection": {
+"latest_ffs": 2.0,
+"per_syringe": false
+},
+"bbl - 10 syringes": {
+"latest_ffs": 225.0,
+"per_syringe": false
+},
+"bbl - 20 syringes": {
+"latest_ffs": 275.0,
+"per_syringe": false
+},
+"bbl - 30 syringes": {
+"latest_ffs": 325.0,
+"per_syringe": false
+},
+"bbl - 40 syringes": {
+"latest_ffs": 400.0,
+"per_syringe": false
+},
+"bbl - 50 syringes": {
+"latest_ffs": 525.0,
+"per_syringe": false
+},
+"belotero (balance)": {
+"latest_ffs": 25.0,
+"per_syringe": true
+},
+"botox": {
+"latest_ffs": 2.0,
+"per_syringe": false
+},
+"chemical peel": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"chemical peel (skinmedica)": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"clear and brilliant 1 treatment area (face, neck or chest)": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"complimentary consultation": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"coolsculpting elite": {
+"latest_ffs": 15.0,
+"per_syringe": false
+},
+"cryo skin 4.0 - body": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"cryoskin 4.0 facial": {
+"latest_ffs": 3.0,
+"per_syringe": false
+},
+"deep pore facial": {
+"latest_ffs": 9.0,
+"per_syringe": false
+},
+"dermal filler - sculptra": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"dermal fillers": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"dermaplane add-on": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"dermaplaning": {
+"latest_ffs": 6.75,
+"per_syringe": false
+},
+"diamondglow - brightening": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"diamondglow - even and correct": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"diamondglow - ha5": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"diamondglow - pore clairfying": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"diamondglow - tns": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"diamondglow body  lg (full back or full legs)": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"diamondglow body  md (full arms, buttocks or underarms)": {
+"latest_ffs": 8.0,
+"per_syringe": false
+},
+"diamondglow extraction add-on (large area)": {
+"latest_ffs": 3.0,
+"per_syringe": false
+},
+"diamondglow extraction add-on (small area)": {
+"latest_ffs": 3.0,
+"per_syringe": false
+},
+"diamondglow facial": {
+"latest_ffs": 6.75,
+"per_syringe": false
+},
+"dysport": {
+"latest_ffs": 8.0,
+"per_syringe": false
+},
+"emsculpt neo": {
+"latest_ffs": 5.25,
+"per_syringe": false
+},
+"evolysse form": {
+"latest_ffs": 12.5,
+"per_syringe": true
+},
+"evolysse smooth": {
+"latest_ffs": 12.5,
+"per_syringe": true
+},
+"express facial": {
+"latest_ffs": 6.75,
+"per_syringe": false
+},
+"extractions add-on (large area)": {
+"latest_ffs": 3.0,
+"per_syringe": false
+},
+"extractions add-on (small area)": {
+"latest_ffs": 3.0,
+"per_syringe": false
+},
+"facial - eye mask add-on": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"facial - led add-on": {
+"latest_ffs": 2.0,
+"per_syringe": false
+},
+"fire and ice facial": {
+"latest_ffs": 12.5,
+"per_syringe": false
+},
+"follow up": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"follow-up": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"good faith exam": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"hydrafacial": {
+"latest_ffs": 6.75,
+"per_syringe": false
+},
+"hydrafacial - deluxe facial": {
+"latest_ffs": 7.5,
+"per_syringe": false
+},
+"hydrafacial - eye perk treatment": {
+"latest_ffs": 2.25,
+"per_syringe": false
+},
+"hydrafacial - lip perk add-on": {
+"latest_ffs": 2.25,
+"per_syringe": false
+},
+"hydrafacial - lip perk treatment": {
+"latest_ffs": 2.25,
+"per_syringe": false
+},
+"hydrafacial - platinum facial": {
+"latest_ffs": 9.0,
+"per_syringe": false
+},
+"hydrojelly/cream mask -add-on": {
+"latest_ffs": 3.0,
+"per_syringe": false
+},
+"hylenex": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"instant bright eye mask add on": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"instant bright eye mask add-on": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"ipl add on 2nd area": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"ipl add-on 2nd area": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"ipl photofacial (1 area)": {
+"latest_ffs": 25.0,
+"per_syringe": false
+},
+"ipl spot treatment": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"jeuveau": {
+"latest_ffs": 2.0,
+"per_syringe": false
+},
+"juvederm (ultra plus)": {
+"latest_ffs": 5.0,
+"per_syringe": true
+},
+"juvederm (ultra)": {
+"latest_ffs": 5.0,
+"per_syringe": true
+},
+"juvederm (volbella)": {
+"latest_ffs": 5.0,
+"per_syringe": true
+},
+"juvederm (vollure)": {
+"latest_ffs": 5.0,
+"per_syringe": true
+},
+"juvederm (voluma)": {
+"latest_ffs": 5.0,
+"per_syringe": true
+},
+"juvederm half syringe (ultra)": {
+"latest_ffs": 5.0,
+"per_syringe": true
+},
+"juvederm upcharge 100": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"juvederm volbella (half syringe)": {
+"latest_ffs": 5.0,
+"per_syringe": true
+},
+"juvederm volux": {
+"latest_ffs": 5.0,
+"per_syringe": true
+},
+"kybella double chin treatment": {
+"latest_ffs": 15.0,
+"per_syringe": true
+},
+"laser genesis facial - face": {
+"latest_ffs": 17.5,
+"per_syringe": false
+},
+"laser genesis pigment/vascular": {
+"latest_ffs": 25.0,
+"per_syringe": false
+},
+"laser hair removal (buttocks)": {
+"latest_ffs": 15.0,
+"per_syringe": false
+},
+"laser hair removal (extra large)": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"laser hair removal (feet)": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal (full body)": {
+"latest_ffs": 24.0,
+"per_syringe": false
+},
+"laser hair removal (hands)": {
+"latest_ffs": 2.5,
+"per_syringe": false
+},
+"laser hair removal (jawline)": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal (large)": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"laser hair removal (lower body)": {
+"latest_ffs": 24.0,
+"per_syringe": false
+},
+"laser hair removal (medium)": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"laser hair removal (peri-a)": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal (side burns)": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal (small)": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"laser hair removal (stomach)": {
+"latest_ffs": 8.0,
+"per_syringe": false
+},
+"laser hair removal (upper body)": {
+"latest_ffs": 24.0,
+"per_syringe": false
+},
+"laser hair removal (upper lip)": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal areola": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal back": {
+"latest_ffs": 15.0,
+"per_syringe": false
+},
+"laser hair removal back and shoulders": {
+"latest_ffs": 20.0,
+"per_syringe": false
+},
+"laser hair removal bikini line": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"laser hair removal bikini line extended": {
+"latest_ffs": 15.0,
+"per_syringe": false
+},
+"laser hair removal brazilian": {
+"latest_ffs": 20.0,
+"per_syringe": false
+},
+"laser hair removal buttocks": {
+"latest_ffs": 15.0,
+"per_syringe": false
+},
+"laser hair removal cheeks": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal chest": {
+"latest_ffs": 15.0,
+"per_syringe": false
+},
+"laser hair removal chest and stomach": {
+"latest_ffs": 24.0,
+"per_syringe": false
+},
+"laser hair removal chin": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal face": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"laser hair removal face & neck": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"laser hair removal face and neck": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"laser hair removal feet": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal full arms": {
+"latest_ffs": 15.0,
+"per_syringe": false
+},
+"laser hair removal full bikini": {
+"latest_ffs": 15.0,
+"per_syringe": false
+},
+"laser hair removal full body": {
+"latest_ffs": 24.0,
+"per_syringe": false
+},
+"laser hair removal full body (clavicle down)": {
+"latest_ffs": 24.0,
+"per_syringe": false
+},
+"laser hair removal full body w/ face and neck": {
+"latest_ffs": 24.0,
+"per_syringe": false
+},
+"laser hair removal full face & neck": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"laser hair removal full legs": {
+"latest_ffs": 20.0,
+"per_syringe": false
+},
+"laser hair removal full lower face & neck": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"laser hair removal glabella (between eyebrows)": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal hands": {
+"latest_ffs": 2.5,
+"per_syringe": false
+},
+"laser hair removal jawline": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal linea trail": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal lip and chin": {
+"latest_ffs": 6.0,
+"per_syringe": false
+},
+"laser hair removal lower arms": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"laser hair removal lower body": {
+"latest_ffs": 24.0,
+"per_syringe": false
+},
+"laser hair removal lower face": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"laser hair removal lower legs": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"laser hair removal neck": {
+"latest_ffs": 8.0,
+"per_syringe": false
+},
+"laser hair removal outer ears": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal peri-a": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal shoulders": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"laser hair removal side burns": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser hair removal stomach": {
+"latest_ffs": 8.0,
+"per_syringe": false
+},
+"laser hair removal underarms": {
+"latest_ffs": 6.0,
+"per_syringe": false
+},
+"laser hair removal upper arms": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"laser hair removal upper body": {
+"latest_ffs": 24.0,
+"per_syringe": false
+},
+"laser hair removal upper legs": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"laser hair removal upper lip": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"laser pigment treatment": {
+"latest_ffs": 25.0,
+"per_syringe": false
+},
+"letybo": {
+"latest_ffs": 4.0,
+"per_syringe": false
+},
+"line tamer letybo upcharge": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"line tamer memberships merz 50": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"line tamer touch up": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"lip filler": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"lip flip/gummy smile": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"masseter tox - xeomin only": {
+"latest_ffs": 12.5,
+"per_syringe": false
+},
+"medical chart release consent": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"microneedling (1 area)": {
+"latest_ffs": 15.0,
+"per_syringe": false
+},
+"model consultation": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"morpheus8 rf microneedling (1 area)": {
+"latest_ffs": 20.0,
+"per_syringe": false
+},
+"morpheus8 rf microneedling - abdomen": {
+"latest_ffs": 20.0,
+"per_syringe": false
+},
+"nasal tox - xeomin only": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"nefertiti tox - xeomin only": {
+"latest_ffs": 7.5,
+"per_syringe": false
+},
+"new client consultation add-on": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"new quarterly toxin treatment": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"new quarterly xeomin treatment": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"non-surgical brazilian butt lift consultation": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"non-surgical brazilian butt lift mini (radiesse)": {
+"latest_ffs": 150.0,
+"per_syringe": false
+},
+"non-surgical brazilian butt lift ultimate (radiesse)": {
+"latest_ffs": 300.0,
+"per_syringe": false
+},
+"non-surgical butt lift consult": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"non-surgical mini bbl radiesse": {
+"latest_ffs": 150.0,
+"per_syringe": false
+},
+"non-surgical ultimate bbl radiesse": {
+"latest_ffs": 300.0,
+"per_syringe": false
+},
+"pca 4% retinol booster": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"pca 6% retinol booster": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"pca acne peel": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"pca advanced treatment booster": {
+"latest_ffs": 7.5,
+"per_syringe": false
+},
+"pca bright and even peel": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"pca chemical peel": {
+"latest_ffs": 12.5,
+"per_syringe": false
+},
+"pca peel": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"pca pigment correct peel": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"pca senci peel": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"pca ultra peel": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"pdrn tone-up add-on": {
+"latest_ffs": 7.5,
+"per_syringe": false
+},
+"pdrn tone-up add-on (2 areas)": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"platysmal band tox - xeomin only": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"prf add-on": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"prf gel": {
+"latest_ffs": 40.0,
+"per_syringe": false
+},
+"prf hair loss": {
+"latest_ffs": 25.0,
+"per_syringe": false
+},
+"prf rejuvenation injections (inc. undereye)": {
+"latest_ffs": 25.0,
+"per_syringe": false
+},
+"prf undereye + morpheus resurfacing": {
+"latest_ffs": 25.0,
+"per_syringe": false
+},
+"prf undereye + morpheus resurfacing or prime": {
+"latest_ffs": 25.0,
+"per_syringe": false
+},
+"prf/prp injectable upcharge": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"pro-nox": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"pronox add-on": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"provider consultation": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"provider follow up call": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"provider follow-up call": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"prp add-on": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"prp add-on 15ml": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"prp add-on 30ml": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"prp for hair loss": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"prp for hairloss": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"prp rejuvenation injections": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"prp rejuvenation injections (inc. undereye)": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"prp undereye & resurfacing rejuvenation": {
+"latest_ffs": 25.0,
+"per_syringe": false
+},
+"prp undereye + morpheus resurfacing tip": {
+"latest_ffs": 25.0,
+"per_syringe": false
+},
+"prp undereye resurfacing rejuvenation": {
+"latest_ffs": 25.0,
+"per_syringe": false
+},
+"quarterly toxin treatment": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"quarterly xeomin treatment": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"radiesse": {
+"latest_ffs": 20.0,
+"per_syringe": true
+},
+"radiesse (with lidocaine)": {
+"latest_ffs": 20.0,
+"per_syringe": true
+},
+"restylane (contour)": {
+"latest_ffs": 12.5,
+"per_syringe": true
+},
+"restylane - l": {
+"latest_ffs": 12.5,
+"per_syringe": true
+},
+"restylane defyne": {
+"latest_ffs": 12.5,
+"per_syringe": true
+},
+"restylane kysse": {
+"latest_ffs": 12.5,
+"per_syringe": true
+},
+"restylane lyft": {
+"latest_ffs": 15.0,
+"per_syringe": true
+},
+"restylane refyne": {
+"latest_ffs": 12.5,
+"per_syringe": true
+},
+"sculptra": {
+"latest_ffs": 15.0,
+"per_syringe": true
+},
+"signature facial": {
+"latest_ffs": 9.0,
+"per_syringe": false
+},
+"signature hydrafacial": {
+"latest_ffs": 6.75,
+"per_syringe": false
+},
+"signature laser facial - face": {
+"latest_ffs": 17.5,
+"per_syringe": false
+},
+"skincare consult": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"skinmedica peel - illuminize": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"skinmedica peel - rejuvnize": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"skinmedica peel - vitalize": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"skinvive": {
+"latest_ffs": 5.0,
+"per_syringe": true
+},
+"social media consent": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"subcision for scarring": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"topical letybo add-on": {
+"latest_ffs": 5.0,
+"per_syringe": false
+},
+"topical xeomin add-on": {
+"latest_ffs": 7.5,
+"per_syringe": false
+},
+"trap tox": {
+"latest_ffs": 25.0,
+"per_syringe": false
+},
+"underarm sweat reduction tox": {
+"latest_ffs": 25.0,
+"per_syringe": false
+},
+"undereye filler": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"versa": {
+"latest_ffs": 25.0,
+"per_syringe": true
+},
+"vi peel": {
+"latest_ffs": 15.0,
+"per_syringe": false
+},
+"vi peel - body": {
+"latest_ffs": 15.0,
+"per_syringe": false
+},
+"vi peel - precision plus": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"vi peel - precision+purify": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"vi peel - purify": {
+"latest_ffs": 12.0,
+"per_syringe": false
+},
+"wrinkle relaxer-2 areas (botox)": {
+"latest_ffs": 2.0,
+"per_syringe": false
+},
+"wrinkle relaxer-2 areas (dysport)": {
+"latest_ffs": 8.0,
+"per_syringe": false
+},
+"wrinkle relaxer-2 areas (jeuveau)": {
+"latest_ffs": 2.0,
+"per_syringe": false
+},
+"wrinkle relaxer-2 areas (letybo)": {
+"latest_ffs": 4.0,
+"per_syringe": false
+},
+"wrinkle relaxer-2 areas (xeomin)": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"wrinkle relaxer-3 areas (botox)": {
+"latest_ffs": 2.0,
+"per_syringe": false
+},
+"wrinkle relaxer-3 areas (dysport)": {
+"latest_ffs": 8.0,
+"per_syringe": false
+},
+"wrinkle relaxer-3 areas (jeuveau)": {
+"latest_ffs": 2.0,
+"per_syringe": false
+},
+"wrinkle relaxer-3 areas (letybo)": {
+"latest_ffs": 4.0,
+"per_syringe": false
+},
+"wrinkle relaxer-3 areas (xeomin)": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"wrinkle relaxer-new patient": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"wrinkle relaxers-existing patient": {
+"latest_ffs": 0.0,
+"per_syringe": false
+},
+"xeomin": {
+"latest_ffs": 10.0,
+"per_syringe": false
+},
+"xeomin - lower face bundle": {
+"latest_ffs": 0.0,
+"per_syringe": false
+}
+},
+"wages": {
+"body contouring expert": 25.454545454545453,
+"clinic directorconcierge": 20.77777777777778,
+"clinical leadership team": 0.0,
+"esthetician": 25.454545454545453,
+"head md": 125.0,
+"manager": 30.542857142857148,
+"therapist": 62.321851851851854,
+"treatment provider": 62.321851851851854,
+"vp of clinical": 120.1923076923077
+}
+}
