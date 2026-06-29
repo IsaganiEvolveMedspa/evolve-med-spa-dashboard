@@ -170,7 +170,21 @@ def get_mtd_daily_trend(
         FROM ranked
         ORDER BY sale_date
         """
-        return serialize_rows(run_query(sql, params or None))
+        rows = serialize_rows(run_query(sql, params or None))
+        # Reshape to the object the dashboard's Sales-to-Budget chart expects:
+        #   { daily: [{day, daily_sales, cumulative_sales}], days_in_month, trending }
+        # (field names must match — otherwise the chart reads nothing and "Net Sales MTD"
+        #  silently falls back to the cash figure instead of net/recognized sales.)
+        daily_list = [{
+            "day":              str(r["sale_date"]),
+            "daily_sales":      float(r["daily_revenue"] or 0),
+            "cumulative_sales": float(r["mtd_cumulative"] or 0),
+        } for r in rows]
+        return {
+            "daily":         daily_list,
+            "days_in_month": days_in_month,
+            "trending":      float(rows[-1]["trending"]) if rows else 0,
+        }
 
     except Exception as exc:
         log_and_raise_from_request(exc, request)

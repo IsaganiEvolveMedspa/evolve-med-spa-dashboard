@@ -538,7 +538,7 @@ const PacingChart = ({ daily, budget, trending, daysInMonth }) => {
       <g><rect x={xAt(maxIdx) - 24} y={-6} width="49" height="16" rx="3" fill={C.tealBright} /><text x={xAt(maxIdx)} y={5.5} textAnchor="middle" style={{ font: `700 10px ${FONT}`, fill: '#fff' }}>{money(dailyVals[maxIdx], { compact: true })}</text></g>
       {/* date axis */}
       <g style={{ font: `600 9px ${FONT}`, fill: C.gray2 }} textAnchor="middle">
-        {arr.map((d, idx) => { const p = String(d?.day ?? '').slice(0, 10).split('-'); if (p.length !== 3) return null; const dt = new Date(+p[0], (+p[1] || 1) - 1, +p[2]); if (dt.getDay() !== 0) return null; return <text key={idx} x={xAt(idx)} y={padT + innerH + 16}>{`${MONTHS[(+p[1] || 1) - 1]} ${+p[2]}`}</text>; })}
+        {arr.map((d, idx) => { const p = String(d?.day ?? '').slice(0, 10).split('-'); if (p.length !== 3) return null; const dt = new Date(+p[0], (+p[1] || 1) - 1, +p[2]); if (dt.getDay() !== 1) return null; return <text key={idx} x={xAt(idx)} y={padT + innerH + 16}>{`${MONTHS[(+p[1] || 1) - 1]} ${+p[2]}`}</text>; })}
       </g>
     </svg>
   );
