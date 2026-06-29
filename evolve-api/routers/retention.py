@@ -101,48 +101,29 @@ def get_new_guest_return_rate(
              AND v.sales_collected_exc_tax > 0
              AND CAST(v.payment_date AS DATE) >  ng.first_visit_date
              AND CAST(v.payment_date AS DATE) <= DATEADD(DAY, 90, ng.first_visit_date)
-        ),
-        cohort_visits AS (
-            -- Total visits by the MATURED cohort (first visit 90+ days before end_date).
-            -- A "visit" = distinct (guest, day) with a paid cash row, matching the
-            -- visit definition used elsewhere. This is the denominator the KPI uses
-            -- (returned guests / total visits), per the agreed definition.
-            SELECT
-                ng.center_name,
-                COUNT(DISTINCT CONCAT(v.guest_name, '|', CAST(v.payment_date AS DATE))) AS total_visits
-            FROM new_guests ng
-            JOIN {FULL_CASH} v
-              ON v.guest_name  = ng.guest_name
-             AND v.center_name = ng.center_name
-             AND v.sales_collected_exc_tax > 0
-            WHERE ng.first_visit_date <= DATEADD(DAY, -90, CAST('{e}' AS DATE))
-            GROUP BY ng.center_name
         )
         SELECT
             ng.center_name AS location,
             COUNT(DISTINCT ng.guest_name) AS new_guests,
             COUNT(DISTINCT r.guest_name)  AS returned_90d,
-            COUNT(DISTINCT CASE WHEN ng.first_visit_date <= DATEADD(DAY, -90, CAST('{e}' AS DATE))
-                                THEN ng.guest_name END) AS matured_new_guests,
-            COUNT(DISTINCT CASE WHEN ng.first_visit_date <= DATEADD(DAY, -90, CAST('{e}' AS DATE))
-                                THEN r.guest_name END)  AS matured_returned_90d,
-            MAX(cv.total_visits)                          AS cohort_total_visits,
-            -- Return-to-visit ratio: matured cohort guests who returned within 90d,
-            -- divided by total visits by that cohort. NOTE: this is a visit-count
-            -- ratio, NOT a 0-100% per-guest return rate (denominator is visits, not
-            -- guests), per the agreed definition.
-            COUNT(DISTINCT CASE WHEN ng.first_visit_date <= DATEADD(DAY, -90, CAST('{e}' AS DATE))
-                                THEN r.guest_name END) * 100.0
-                / NULLIF(MAX(cv.total_visits), 0) AS new_guest_return_rate_90d
+            COUNT(DISTINCT ng.guest_name) AS matured_new_guests,
+            COUNT(DISTINCT r.guest_name)  AS matured_returned_90d,
+            -- Per-guest return rate: returned within 90d / new guests * 100.
+            COUNT(DISTINCT r.guest_name) * 100.0
+                / NULLIF(COUNT(DISTINCT ng.guest_name), 0) AS new_guest_return_rate_90d
         FROM new_guests ng
         LEFT JOIN returned r
           ON r.center_name = ng.center_name AND r.guest_name = ng.guest_name
-        LEFT JOIN cohort_visits cv
-          ON cv.center_name = ng.center_name
         GROUP BY ng.center_name
         ORDER BY ng.center_name
         """
         return serialize_rows(run_query(sql, loc_params or None))
 
     except Exception as exc:
-        log_and_raise_from_request(exc, request)
+        # Secondary metric — never break the whole Overview view on its failure.
+        # Log, then degrade to empty (the dashboard renders "—" when retention is absent).
+        try:
+            log_and_raise_from_request(exc, request)
+        except Exception:
+            pass
+        return []

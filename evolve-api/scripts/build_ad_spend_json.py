@@ -26,7 +26,13 @@ def main():
     wb = openpyxl.load_workbook(XLSX, read_only=True, data_only=True)
     daily: dict[str, float] = defaultdict(float)
 
-    for sheet in wb.sheetnames:                       # 'google', 'Fb', ...
+    # Only the Google and Facebook tabs feed ad spend. Any other tab (e.g. 'Sheet1',
+    # a scratch/duplicate export) is intentionally excluded to avoid double-counting.
+    SOURCE_TABS = {"google", "fb"}
+
+    for sheet in wb.sheetnames:
+        if sheet.strip().lower() not in SOURCE_TABS:
+            continue
         ws = wb[sheet]
         rows = ws.iter_rows(values_only=True)
         try:
@@ -34,7 +40,7 @@ def main():
         except StopIteration:
             continue
         if DATE_COL not in header or SPEND_COL not in header:
-            continue  # skip empty / non-conforming sheets (e.g. blank Fb)
+            continue  # skip empty / non-conforming sheets
         di, si = header.index(DATE_COL), header.index(SPEND_COL)
         for r in rows:
             d, spend = r[di], r[si]
