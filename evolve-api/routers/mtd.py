@@ -536,16 +536,16 @@ def get_mtd_daily_trend(
     end_date:   Optional[str]       = Query(None),
     locations:  Optional[List[str]] = Query(None),
 ):
-    """Daily + cumulative cash sales, budget pace, and trending projection for the MTD chart."""
+    """Daily + cumulative NET SALES (accrual), budget pace, and trending projection for the MTD chart."""
     try:
         if not end_date:
-            r = run_query(f"SELECT MAX(CAST(payment_date AS DATE)) AS d FROM {FULL_CASH}")
+            r = run_query(f"SELECT MAX(CAST(sale_date AS DATE)) AS d FROM {FULL_SALES}")
             end_date = str(r[0]["d"]) if r and r[0].get("d") else str(datetime.utcnow().date())
         e     = end_date
         e_dt  = datetime.strptime(e, "%Y-%m-%d").date()
         s     = start_date or str(e_dt.replace(day=1))
 
-        where, params    = build_date_filter(s, e, locations, date_col="payment_date")
+        where, params    = build_date_filter(s, e, locations, date_col="sale_date")
         days_in_month    = calendar.monthrange(e_dt.year, e_dt.month)[1]
         days_elapsed     = (e_dt - e_dt.replace(day=1)).days + 1
 
@@ -566,18 +566,20 @@ def get_mtd_daily_trend(
             budget_rows = run_query(budget_sql)
         monthly_budget = float(budget_rows[0]["total_budget"]) if budget_rows else 0.0
 
-        # ── Daily + cumulative cash sales ─────────────────────────────────────
+        # ── Daily + cumulative NET SALES (accrual, closed) — matches the chart's
+        #    "Net Sales" label. Was cash (sales_collected_exc_tax from the cash table),
+        #    which mislabeled the chart and pulled in cash-batch spikes (e.g. Jun 25).
         sql = f"""
         SELECT
-            CAST(payment_date AS DATE)                                              AS day,
-            SUM(sales_collected_exc_tax)                                            AS daily_sales,
-            SUM(SUM(sales_collected_exc_tax)) OVER (
-                ORDER BY CAST(payment_date AS DATE)
+            CAST(sale_date AS DATE)                                                 AS day,
+            SUM(CASE WHEN LOWER(status) = 'closed' THEN sales_exc_tax ELSE 0 END)   AS daily_sales,
+            SUM(SUM(CASE WHEN LOWER(status) = 'closed' THEN sales_exc_tax ELSE 0 END)) OVER (
+                ORDER BY CAST(sale_date AS DATE)
                 ROWS UNBOUNDED PRECEDING
             )                                                                       AS cumulative_sales
-        FROM {FULL_CASH}
+        FROM {FULL_SALES}
         {where}
-        GROUP BY CAST(payment_date AS DATE)
+        GROUP BY CAST(sale_date AS DATE)
         ORDER BY day
         """
         daily_rows = run_query(sql, params or None)
