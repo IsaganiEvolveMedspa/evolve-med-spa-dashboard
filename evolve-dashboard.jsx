@@ -238,7 +238,7 @@ const NAV = [
   { id: 'Clinical', label: 'Clinical' },
   { id: 'Patients / CRM', label: 'Patients / CRM' },
   { id: 'Staff / Providers', label: 'Staff / Providers' },
-  { id: 'Inventory', label: 'Inventory' },
+  { id: 'Inventory', label: 'Inventory', group: ['Analytics Overview', 'Inventory Turnover', 'Consumption & WOS', 'Cost per Unit', 'Costing Sheet', 'System vs Purchase Cost', 'PO Matching', 'Inventory Movement', 'Transfers', 'True-Ups'] },
   { id: 'Memberships', label: 'Memberships' },
 ];
 
@@ -264,6 +264,16 @@ const SUBTITLE = (view, range, latestDate) => {
     'Staff / Providers': `Productivity & utilization · ${range}`,
     'Inventory': `Stock, consumption & retail · ${range}`,
     'Memberships': `Recurring revenue & adoption · ${range}`,
+    'Analytics Overview': 'Control-tower of cost integrity & inventory performance · Zenoti',
+    'Inventory Turnover': 'Annualized turns, slow & dead stock by category and site · Zenoti',
+    'Consumption & WOS': 'Demand, forecast & weeks-of-supply coverage · Zenoti',
+    'Cost per Unit': 'Weighted unit cost, movers & cost changes · Zenoti',
+    'Costing Sheet': 'Average unit cost by product · Zenoti',
+    'System vs Purchase Cost': 'System cost vs latest purchase price · Zenoti',
+    'PO Matching': 'Three-way match: ordered · received · invoiced · Zenoti',
+    'Inventory Movement': 'Opening → purchases → consumption → closing roll-forward · Zenoti',
+    'Transfers': 'Inter-site transfers & discrepancies · Zenoti',
+    'True-Ups': 'Zenoti inventory-adjustment trends & flagged corrections · Zenoti',
   }[view] || range;
 };
 
@@ -271,6 +281,16 @@ const TITLE = (view) => ({
   'Acquisition': 'Marketing · Acquisition',
   'Call Center': 'Call Center',
   'Overview': 'Business Overview',
+  'Analytics Overview': 'Cost & Inventory Analytics · Overview',
+  'Inventory Turnover': 'Cost & Inventory Analytics · Inventory Turnover',
+  'Consumption & WOS': 'Cost & Inventory Analytics · Consumption & Weeks of Supply',
+  'Cost per Unit': 'Cost & Inventory Analytics · Cost per Unit',
+  'Costing Sheet': 'Inventory · Costing Sheet',
+  'System vs Purchase Cost': 'Cost & Inventory Analytics · System vs Purchase Cost',
+  'PO Matching': 'Cost & Inventory Analytics · PO Matching',
+  'Inventory Movement': 'Cost & Inventory Analytics · Inventory Movement',
+  'Transfers': 'Cost & Inventory Analytics · Transfers',
+  'True-Ups': 'Cost & Inventory Analytics · True-Ups',
 }[view] || view);
 
 /* =================================================================
@@ -347,7 +367,17 @@ const Dashboard = () => {
     'Overview': <OverviewView />, 'Finance': <FinanceView />, 'Operations': <OperationsView />,
     'Locations': <LocationsView />, 'Acquisition': <AcquisitionView />, 'Call Center': <CallCenterView />,
     'Clinical': <ClinicalView />, 'Patients / CRM': <PatientsView />, 'Staff / Providers': <StaffView />,
-    'Inventory': <InventoryView />, 'Memberships': <MembershipsView />,
+    'Memberships': <MembershipsView />,
+    'Analytics Overview': <InvAnalyticsView />,
+    'Inventory Turnover': <InvSoon name="Inventory Turnover" />,
+    'Consumption & WOS': <InvSoon name="Consumption & Weeks of Supply" />,
+    'Cost per Unit': <InvSoon name="Cost per Unit" />,
+    'Costing Sheet': <InvSoon name="Costing Sheet" />,
+    'System vs Purchase Cost': <InvSoon name="System vs Purchase Cost" />,
+    'PO Matching': <InvSoon name="PO Matching" />,
+    'Inventory Movement': <InvSoon name="Inventory Movement" />,
+    'Transfers': <InvSoon name="Transfers" />,
+    'True-Ups': <InvSoon name="True-Ups" />,
   }[activeView] || <OverviewView />;
 
   return (
@@ -2518,7 +2548,138 @@ const CCAdAttribution = () => {
 const ClinicalView = () => <ComingSoon name="Clinical" />;
 const PatientsView = () => <ComingSoon name="Patients / CRM" />;
 const StaffView = () => <ComingSoon name="Staff / Providers" />;
-const InventoryView = () => <NoEndpoint title="Inventory data isn't available" detail="The reporting API exposes no inventory endpoints. Connect an inventory source to populate this view." />;
 const MembershipsView = () => <ComingSoon name="Memberships" />;
+
+/* =================================================================
+   COST & INVENTORY ANALYTICS  (hardcoded replica — Zenoti)
+   ================================================================= */
+const INV_ALERT = '9 cost-variance flags · 5 PO mismatches · 3 stuck transfers · 4 large true-ups';
+
+const InvAlert = () => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: '#FBF1ED', border: `1px solid #F0D9CE`, borderRadius: 10, padding: '9px 14px', font: `500 11.5px ${FONT}`, color: C.clay, marginBottom: 16 }}>
+    <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.clay, flex: 'none' }} />
+    {INV_ALERT}
+  </div>
+);
+
+const InvKpis = ({ items }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${items.length}, 1fr)`, gap: 12, marginBottom: 16 }}>
+    {items.map((k, i) => (
+      <div key={i} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '13px 15px', minWidth: 0 }}>
+        <div style={{ font: `600 9px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray, minHeight: 22 }}>{k.label}</div>
+        <div style={{ font: `600 22px ${FONT}`, color: k.color || C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{k.value}</div>
+        <div style={{ font: `500 10px ${FONT}`, color: C.gray3, marginTop: 3 }}>{k.sub}</div>
+      </div>
+    ))}
+  </div>
+);
+
+const InvSpark = ({ data, color = C.teal, h = 48 }) => {
+  const w = 200, mx = Math.max(...data), mn = Math.min(...data), rng = (mx - mn) || 1;
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - mn) / rng) * (h - 8) - 4}`).join(' ');
+  return <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none"><polyline points={pts} fill="none" stroke={color} strokeWidth="2" /></svg>;
+};
+
+const InvBar = ({ label, pct, color = C.teal, right, target }) => (
+  <div style={{ marginBottom: 11 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', font: `500 11px ${FONT}`, color: C.ink2, marginBottom: 4 }}>
+      <span>{label}</span><span style={{ fontVariantNumeric: 'tabular-nums', color: C.gray3 }}>{right}</span>
+    </div>
+    <div style={{ position: 'relative', height: 9, background: C.line2, borderRadius: 5 }}>
+      <div style={{ width: `${Math.max(2, Math.min(100, pct))}%`, height: '100%', background: color, borderRadius: 5 }} />
+      {target != null && <div style={{ position: 'absolute', left: `${Math.min(100, target)}%`, top: -2, width: 2, height: 13, background: C.ink }} />}
+    </div>
+  </div>
+);
+
+const InvPill = ({ text, tone }) => {
+  const map = { red: ['#FBE3E1', C.red], clay: ['#FBEDE5', C.clay], teal: ['#DDF0E6', C.teal], gray: ['#EEF2F1', C.gray3], amber: ['#FBF1D6', '#B5852A'] };
+  const [bg, fg] = map[tone] || map.gray;
+  return <span style={{ background: bg, color: fg, font: `600 10px ${FONT}`, padding: '2px 7px', borderRadius: 5 }}>{text}</span>;
+};
+
+const InvTable = ({ cols, rows }) => {
+  const grid = cols.map((c) => c.w || '1fr').join(' ');
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 8, padding: '4px 4px 9px', borderBottom: `1px solid ${C.line2}`, font: `600 9px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>
+        {cols.map((c, i) => <span key={i} style={{ textAlign: c.align || 'left' }}>{c.h}</span>)}
+      </div>
+      {rows.map((r, ri) => (
+        <div key={ri} style={{ display: 'grid', gridTemplateColumns: grid, gap: 8, padding: '9px 4px', borderBottom: `1px solid ${C.line3}`, font: `500 11.5px ${FONT}`, color: C.ink2, alignItems: 'center' }}>
+          {cols.map((c, ci) => (
+            <span key={ci} style={{ textAlign: c.align || 'left', color: c.strong ? C.ink : undefined, fontWeight: c.strong ? 600 : 500, fontVariantNumeric: 'tabular-nums' }}>
+              {c.render ? c.render(r) : r[c.k]}
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ---- Analytics Overview ----
+const InvAnalyticsView = () => {
+  const kpis = [
+    { label: 'Avg Cost-Variance', value: '+6.3%', sub: 'system vs latest PO', color: C.clay },
+    { label: 'PO Match Rate', value: '88.5%', sub: 'clean 3-way' },
+    { label: 'Open Cost Flags', value: '9', sub: '3 on watch', color: C.clay },
+    { label: 'Inventory Turnover', value: '7.3×', sub: 'annualized' },
+    { label: 'Avg Weeks of Supply', value: '9.6', sub: 'network' },
+    { label: 'True-Up Value', value: '−$18.4K', sub: 'net adjustment', color: C.red },
+  ];
+  const scorecard = [
+    { a: 'Cost per Unit', hl: '$182 wtd', f: 6 }, { a: 'Costing Drift', hl: '+6.3% avg', f: 9 },
+    { a: 'PO Matching', hl: '88.5% clean', f: 5 }, { a: 'Transfers', hl: '12 open', f: 5 },
+    { a: 'True-Ups', hl: '−$18.4K net', f: 7 }, { a: 'Inventory Turnover', hl: '7.3× / 9.0× tgt', f: 4 },
+    { a: 'Weeks of Supply', hl: '9.6 wks avg', f: 6 },
+  ];
+  const impact = [
+    { label: 'Cost variance', right: '$58.2K', pct: 100, color: C.red },
+    { label: 'PO mismatch', right: '$31.4K', pct: 54, color: C.clay },
+    { label: 'Transfer discrepancy', right: '$12.7K', pct: 22, color: C.navy },
+    { label: 'True-up write-downs', right: '$24.1K', pct: 41, color: C.redBright },
+  ];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <InvAlert />
+      <InvKpis items={kpis} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 16 }}>
+        <Card>
+          <CardTitle title="Data-Integrity Scorecard" sub="One row per analysis · health, headline & open flags" />
+          <div style={{ marginTop: 12 }}>
+            <InvTable
+              cols={[
+                { h: 'Analysis', k: 'a', strong: true, render: (r) => <span><span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: r.f >= 7 ? C.red : r.f >= 5 ? C.clay : C.teal, marginRight: 8 }} />{r.a}</span> },
+                { h: 'Headline', k: 'hl', align: 'right' },
+                { h: 'Flags', k: 'f', align: 'right', w: '0.5fr' },
+                { h: '', align: 'right', w: '0.5fr', render: () => <span style={{ color: C.teal, font: `600 11px ${FONT}` }}>View →</span> },
+              ]}
+              rows={scorecard}
+            />
+          </div>
+        </Card>
+        <Card>
+          <CardTitle title="Flagged $ Impact by Type" sub="Estimated exposure across analyses" />
+          <div style={{ marginTop: 16 }}>
+            {impact.map((b, i) => <InvBar key={i} {...b} />)}
+          </div>
+        </Card>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+        <Card><div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>Inventory Turnover</div><div style={{ font: `600 22px ${FONT}`, color: C.ink, margin: '6px 0' }}>7.3× <span style={{ font: `600 10px ${FONT}`, color: C.green }}>▲ 0.4 vs 12-mo</span></div><InvSpark data={[6.2, 6.4, 6.3, 6.6, 6.8, 6.7, 7.0, 6.9, 7.1, 7.0, 7.2, 7.3]} /><div style={{ font: `500 9.5px ${FONT}`, color: C.gray3, marginTop: 4 }}>Trailing 12 months</div></Card>
+        <Card><div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>True-Up Value</div><div style={{ font: `600 22px ${FONT}`, color: C.red, margin: '6px 0' }}>−$18.4K <span style={{ font: `600 10px ${FONT}`, color: C.clay }}>rising adjustments</span></div><InvSpark data={[-6, -8, -7, -10, -9, -12, -11, -14, -13, -16, -17, -18.4]} color={C.red} /><div style={{ font: `500 9.5px ${FONT}`, color: C.gray3, marginTop: 4 }}>Trailing 12 months</div></Card>
+        <Card><div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>Avg Cost Variance</div><div style={{ font: `600 22px ${FONT}`, color: C.clay, margin: '6px 0' }}>+6.3% <span style={{ font: `600 10px ${FONT}`, color: C.clay }}>▲ 1.8 pt drift</span></div><InvSpark data={[3.1, 3.4, 3.8, 4.2, 4.5, 4.9, 5.2, 5.6, 5.9, 6.0, 6.1, 6.3]} color={C.clay} /><div style={{ font: `500 9.5px ${FONT}`, color: C.gray3, marginTop: 4 }}>Trailing 12 months</div></Card>
+      </div>
+    </div>
+  );
+};
+
+const InvSoon = ({ name }) => (
+  <Card style={{ textAlign: 'center', padding: '54px 22px' }}>
+    <div style={{ font: `600 15px ${FONT}`, color: C.ink }}>{name}</div>
+    <div style={{ font: `500 12px ${FONT}`, color: C.gray, marginTop: 6 }}>Replica in progress — building this view next.</div>
+  </Card>
+);
 
 export default Dashboard;
