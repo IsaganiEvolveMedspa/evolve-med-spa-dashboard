@@ -1089,8 +1089,8 @@ const LocationTable = ({ rows, totals, h }) => {
           <span style={cell}>{h.gross_margin_pct != null ? pct(h.gross_margin_pct, 0) : '—'}</span>
           <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{num(h.new_visits != null ? h.new_visits : totals.newCust)}</span>
           <span style={cell}>{num(h.existing_client_count != null ? h.existing_client_count : totals.existCust)}</span>
-          <span style={cell}>{totals.asp != null ? money(totals.asp) : '—'}</span>
-          <span style={cell}>{totals.aspX != null ? money(totals.aspX) : '—'}</span>
+          <span style={cell}>{h.asp_new_clients != null ? money(h.asp_new_clients) : (totals.asp != null ? money(totals.asp) : '—')}</span>
+          <span style={cell}>{h.asp_existing_clients != null ? money(h.asp_existing_clients) : (totals.aspX != null ? money(totals.aspX) : '—')}</span>
           <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{h.provider_utilization != null ? pct(h.provider_utilization, 0) : '—'}</span>
           <span style={cell}>{h.rev_per_provider != null ? money(h.rev_per_provider) : '—'}</span>
           <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{h.esthetician_utilization != null ? pct(h.esthetician_utilization, 0) : '—'}</span>
