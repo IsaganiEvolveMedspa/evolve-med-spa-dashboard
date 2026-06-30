@@ -1,6 +1,6 @@
 import calendar
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from datetime import date, datetime, timedelta
 from typing import Optional, List
 
@@ -384,8 +384,17 @@ def get_mtd_kpi_header(
                     timings[label] = round(time.perf_counter() - t0, 2)
             return wrapper
 
+        # Two BI-table metrics (new_memberships, new_customer_visits) can take 15-30s
+        # on a cold/un-indexed warehouse table. They're cached + single-flight inside
+        # their helpers, so we only WAIT up to SLOW_CAP for them here: if the cold
+        # computation isn't done in time the header still returns promptly (with the
+        # last cached value or 0), while the background thread finishes and fills the
+        # cache so the next load is instant. shutdown(wait=False) avoids blocking on
+        # the straggler. The fast queries are awaited normally.
+        SLOW_CAP = 6.0
         t_all = time.perf_counter()
-        with ThreadPoolExecutor(max_workers=8) as pool:
+        pool = ThreadPoolExecutor(max_workers=8)
+        try:
             f_main     = pool.submit(timed("main_sql", run_query), sql, all_params or None)
             f_cogs     = pool.submit(timed("cogs", fetch_cogs_and_accrual), s, e, locations)
             f_salary   = pool.submit(timed("salary", compute_salary_by_center), s, e, locations)
@@ -395,14 +404,24 @@ def get_mtd_kpi_header(
             f_sss      = pool.submit(timed("sss", sss_growth_yoy), s, e, locations, yesterday)
             f_visits   = pool.submit(timed("new_visits", new_customer_visits), s, e, locations)
 
-            rows                          = f_main.result()
-            cm                            = f_cogs.result()
-            sal                           = f_salary.result()
-            nm                            = f_memb.result()
-            result_cash_rr                = f_cash_rr.result()
-            result_recog_rr               = f_recog_rr.result()
-            result_sss                    = f_sss.result()
-            result_visits                 = f_visits.result()
+            rows            = f_main.result()
+            cm              = f_cogs.result()
+            sal             = f_salary.result()
+            result_cash_rr  = f_cash_rr.result()
+            result_recog_rr = f_recog_rr.result()
+            result_sss      = f_sss.result()
+
+            def capped(fut, default):
+                remaining = SLOW_CAP - (time.perf_counter() - t_all)
+                try:
+                    return fut.result(timeout=max(0.1, remaining))
+                except FuturesTimeout:
+                    return default          # background thread keeps running -> fills cache
+
+            nm            = capped(f_memb, 0)
+            result_visits = capped(f_visits, 0)
+        finally:
+            pool.shutdown(wait=False)       # don't block on slow BI stragglers
         timings["_parallel_wall"] = round(time.perf_counter() - t_all, 2)
 
         result = rows[0] if rows else {}

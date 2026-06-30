@@ -15,23 +15,44 @@ from typing import Optional
 
 from config import FULL_FACT_COLLECTIONS, FULL_SALES
 from db import run_query
+from utils.slowcache import TTLSingleFlight
 
 log = logging.getLogger(__name__)
 
 # Non-membership marker on a collection row.
 NON_MEMBERSHIP = "Not Applicable"
 
+# Fact table is large/un-indexed for this access pattern (first-ever sale per
+# user) and changes slowly; cache for 10 min with single-flight (see slowcache).
+_CACHE = TTLSingleFlight(ttl_seconds=600)
+
 
 def new_customer_visits(s: str, e: str, locations: Optional[list[str]]) -> int:
     """Distinct guests whose first (non-membership) sale date is in [s, e].
 
-    Performance note: the first-ever sale date must be computed across all
-    history, but only users who actually transacted in [s, e] can possibly have
-    their FIRST sale in that window. So we pre-filter to those candidate users
-    (`candidates`) before the full-history MIN(date) aggregation — this keeps the
-    aggregation off the whole fact table (which previously timed out the entire
-    KPI header on every load, regardless of date range).
+    Cached + single-flight: a cold computation can take ~30s scanning the fact
+    table, so only one runs per (s,e,locations) at a time and the result is cached
+    for 10 min. Concurrent/subsequent callers get the cached value instead of each
+    launching their own 30s scan (which would exhaust DB connections).
     """
+    key = (s, e, tuple(sorted(locations)) if locations else None)
+    hit, val = _CACHE.get_fresh(key)
+    if hit:
+        return val
+    if not _CACHE.begin(key):                 # another thread is computing
+        any_hit, any_val = _CACHE.get_any(key)
+        return any_val if any_hit else 0
+    try:
+        val = _new_customer_visits(s, e, locations)
+        _CACHE.finish(key, val)
+        return val
+    except Exception as exc:                  # never let this one helper take down the KPI header
+        log.warning("new_customer_visits failed; returning 0: %s", exc)
+        _CACHE.abort(key)
+        return 0
+
+
+def _new_customer_visits(s: str, e: str, locations: Optional[list[str]]) -> int:
     loc_clause, params = "", []
     if locations:
         ph = ", ".join(["%s"] * len(locations))
@@ -66,9 +87,5 @@ def new_customer_visits(s: str, e: str, locations: Optional[list[str]]) -> int:
           AND f.MembershipVersionId = '{NON_MEMBERSHIP}'
           {loc_clause}
     """
-    try:
-        rows = run_query(sql, params or None)
-        return int(rows[0]["new_visits"]) if rows and rows[0].get("new_visits") is not None else 0
-    except Exception as exc:  # never let this one helper take down the KPI header
-        log.warning("new_customer_visits failed; returning 0: %s", exc)
-        return 0
+    rows = run_query(sql, params or None)
+    return int(rows[0]["new_visits"]) if rows and rows[0].get("new_visits") is not None else 0
