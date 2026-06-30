@@ -12,12 +12,15 @@ Same-Store Sales (SSS) Growth YoY %.
   Cash basis throughout (sales_collected_exc_tax, with the cash payment-type filter).
 """
 import calendar
+import logging
 from datetime import datetime
 from typing import Optional
 
 from config import FULL_CASH
 from db import run_query
 from utils.operating_days import _open_days, _count_between, _CASH_PAY_FILTER
+
+log = logging.getLogger(__name__)
 
 
 def _loc_clause(locations: Optional[list[str]]):
@@ -41,6 +44,14 @@ def _sum_by_center(start_iso: str, end_iso: str, locations):
 
 
 def sss_growth_yoy(s: str, e: str, locations: Optional[list[str]], latest_date: str) -> Optional[float]:
+    try:
+        return _sss_growth_yoy(s, e, locations, latest_date)
+    except Exception as exc:  # never let SSS take down the KPI header
+        log.warning("sss_growth_yoy failed; returning None: %s", exc)
+        return None
+
+
+def _sss_growth_yoy(s: str, e: str, locations: Optional[list[str]], latest_date: str) -> Optional[float]:
     table = _open_days()
     if not table:
         return None
@@ -56,23 +67,25 @@ def sss_growth_yoy(s: str, e: str, locations: Optional[list[str]], latest_date: 
     cur_mtd  = _sum_by_center(month_start.isoformat(), latest_date, locations)   # MTD cash per loc
     py_full  = _sum_by_center(py_start.isoformat(), py_end.isoformat(), locations)  # PY full-month cash
 
-    # First cash date per location (open-date proxy) for the same-store filter.
+    # Same-store filter: a center counts iff it had cash ON/BEFORE the cutoff
+    # (open > 12 months). Previously this did MIN(payment_date) GROUP BY center
+    # over ALL history with no date bound — a full-table scan of the cash table
+    # that pushed the KPI header past the 10s query timeout. We only need set
+    # membership, so bound the scan to rows on/before the cutoff date.
     loc, params = _loc_clause(locations)
-    first_sql = f"""
-        SELECT center_name, MIN(CAST(payment_date AS DATE)) AS first_day
+    same_store_sql = f"""
+        SELECT DISTINCT center_name
         FROM {FULL_CASH}
-        WHERE 1=1 {_CASH_PAY_FILTER} {loc}
-        GROUP BY center_name
+        WHERE payment_date < DATEADD(DAY, 1, '{cutoff.isoformat()}')
+        {_CASH_PAY_FILTER} {loc}
     """
-    first_seen = {r["center_name"]: str(r["first_day"]) for r in run_query(first_sql, params or None)
-                  if r.get("first_day")}
+    same_store = {r["center_name"] for r in run_query(same_store_sql, params or None)}
 
     ms_iso  = month_start.isoformat()
     me_iso  = month_end.isoformat()
     tot_proj, tot_py = 0.0, 0.0
     for center, py_sales in py_full.items():
-        first = first_seen.get(center)
-        if not first or first > cutoff.isoformat():
+        if center not in same_store:
             continue                                  # not same-store (open ≤ 12 months)
         days = table.get(center, [])
         elapsed_wd = _count_between(days, ms_iso, latest_date)

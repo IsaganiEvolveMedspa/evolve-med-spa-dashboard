@@ -12,15 +12,26 @@ START is also this month, from Bi_DimMembershipUser_s3 (not the cash-line proxy)
 Location filter: the membership table keys location by CenterId (a Zenoti GUID), so
 selected center_name(s) are mapped to CenterId via the sales table's center_id/center_name.
 """
+import logging
 from datetime import datetime
 from typing import Optional
 
 from config import FULL_MEMBERSHIP, FULL_SALES
 from db import run_query
 
+log = logging.getLogger(__name__)
+
 
 def new_memberships(s: str, e: str, locations: Optional[list[str]]) -> int:
     """Count of memberships created this month AND starting this month (optionally per location)."""
+    try:
+        return _new_memberships(s, e, locations)
+    except Exception as exc:  # never let this take down the KPI header
+        log.warning("new_memberships failed; returning 0: %s", exc)
+        return 0
+
+
+def _new_memberships(s: str, e: str, locations: Optional[list[str]]) -> int:
     e_dt = datetime.strptime(e, "%Y-%m-%d").date()
 
     loc_clause, params = "", []
