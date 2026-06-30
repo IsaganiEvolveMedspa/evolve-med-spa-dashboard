@@ -16,6 +16,7 @@ from utils.operating_days import cash_run_rate, recognized_run_rate
 from utils.sss import sss_growth_yoy
 from utils.new_customers import new_existing_visits
 from utils.memberships import new_memberships
+from utils.rev_hour import esthetician_rev_per_hour
 from utils.errors import log_and_raise_from_request
 
 router = APIRouter()
@@ -411,6 +412,7 @@ def get_mtd_kpi_header(
             f_sss      = pool.submit(timed("sss", sss_growth_yoy), s, e, locations, yesterday)
             f_visits   = pool.submit(timed("new_existing", new_existing_visits), s, e, locations)
             f_memb     = pool.submit(timed("memberships", new_memberships), s, e, locations)
+            f_esth_rh  = pool.submit(timed("esth_rev_hr", esthetician_rev_per_hour), s, e, locations)
 
             rows            = f_main.result()
             cm              = f_cogs.result()
@@ -419,6 +421,7 @@ def get_mtd_kpi_header(
             result_recog_rr = f_recog_rr.result()
             result_sss      = f_sss.result()
             new_memb        = f_memb.result()
+            esth_rev_hr     = f_esth_rh.result()
             try:
                 result_visits = f_visits.result(timeout=max(0.1, SLOW_CAP - (time.perf_counter() - t_all)))
             except FuturesTimeout:
@@ -448,6 +451,11 @@ def get_mtd_kpi_header(
         non_member = result.get("non_member_count") or 0
         result["new_members"] = new_memb
         result["membership_adoption_rate"] = (new_memb / non_member * 100) if non_member else None
+        # Rev/hr Esthetician — decoupled (all esthetician-role sales ÷ esthetician booked
+        # hours), replacing the per-day-join value that dropped ~20% of esthetician
+        # attribution. Provider rev/hr keeps the per-day join (unchanged).
+        if esth_rev_hr is not None:
+            result["rev_per_esthetician"] = esth_rev_hr
         # Cash Sales run rate = Σ_loc (MTD cash / working days elapsed) × total working days.
         result["cash_run_rate"] = result_cash_rr
         # Recognized Revenue run rate — same working-days projection on recognized revenue.
