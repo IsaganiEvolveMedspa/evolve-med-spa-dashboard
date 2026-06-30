@@ -22,18 +22,34 @@ _connection_pool = []
 
 
 def get_sql_connection():
-    """Get a connection from the pool or create a new one."""
+    """Get a healthy connection from the pool, or create a new one.
+
+    The health check (SELECT 1) is run OUTSIDE the lock. Previously it ran while
+    holding _connection_lock, so a single slow/dead pooled connection would hang
+    EVERY other thread's checkout for the full query timeout — catastrophic now
+    that the timeout is 30s and the KPI header checks out up to 8 connections
+    concurrently (it serialized the whole "parallel" header back to ~30s). Here we
+    only hold the lock to pop a candidate; validation happens lock-free, and dead
+    connections are closed (never re-pooled) so they can't poison later checkouts.
+    """
     global _connection_pool
-    with _connection_lock:
-        if _connection_pool:
+    while True:
+        with _connection_lock:
+            conn = _connection_pool.pop() if _connection_pool else None
+        if conn is None:
+            break
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1")
+            cursor.fetchall()
+            cursor.close()
+            return conn
+        except Exception:
             try:
-                conn = _connection_pool.pop()
-                cursor = conn.cursor()
-                cursor.execute("SELECT 1")
-                cursor.close()
-                return conn
+                conn.close()
             except Exception:
                 pass
+            # try the next pooled connection, else fall through to create a fresh one
 
     try:
         conn = pymssql.connect(

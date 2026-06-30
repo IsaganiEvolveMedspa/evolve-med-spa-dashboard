@@ -1,4 +1,5 @@
 import calendar
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from typing import Optional, List
@@ -113,6 +114,7 @@ def get_mtd_kpi_header(
     start_date: Optional[str]       = Query(None),
     end_date:   Optional[str]       = Query(None),
     locations:  Optional[List[str]] = Query(None),
+    debug:      Optional[str]       = Query(None),
 ):
     """Single-row KPI banner shown on every tab."""
     try:
@@ -368,15 +370,30 @@ def get_mtd_kpi_header(
         # another — sequential execution made the header ~27s (≈10 round-trips) and tripped
         # the Railway gateway timeout (502s). Parallel, the header is bounded by the single
         # slowest query (a few seconds). mtd_ad_spend is file-based (no DB) so it stays inline.
+        # Per-step wall-clock timings (each thread writes its own distinct key —
+        # atomic in CPython). Returned under "_timings" only when ?debug is set so
+        # we can see which query dominates without redeploying to guess.
+        timings: dict[str, float] = {}
+
+        def timed(label, fn):
+            def wrapper(*a, **k):
+                t0 = time.perf_counter()
+                try:
+                    return fn(*a, **k)
+                finally:
+                    timings[label] = round(time.perf_counter() - t0, 2)
+            return wrapper
+
+        t_all = time.perf_counter()
         with ThreadPoolExecutor(max_workers=8) as pool:
-            f_main     = pool.submit(run_query, sql, all_params or None)
-            f_cogs     = pool.submit(fetch_cogs_and_accrual, s, e, locations)
-            f_salary   = pool.submit(compute_salary_by_center, s, e, locations)
-            f_memb     = pool.submit(new_memberships, s, e, locations)
-            f_cash_rr  = pool.submit(cash_run_rate, s, e, locations, yesterday)
-            f_recog_rr = pool.submit(recognized_run_rate, s, e, locations, last_sale_day)
-            f_sss      = pool.submit(sss_growth_yoy, s, e, locations, yesterday)
-            f_visits   = pool.submit(new_customer_visits, s, e, locations)
+            f_main     = pool.submit(timed("main_sql", run_query), sql, all_params or None)
+            f_cogs     = pool.submit(timed("cogs", fetch_cogs_and_accrual), s, e, locations)
+            f_salary   = pool.submit(timed("salary", compute_salary_by_center), s, e, locations)
+            f_memb     = pool.submit(timed("memberships", new_memberships), s, e, locations)
+            f_cash_rr  = pool.submit(timed("cash_run_rate", cash_run_rate), s, e, locations, yesterday)
+            f_recog_rr = pool.submit(timed("recog_run_rate", recognized_run_rate), s, e, locations, last_sale_day)
+            f_sss      = pool.submit(timed("sss", sss_growth_yoy), s, e, locations, yesterday)
+            f_visits   = pool.submit(timed("new_visits", new_customer_visits), s, e, locations)
 
             rows                          = f_main.result()
             cm                            = f_cogs.result()
@@ -386,6 +403,7 @@ def get_mtd_kpi_header(
             result_recog_rr               = f_recog_rr.result()
             result_sss                    = f_sss.result()
             result_visits                 = f_visits.result()
+        timings["_parallel_wall"] = round(time.perf_counter() - t_all, 2)
 
         result = rows[0] if rows else {}
         # COGS Margin % = total cost_of_goods / sales accrual, aggregated over selected centers.
@@ -418,6 +436,8 @@ def get_mtd_kpi_header(
         result["new_visits"] = result_visits
         result["client_acquisition_cost"] = client_acquisition_cost(
             result.get("mtd_ad_spend"), result.get("new_visits") or result.get("new_client_count"))
+        if debug:
+            result["_timings"] = timings
         return result
 
     except Exception as exc:
