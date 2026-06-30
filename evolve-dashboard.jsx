@@ -1022,6 +1022,11 @@ const LocationTable = ({ rows, totals, h }) => {
   const cell = { textAlign: 'right', fontVariantNumeric: 'tabular-nums' };
   const headStyle = { font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: C.gray2 };
   const pillStyle = (col) => ({ display: 'inline-block', padding: '2px 7px', borderRadius: 5, font: `600 11px ${FONT}`, background: col === C.teal ? '#DDF0E6' : col === C.gold ? '#FBF1D6' : '#FBE3E1', color: col, fontVariantNumeric: 'tabular-nums' });
+  // Total row uses the header CARD values so the total matches the cards exactly
+  // (Cash Sales card = h.mtd_revenue; Proj. Run Rate card = h.cash_run_rate). Falls
+  // back to the per-location sums if the header value is missing.
+  const totCash = (h && h.mtd_revenue != null) ? h.mtd_revenue : totals.cash;
+  const totProj = (h && h.cash_run_rate != null) ? h.cash_run_rate : totals.trending;
 
   return (
     <div style={{ margin: '0 -2px' }}>
@@ -1078,10 +1083,10 @@ const LocationTable = ({ rows, totals, h }) => {
       {rows.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: GRID_COLS, gap: 6, padding: '11px 6px 4px', borderTop: `2px solid #D8E2DF`, alignItems: 'center', font: `700 11.5px ${FONT}`, color: C.ink }}>
           <span style={{ font: `700 10px ${FONT}`, letterSpacing: '.1em', textTransform: 'uppercase', color: C.teal }}>Total · {rows.length} Loc</span>
-          <span style={cell}>{money(totals.cash, { compact: true, floor: true })}</span>
+          <span style={cell}>{money(totCash, { compact: true, floor: true })}</span>
           <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.2 }}>
-            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{money(totals.trending, { compact: true })}</span>
-            <span style={{ font: `700 9.5px ${FONT}`, color: totals.budget && totals.cash / totals.budget >= 1 ? C.teal : C.clay, fontVariantNumeric: 'tabular-nums' }}>{totals.budget ? `${((totals.cash / totals.budget) * 100).toFixed(0)}%` : '—'}</span>
+            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{money(totProj, { compact: true })}</span>
+            <span style={{ font: `700 9.5px ${FONT}`, color: totals.budget && totCash / totals.budget >= 1 ? C.teal : C.clay, fontVariantNumeric: 'tabular-nums' }}>{totals.budget ? `${((totCash / totals.budget) * 100).toFixed(0)}%` : '—'}</span>
           </span>
           <span style={{ ...cell, fontWeight: 700, color: C.ink }}>{money(totals.recRev, { compact: true })}</span>
           <span style={cell}>{h.cogs_margin_pct != null ? pct(h.cogs_margin_pct, 1) : '—'}</span>
