@@ -369,7 +369,7 @@ const Dashboard = () => {
     'Clinical': <ClinicalView />, 'Patients / CRM': <PatientsView />, 'Staff / Providers': <StaffView />,
     'Memberships': <MembershipsView />,
     'Analytics Overview': <InvAnalyticsView />,
-    'Inventory Turnover': <InvSoon name="Inventory Turnover" />,
+    'Inventory Turnover': <InvTurnoverView />,
     'Consumption & WOS': <InvSoon name="Consumption & Weeks of Supply" />,
     'Cost per Unit': <InvSoon name="Cost per Unit" />,
     'Costing Sheet': <InvSoon name="Costing Sheet" />,
@@ -377,7 +377,7 @@ const Dashboard = () => {
     'PO Matching': <InvSoon name="PO Matching" />,
     'Inventory Movement': <InvSoon name="Inventory Movement" />,
     'Transfers': <InvSoon name="Transfers" />,
-    'True-Ups': <InvSoon name="True-Ups" />,
+    'True-Ups': <InvTrueUpsView />,
   }[activeView] || <OverviewView />;
 
   return (
@@ -2670,6 +2670,132 @@ const InvAnalyticsView = () => {
         <Card><div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>Inventory Turnover</div><div style={{ font: `600 22px ${FONT}`, color: C.ink, margin: '6px 0' }}>7.3× <span style={{ font: `600 10px ${FONT}`, color: C.green }}>▲ 0.4 vs 12-mo</span></div><InvSpark data={[6.2, 6.4, 6.3, 6.6, 6.8, 6.7, 7.0, 6.9, 7.1, 7.0, 7.2, 7.3]} /><div style={{ font: `500 9.5px ${FONT}`, color: C.gray3, marginTop: 4 }}>Trailing 12 months</div></Card>
         <Card><div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>True-Up Value</div><div style={{ font: `600 22px ${FONT}`, color: C.red, margin: '6px 0' }}>−$18.4K <span style={{ font: `600 10px ${FONT}`, color: C.clay }}>rising adjustments</span></div><InvSpark data={[-6, -8, -7, -10, -9, -12, -11, -14, -13, -16, -17, -18.4]} color={C.red} /><div style={{ font: `500 9.5px ${FONT}`, color: C.gray3, marginTop: 4 }}>Trailing 12 months</div></Card>
         <Card><div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>Avg Cost Variance</div><div style={{ font: `600 22px ${FONT}`, color: C.clay, margin: '6px 0' }}>+6.3% <span style={{ font: `600 10px ${FONT}`, color: C.clay }}>▲ 1.8 pt drift</span></div><InvSpark data={[3.1, 3.4, 3.8, 4.2, 4.5, 4.9, 5.2, 5.6, 5.9, 6.0, 6.1, 6.3]} color={C.clay} /><div style={{ font: `500 9.5px ${FONT}`, color: C.gray3, marginTop: 4 }}>Trailing 12 months</div></Card>
+      </div>
+    </div>
+  );
+};
+
+// ---- Inventory Turnover ----
+const InvTurnoverView = () => {
+  const kpis = [
+    { label: 'Annualized Turnover', value: '7.3×', sub: 'COGS ÷ avg inv' },
+    { label: 'Days-on-Hand', value: '50', sub: 'network avg' },
+    { label: 'Turnover vs Target', value: '−1.7×', sub: '9.0× blended tgt', color: C.clay },
+    { label: 'Slow-Mover Value', value: '$214K', sub: 'turns < target', color: C.clay },
+    { label: 'Dead-Stock Value', value: '$38K', sub: 'no demand 90d+', color: C.red },
+  ];
+  const cats = [
+    { l: 'Neurotoxins', v: 13.4, t: 12 }, { l: 'Fillers', v: 7.2, t: 9 },
+    { l: 'Biostimulators', v: 4.8, t: 6 }, { l: 'Consumables', v: 9.5, t: 5 },
+    { l: 'Skincare / Retail', v: 3.1, t: 4 }, { l: 'Equipment', v: 5.2, t: 6 },
+  ];
+  const locs = [
+    { l: 'Tribeca', v: 12.1 }, { l: 'Hoboken', v: 10.7 }, { l: 'Jersey City', v: 10.5 }, { l: 'Montclair', v: 10.3 },
+    { l: 'Short Hills', v: 9.5 }, { l: 'Denville', v: 8.4 }, { l: 'Frederick', v: 5.9 }, { l: 'Bel Air', v: 5.6 },
+    { l: 'Ridgewood', v: 5.3 }, { l: 'Bridgewater', v: 5.0 }, { l: 'Waldorf', v: 4.9 }, { l: 'Old Bridge', v: 4.8 },
+    { l: 'Lancaster', v: 4.4 }, { l: 'Scarsdale', v: 4.3 },
+  ];
+  const dead = [
+    { p: 'EltaMD UV Clear', loc: 'Tribeca', oh: 182, ohd: '$4.6K', t: '2.1×', lu: '138d', st: ['Overstocked', 'clay'] },
+    { p: 'SkinVive', loc: 'Bel Air', oh: 46, ohd: '$10.6K', t: '2.4×', lu: '168d', st: ['Slow', 'amber'] },
+    { p: 'Radiesse 1.5cc', loc: 'Frederick', oh: 22, ohd: '$5.7K', t: '3.0×', lu: '96d', st: ['Slow', 'amber'] },
+    { p: 'Bacteriostatic Water', loc: 'Waldorf', oh: 88, ohd: '$0.5K', t: '0.8×', lu: '212d', st: ['Dead', 'red'] },
+    { p: 'Microcannula 25G', loc: 'Denville', oh: 64, ohd: '$0.2K', t: '1.1×', lu: '184d', st: ['Dead', 'red'] },
+    { p: 'SkinMedica TNS', loc: 'Ridgewood', oh: 120, ohd: '$16.7K', t: '3.4×', lu: '77d', st: ['Slow', 'amber'] },
+    { p: 'Versa Filler', loc: 'Lancaster', oh: 14, ohd: '$2.5K', t: '1.8×', lu: '121d', st: ['Dead', 'red'] },
+    { p: 'Restylane Refyne', loc: 'Old Bridge', oh: 18, ohd: '$4.3K', t: '2.6×', lu: '103d', st: ['Slow', 'amber'] },
+  ];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <InvAlert />
+      <InvKpis items={kpis} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <Card>
+          <CardTitle title="Turnover by Category" sub="Annualized turns · black tick = category target" />
+          <div style={{ marginTop: 16 }}>
+            {cats.map((c, i) => <InvBar key={i} label={c.l} right={`${c.v}× · tgt ${c.t}×`} pct={(c.v / 14) * 100} target={(c.t / 14) * 100} color={c.v >= c.t ? C.teal : C.clay} />)}
+          </div>
+        </Card>
+        <Card>
+          <CardTitle title="Turnover by Location" sub="Below 8.0× network target in terracotta" />
+          <div style={{ marginTop: 16 }}>
+            {locs.map((c, i) => <InvBar key={i} label={c.l} right={`${c.v}×`} pct={(c.v / 12.1) * 100} color={c.v >= 8 ? C.teal : C.clay} />)}
+          </div>
+        </Card>
+      </div>
+      <Card>
+        <CardTitle title="Network Turnover Trend" sub="Annualized turns · trailing 12 months" />
+        <div style={{ marginTop: 10 }}><InvSpark data={[6.1, 6.0, 6.4, 6.3, 6.8, 6.6, 7.0, 6.9, 7.1, 7.0, 7.2, 7.3]} h={90} /></div>
+      </Card>
+      <Card>
+        <CardTitle title="Slow & Dead Stock" sub="Turns below target or no demand 90d+ · candidates for write-down or transfer" />
+        <div style={{ marginTop: 12 }}>
+          <InvTable
+            cols={[
+              { h: 'Product', k: 'p', strong: true, w: '1.4fr' }, { h: 'Location', k: 'loc' },
+              { h: 'On-Hand', k: 'oh', align: 'right' }, { h: 'On-Hand $', k: 'ohd', align: 'right' },
+              { h: 'Turns', k: 't', align: 'right' }, { h: 'Last Use', k: 'lu', align: 'right' },
+              { h: 'Status', align: 'right', render: (r) => <InvPill text={r.st[0]} tone={r.st[1]} /> },
+            ]}
+            rows={dead}
+          />
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+// ---- True-Ups (Zenoti) ----
+const InvTrueUpsView = () => {
+  const kpis = [
+    { label: 'True-Up Count (May)', value: '14', sub: 'adjustment entries' },
+    { label: 'Net True-Up Value', value: '−$3.5K', sub: 'signed', color: C.red },
+    { label: 'Gross Write-Downs', value: '$6.1K', sub: 'shrink / damage', color: C.clay },
+    { label: 'Gross Write-Ups', value: '+$2.6K', sub: 'corrections up', color: C.green },
+    { label: 'Repeated SKU-Sites', value: '0', sub: 'chronic discrepancy' },
+  ];
+  const entries = [
+    { d: 'May 07', loc: 'Hoboken', p: 'Dysport 300u', sku: 'DYS-300', q: '+4', cb: '$399', v: '+$1.6K', vc: C.green, rs: 'Receiving error', fl: ['Large', 'clay'] },
+    { d: 'May 03', loc: 'Waldorf', p: 'Sculptra', sku: 'SCU-VIAL', q: '−3', cb: '$385', v: '−$1.2K', vc: C.red, rs: 'Damage / expiry write-off', fl: ['Large', 'clay'] },
+    { d: 'May 10', loc: 'Lancaster', p: 'Botox 100u', sku: 'BTX-100', q: '−2', cb: '$560', v: '−$1.1K', vc: C.red, rs: 'Count correction', fl: ['Large', 'clay'] },
+    { d: 'May 15', loc: 'Waldorf', p: 'Xeomin 100u', sku: 'XEO-100', q: '−2', cb: '$480', v: '−$960', vc: C.red, rs: 'Count correction', fl: ['Large', 'clay'] },
+    { d: 'May 18', loc: 'Lancaster', p: 'Sculptra', sku: 'SCU-VIAL', q: '−2', cb: '$385', v: '−$770', vc: C.red, rs: 'Count correction', fl: ['Large', 'clay'] },
+    { d: 'May 22', loc: 'Frederick', p: 'SkinVive', sku: 'SKV-1', q: '+3', cb: '$230', v: '+$690', vc: C.green, rs: 'Receiving error', fl: ['Large', 'clay'] },
+  ];
+  const byLoc = [
+    { label: 'Lancaster', right: '−$1.9K', pct: 100, color: C.red }, { label: 'Waldorf', right: '−$1.5K', pct: 79, color: C.red },
+    { label: 'Hoboken', right: '+$1.6K', pct: 84, color: C.teal }, { label: 'Frederick', right: '+$0.7K', pct: 37, color: C.teal },
+    { label: 'Bel Air', right: '−$0.4K', pct: 21, color: C.clay },
+  ];
+  const byReason = [
+    { label: 'Count correction', right: '−$3.6K', pct: 100, color: C.red }, { label: 'Receiving error', right: '+$2.3K', pct: 64, color: C.teal },
+    { label: 'Damage / expiry', right: '−$1.2K', pct: 33, color: C.clay }, { label: 'Theft / shrink', right: '−$0.6K', pct: 17, color: C.redBright },
+  ];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <InvAlert />
+      <InvKpis items={kpis} />
+      <Card>
+        <CardTitle title="True-Up Value & Count Trend" sub="18 months · write-ups (green) vs write-downs (red) · count line" />
+        <div style={{ marginTop: 10 }}><InvSpark data={[2, -3, 4, -2, 3, -5, 2, -4, 3, -6, 2, -3, 4, -2, 3, -5, 2, -3.5]} h={90} color={C.navy} /></div>
+      </Card>
+      <Card>
+        <CardTitle title="Adjustment Entries" sub="Flagged (value) > $250 or chronic SKU-site · sorted by value" />
+        <div style={{ marginTop: 12 }}>
+          <InvTable
+            cols={[
+              { h: 'Date', k: 'd' }, { h: 'Location', k: 'loc' }, { h: 'Product', k: 'p', strong: true, w: '1.2fr' },
+              { h: 'SKU', k: 'sku' }, { h: 'Qty', k: 'q', align: 'right', w: '0.5fr' }, { h: 'Cost Basis', k: 'cb', align: 'right' },
+              { h: 'Value $', align: 'right', render: (r) => <span style={{ color: r.vc, fontWeight: 600 }}>{r.v}</span> },
+              { h: 'Reason', k: 'rs', w: '1.1fr' }, { h: 'Flag', align: 'right', render: (r) => <InvPill text={r.fl[0]} tone={r.fl[1]} /> },
+            ]}
+            rows={entries}
+          />
+        </div>
+      </Card>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <Card><CardTitle title="Adjustment Value by Location" /><div style={{ marginTop: 16 }}>{byLoc.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
+        <Card><CardTitle title="By Reason" /><div style={{ marginTop: 16 }}>{byReason.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
       </div>
     </div>
   );
