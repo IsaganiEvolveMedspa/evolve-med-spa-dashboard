@@ -14,7 +14,7 @@ from utils.ad_spend import mtd_ad_spend, client_acquisition_cost
 from utils.payroll import compute_salary_by_center, salary_margin_pct
 from utils.operating_days import cash_run_rate, recognized_run_rate
 from utils.sss import sss_growth_yoy
-from utils.new_customers import new_customer_visits
+from utils.new_customers import new_existing_visits
 from utils.errors import log_and_raise_from_request
 
 router = APIRouter()
@@ -390,13 +390,13 @@ def get_mtd_kpi_header(
                     timings[label] = round(time.perf_counter() - t0, 2)
             return wrapper
 
-        # new_visits has two sources: the main cash query computes a fast value
-        # (m.new_visits) that's always available, and new_customer_visits() computes
-        # the authoritative "first-ever sale date per guest_name (non-membership)" off
-        # BRONZE_ZENOTI_SALES_ACCRUAL. The latter can be heavy on a cold table, so we
-        # wait at most SLOW_CAP for it and otherwise keep the cash value (its cache
-        # fills in the background). shutdown(wait=False) so a slow straggler never
-        # blocks the response.
+        # new_visits / existing have two sources: the main cash query computes fast
+        # values (m.new_visits, m.existing_client_count) that are always available, and
+        # new_existing_visits() computes the authoritative "first-ever sale date per
+        # guest_name (non-membership)" off BRONZE_ZENOTI_SALES_ACCRUAL. The latter can be
+        # heavy on a cold table, so we wait at most SLOW_CAP for it and otherwise keep the
+        # cash values (its cache fills in the background). shutdown(wait=False) so a slow
+        # straggler never blocks the response.
         SLOW_CAP = 6.0
         t_all = time.perf_counter()
         pool = ThreadPoolExecutor(max_workers=7)
@@ -407,7 +407,7 @@ def get_mtd_kpi_header(
             f_cash_rr  = pool.submit(timed("cash_run_rate", cash_run_rate), s, e, locations, yesterday)
             f_recog_rr = pool.submit(timed("recog_run_rate", recognized_run_rate), s, e, locations, last_sale_day)
             f_sss      = pool.submit(timed("sss", sss_growth_yoy), s, e, locations, yesterday)
-            f_visits   = pool.submit(timed("new_visits", new_customer_visits), s, e, locations)
+            f_visits   = pool.submit(timed("new_existing", new_existing_visits), s, e, locations)
 
             rows            = f_main.result()
             cm              = f_cogs.result()
@@ -446,11 +446,13 @@ def get_mtd_kpi_header(
         result["recognized_run_rate"] = result_recog_rr
         # SSS Growth YoY % = projected run rate vs prior-year same month, same-store only.
         result["same_store_yoy"] = result_sss
-        # New Customer Visits = distinct guests whose first-ever (closed) sale date is
-        # this month and is non-membership, from BRONZE_ZENOTI_SALES_ACCRUAL. If that
-        # scan didn't finish within the cap, fall back to the cash value (m.new_visits).
+        # New / Existing Customer Visits from BRONZE_ZENOTI_SALES_ACCRUAL (first-ever sale
+        # date per guest_name, non-membership first purchase): new = first sale this month,
+        # existing = first sale before this month + a sale this month. If the scan didn't
+        # finish within the cap, fall back to the cash values (m.new_visits / m.existing).
         if result_visits is not None:
-            result["new_visits"] = result_visits
+            result["new_visits"]            = result_visits.get("new")
+            result["existing_client_count"] = result_visits.get("existing")
         # MTD Ad Spend (chain-level, from bundled Google/FB ad export) + CAC = ad spend / new visits.
         result["mtd_ad_spend"] = mtd_ad_spend(s, e)
         result["client_acquisition_cost"] = client_acquisition_cost(
