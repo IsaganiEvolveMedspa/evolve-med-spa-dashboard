@@ -1,4 +1,5 @@
 import calendar
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from typing import Optional, List
 
@@ -360,16 +361,39 @@ def get_mtd_kpi_header(
         # sched_block (provider_rev sch), where_sales (provider_rev accrual sales), appt_loc.
         # NOTE: sched_block appears TWICE (schedule_util + provider_rev) → sched_x twice.
         all_params = merge_params(params, params, y_loc_p, y_loc_p, y_loc_p, sched_x, sched_x, params_sales, appt_loc_p)
-        rows = run_query(sql, all_params or None)
+
+        # The main KPI query and every enrichment helper are independent (each runs
+        # its own pooled DB connection and depends only on s/e/locations + the already-
+        # resolved yesterday/last_sale_day). Run them concurrently instead of one after
+        # another — sequential execution made the header ~27s (≈10 round-trips) and tripped
+        # the Railway gateway timeout (502s). Parallel, the header is bounded by the single
+        # slowest query (a few seconds). mtd_ad_spend is file-based (no DB) so it stays inline.
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            f_main     = pool.submit(run_query, sql, all_params or None)
+            f_cogs     = pool.submit(fetch_cogs_and_accrual, s, e, locations)
+            f_salary   = pool.submit(compute_salary_by_center, s, e, locations)
+            f_memb     = pool.submit(new_memberships, s, e, locations)
+            f_cash_rr  = pool.submit(cash_run_rate, s, e, locations, yesterday)
+            f_recog_rr = pool.submit(recognized_run_rate, s, e, locations, last_sale_day)
+            f_sss      = pool.submit(sss_growth_yoy, s, e, locations, yesterday)
+            f_visits   = pool.submit(new_customer_visits, s, e, locations)
+
+            rows                          = f_main.result()
+            cm                            = f_cogs.result()
+            sal                           = f_salary.result()
+            nm                            = f_memb.result()
+            result_cash_rr                = f_cash_rr.result()
+            result_recog_rr               = f_recog_rr.result()
+            result_sss                    = f_sss.result()
+            result_visits                 = f_visits.result()
+
         result = rows[0] if rows else {}
         # COGS Margin % = total cost_of_goods / sales accrual, aggregated over selected centers.
-        cm = fetch_cogs_and_accrual(s, e, locations)
         tot_cogs    = sum(v.get("cogs", 0)    for v in cm.values())
         tot_accrual = sum(v.get("accrual", 0) for v in cm.values())
         cogs_m = cogs_margin_pct(tot_cogs, tot_accrual)
         result["cogs_margin_pct"] = cogs_m
         # Real payroll/salary margin (salary model) replaces the modeled 24.64%.
-        sal        = compute_salary_by_center(s, e, locations)
         tot_salary = sum(v["salary"]        for v in sal.values())
         tot_sales  = sum(v["sales_accrual"] for v in sal.values())
         payroll_m  = salary_margin_pct(tot_salary, tot_sales)
@@ -379,24 +403,19 @@ def get_mtd_kpi_header(
         # Membership Adoption = new memberships (created this month AND starting this month,
         # from Bi_DimMembershipUser_s3) / non-member unique guests (cash). Replaces the old
         # cash-line proxy numerator.
-        nm = new_memberships(s, e, locations)
         non_member = result.get("non_member_count") or 0
         result["new_members"] = nm
         result["membership_adoption_rate"] = (nm / non_member * 100) if non_member else None
         # Cash Sales run rate = Σ_loc (MTD cash / working days elapsed) × total working days.
-        # Working days from the Operating Schedule; elapsed counts through the latest data day.
-        result["cash_run_rate"] = cash_run_rate(s, e, locations, yesterday)
-        # Recognized Revenue run rate — same working-days projection but on recognized
-        # revenue (SUM sales_inc_tax), through the latest sale day.
-        result["recognized_run_rate"] = recognized_run_rate(s, e, locations, last_sale_day)
-        # SSS Growth YoY % = projected run rate vs prior-year same month, same-store only
-        # (locations open > 12 months). Replaces the partial-MTD-vs-prior-year comparison.
-        result["same_store_yoy"] = sss_growth_yoy(s, e, locations, yesterday)
+        result["cash_run_rate"] = result_cash_rr
+        # Recognized Revenue run rate — same working-days projection on recognized revenue.
+        result["recognized_run_rate"] = result_recog_rr
+        # SSS Growth YoY % = projected run rate vs prior-year same month, same-store only.
+        result["same_store_yoy"] = result_sss
         # MTD Ad Spend (chain-level, from bundled Google/FB ad export) + CAC.
         result["mtd_ad_spend"] = mtd_ad_spend(s, e)
-        # New Customer Visits = guests whose first sale (non-membership) is this month,
-        # from Bi_FactCollections_s3. Drives the New Customer Visits card and CAC.
-        result["new_visits"] = new_customer_visits(s, e, locations)
+        # New Customer Visits = guests whose first sale (non-membership) is this month.
+        result["new_visits"] = result_visits
         result["client_acquisition_cost"] = client_acquisition_cost(
             result.get("mtd_ad_spend"), result.get("new_visits") or result.get("new_client_count"))
         return result
