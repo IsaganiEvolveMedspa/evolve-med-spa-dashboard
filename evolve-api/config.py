@@ -109,6 +109,8 @@ SCHEDULE_TABLE = os.getenv("SQL_SCHEDULE_TABLE", "dbo.employee_schedule")
 APPT_TABLE     = os.getenv("SQL_APPT_TABLE",     "dbo.appointments")
 CASH_TABLE     = os.getenv("SQL_CASH_TABLE",     "dbo.BRONZE_ZENOTI_CASH_COLLECTIONS")
 COGS_TABLE     = os.getenv("SQL_COGS_TABLE",     "dbo.BRONZE_ZENOTI_COST_OF_GOODS")
+MEMBERSHIP_TABLE = os.getenv("SQL_MEMBERSHIP_TABLE", "dbo.Bi_DimMembershipUser_s3")
+FACT_COLLECTIONS_TABLE = os.getenv("SQL_FACT_COLLECTIONS_TABLE", "dbo.Bi_FactCollections_s3")
 
 # Aliases used by routers — plain table names work for SQL Server
 FULL_SALES    = SALES_TABLE
@@ -116,6 +118,8 @@ FULL_SCHEDULE = SCHEDULE_TABLE
 FULL_APPT     = APPT_TABLE
 FULL_CASH     = CASH_TABLE
 FULL_COGS     = COGS_TABLE
+FULL_MEMBERSHIP = MEMBERSHIP_TABLE
+FULL_FACT_COLLECTIONS = FACT_COLLECTIONS_TABLE
 
 
 # ─── BigQuery table identifiers (api_log, insights, errors) ───────────────────

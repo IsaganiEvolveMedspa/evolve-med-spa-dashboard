@@ -45,13 +45,13 @@ def get_appointments_summary(
             -- Counts are by unique invoice_no (one visit = one invoice, not N service rows).
             COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) != 'deleted'  THEN invoice_no END) AS total_appointments,
             COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'closed'    THEN invoice_no END) AS completed,
-            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'no show'   THEN invoice_no END) AS no_shows,
-            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'cancelled' THEN invoice_no END) AS cancellations,
+            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) IN ('no show', 'closed no show')      THEN invoice_no END) AS no_shows,
+            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) IN ('cancelled', 'closed cancellation') THEN invoice_no END) AS cancellations,
             COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'deleted'   THEN invoice_no END) AS deleted,
-            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'no show'   THEN invoice_no END) * 1.0
+            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) IN ('no show', 'closed no show') THEN invoice_no END) * 1.0
                 / NULLIF(COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) != 'deleted' THEN invoice_no END), 0)
                 * 100                                                                               AS no_show_rate,
-            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'cancelled' THEN invoice_no END) * 1.0
+            COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) IN ('cancelled', 'closed cancellation') THEN invoice_no END) * 1.0
                 / NULLIF(COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) != 'deleted' THEN invoice_no END), 0)
                 * 100                                                                               AS cancellation_rate,
             COUNT(DISTINCT CASE WHEN add_on = 'No' AND LOWER(status) = 'closed' AND LOWER(rebooked) = 'yes' THEN invoice_no END) * 1.0

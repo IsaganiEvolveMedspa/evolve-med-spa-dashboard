@@ -10,7 +10,10 @@ from utils.filters import build_date_filter, build_sched_filter, merge_params, l
 from utils.cogs import fetch_cogs_and_accrual, cogs_margin_pct
 from utils.ad_spend import mtd_ad_spend, client_acquisition_cost
 from utils.payroll import compute_salary_by_center, salary_margin_pct
-from utils.operating_days import cash_run_rate
+from utils.operating_days import cash_run_rate, recognized_run_rate
+from utils.memberships import new_memberships
+from utils.sss import sss_growth_yoy
+from utils.new_customers import new_customer_visits
 from utils.errors import log_and_raise_from_request
 
 router = APIRouter()
@@ -143,6 +146,20 @@ def get_mtd_kpi_header(
             else str(e_dt - timedelta(days=1))
         )
 
+        # Prior Day Sales is NET SALES (accrual), so resolve its "prior day" from the
+        # latest closed SALE day (sale_date), not the latest cash day.
+        last_sale_sql = f"""
+        SELECT MAX(CAST(sale_date AS DATE)) AS d
+        FROM {FULL_SALES}
+        WHERE CAST(sale_date AS DATE) <= '{e}'
+          AND LOWER(status) = 'closed'
+        {y_loc_pre}
+        """
+        _ls = run_query(last_sale_sql, y_loc_pre_p or None)
+        last_sale_day = (
+            str(_ls[0]["d"]) if _ls and _ls[0].get("d") else yesterday
+        )
+
         lm_end_dt   = e_dt.replace(day=1) - timedelta(days=1)
         lm_start_dt = lm_end_dt.replace(day=1)
 
@@ -192,6 +209,7 @@ def get_mtd_kpi_header(
                 COUNT(DISTINCT CASE WHEN gc.is_new = 1 THEN c.guest_name END)                                 AS new_client_count,
                 COUNT(DISTINCT CASE WHEN gc.is_new = 0 THEN c.guest_name END)                                 AS existing_client_count,
                 COUNT(DISTINCT CASE WHEN LOWER(c.member) = 'yes'        THEN c.guest_name END)                AS member_count,
+                COUNT(DISTINCT CASE WHEN LOWER(c.member) = 'no'         THEN c.guest_name END)                AS non_member_count,
                 COUNT(DISTINCT CASE WHEN c.item_category = 'Memberships' THEN c.guest_name END)               AS new_members,
                 -- Membership Adoption Rate = New Memberships / Non-Member unique guests * 100.
                 -- Denominator uses the `member` flag (non-members only), per KPI spec —
@@ -225,13 +243,13 @@ def get_mtd_kpi_header(
             {_CASH_PAY_FILTER}
         ),
         yesterday_data AS (
+            -- Prior Day Sales = NET SALES (accrual, closed) on the latest sale day.
             SELECT
-                COALESCE(SUM(sales_collected_exc_tax), 0)       AS yesterday_revenue,
-                COALESCE(COUNT(DISTINCT guest_name), 0)         AS yesterday_clients
-            FROM {FULL_CASH}
-            WHERE CAST(payment_date AS DATE) = '{yesterday}'
+                COALESCE(SUM(CASE WHEN LOWER(status) = 'closed' THEN sales_exc_tax ELSE 0 END), 0)  AS yesterday_revenue,
+                COALESCE(COUNT(DISTINCT CASE WHEN LOWER(status) = 'closed' THEN guest_name END), 0) AS yesterday_clients
+            FROM {FULL_SALES}
+            WHERE CAST(sale_date AS DATE) = '{last_sale_day}'
             {y_loc}
-            {_CASH_PAY_FILTER}
         ),
         last_month_data AS (
             SELECT
@@ -311,6 +329,7 @@ def get_mtd_kpi_header(
             m.new_client_count,
             m.existing_client_count,
             m.member_count,
+            m.non_member_count,
             m.new_members,
             m.membership_adoption_rate,
             m.blended_asp,
@@ -357,13 +376,29 @@ def get_mtd_kpi_header(
         result["payroll_margin_pct"] = payroll_m
         # Gross margin % = 100 − real COGS margin % − real payroll margin %.
         result["gross_margin_pct"] = (100 - (cogs_m or 0) - (payroll_m or 0)) if tot_sales else None
+        # Membership Adoption = new memberships (created this month AND starting this month,
+        # from Bi_DimMembershipUser_s3) / non-member unique guests (cash). Replaces the old
+        # cash-line proxy numerator.
+        nm = new_memberships(s, e, locations)
+        non_member = result.get("non_member_count") or 0
+        result["new_members"] = nm
+        result["membership_adoption_rate"] = (nm / non_member * 100) if non_member else None
         # Cash Sales run rate = Σ_loc (MTD cash / working days elapsed) × total working days.
         # Working days from the Operating Schedule; elapsed counts through the latest data day.
         result["cash_run_rate"] = cash_run_rate(s, e, locations, yesterday)
+        # Recognized Revenue run rate — same working-days projection but on recognized
+        # revenue (SUM sales_inc_tax), through the latest sale day.
+        result["recognized_run_rate"] = recognized_run_rate(s, e, locations, last_sale_day)
+        # SSS Growth YoY % = projected run rate vs prior-year same month, same-store only
+        # (locations open > 12 months). Replaces the partial-MTD-vs-prior-year comparison.
+        result["same_store_yoy"] = sss_growth_yoy(s, e, locations, yesterday)
         # MTD Ad Spend (chain-level, from bundled Google/FB ad export) + CAC.
         result["mtd_ad_spend"] = mtd_ad_spend(s, e)
+        # New Customer Visits = guests whose first sale (non-membership) is this month,
+        # from Bi_FactCollections_s3. Drives the New Customer Visits card and CAC.
+        result["new_visits"] = new_customer_visits(s, e, locations)
         result["client_acquisition_cost"] = client_acquisition_cost(
-            result.get("mtd_ad_spend"), result.get("new_client_count"))
+            result.get("mtd_ad_spend"), result.get("new_visits") or result.get("new_client_count"))
         return result
 
     except Exception as exc:

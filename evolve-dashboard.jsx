@@ -621,6 +621,7 @@ const OverviewView = () => {
     summary: { path: '/api/mtd-summary', params },
     ops: { path: '/api/operations-summary', params },
     categories: { path: '/api/category-breakdown', params },
+    svcMix: { path: '/api/service-mix', params },
     products: { path: '/api/product-mix', params },
     daily: { path: '/api/mtd-daily-trend', params },
     headerPrev: { path: '/api/mtd-kpi-header', params: prevParams },
@@ -632,7 +633,7 @@ const OverviewView = () => {
 
   return (
     <DataState loading={loading || !fl.ready} error={error} onRetry={reload}>
-      <OverviewBody h={data.header || {}} hPrev={data.headerPrev || {}} summary={data.summary || []} ops={data.ops || []} categories={data.categories || []} products={data.products || []} daily={data.daily} appts={data.appts || []} apptsPrev={data.apptsPrev || []} retention={data.retention || []} retentionPrev={data.retentionPrev || []} range={fl.monthLabel} />
+      <OverviewBody h={data.header || {}} hPrev={data.headerPrev || {}} summary={data.summary || []} ops={data.ops || []} categories={data.categories || []} svcMix={data.svcMix || []} products={data.products || []} daily={data.daily} appts={data.appts || []} apptsPrev={data.apptsPrev || []} retention={data.retention || []} retentionPrev={data.retentionPrev || []} range={fl.monthLabel} />
     </DataState>
   );
 };
@@ -644,7 +645,8 @@ const Medal = ({ color }) => (
   </svg>
 );
 
-const OverviewBody = ({ h, hPrev, summary, ops, categories, products, daily, appts, apptsPrev, retention, retentionPrev, range }) => {
+const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, daily, appts, apptsPrev, retention, retentionPrev, range }) => {
+  const [drillSeg1, setDrillSeg1] = useState(null);   // Service Mix drill: null = sub-segment 1, else show sub-segment 2 within this segment
   // ---- hero cards ----
   // R32: Cash Sales (MTD) = cumulative cash-basis sales (from FULL_CASH via mtd-kpi-header)
   const cashMtd = n(h.mtd_revenue);
@@ -768,29 +770,29 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, products, daily, app
   // under "Retail" is a product; Memberships is neither (recurring plan, excluded
   // from both mixes); everything else is a service.
   const isProductCat = (c) => /^retail/i.test((c.item_category || '').trim());
-  const isMembershipCat = (c) => /^membership/i.test((c.item_category || '').trim());
-  const serviceCats = categories.filter((c) => !isProductCat(c) && !isMembershipCat(c));
   const productCats = categories.filter((c) => isProductCat(c));
 
-  // ---- service mix donut (services only, by revenue) ----
-  const totalCat = serviceCats.reduce((a, c) => a + (n(c.revenue) || 0), 0) || 1;
-  const sortedCat = [...serviceCats].sort((a, b) => (n(b.revenue) || 0) - (n(a.revenue) || 0));
-  const topCats = sortedCat.slice(0, 5);
-  const otherSum = sortedCat.slice(5).reduce((a, c) => a + (n(c.revenue) || 0), 0);
+  // ---- service mix donut: sub-segment 1 (item_category) -> drill to sub-segment 2 (item_sub_category) ----
+  // svcMix rows: { segment1, segment2, revenue }. Level 1 groups by segment1; drilling into
+  // a segment shows its segment2 breakdown.
+  const svcRows = (svcMix && svcMix.length)
+    ? (drillSeg1 ? svcMix.filter((r) => r.segment1 === drillSeg1) : svcMix)
+    : [];
+  const svcKey = drillSeg1 ? 'segment2' : 'segment1';
+  const svcAgg = {};
+  svcRows.forEach((r) => { const k = r[svcKey] || 'Other'; svcAgg[k] = (svcAgg[k] || 0) + (n(r.revenue) || 0); });
+  const svcSorted = Object.entries(svcAgg).map(([label, revenue]) => ({ label, revenue })).sort((a, b) => b.revenue - a.revenue);
+  const totalCat = svcSorted.reduce((a, c) => a + c.revenue, 0) || 1;
+  const topCats = svcSorted.slice(0, 5);
+  const otherSum = svcSorted.slice(5).reduce((a, c) => a + c.revenue, 0);
   const donutColors = [C.teal, C.tealBright, C.tealLite, C.tealPale, C.clayLite, '#C9D6D2'];
   const serviceMix = [
-    ...topCats.map((c, i) => ({ label: c.item_category, pct: Math.round(((n(c.revenue) || 0) / totalCat) * 100), color: donutColors[i] })),
+    ...topCats.map((c, i) => ({ label: c.label, pct: Math.round((c.revenue / totalCat) * 100), color: donutColors[i] })),
     ...(otherSum > 0 ? [{ label: 'Other', pct: Math.round((otherSum / totalCat) * 100), color: donutColors[5] }] : []),
   ];
-  // build conic-gradient
   let acc = 0; const stops = serviceMix.map((s) => { const start = acc; acc += s.pct * 3.6; return `${s.color} ${start}deg ${acc}deg`; }).join(',');
-  // injectable share = the "Injectables" category (this endpoint returns top-level
-  // item_category, so it's a single "Injectables" row), falling back to summing the
-  // sub-category names (neurotoxins/filler/other_injectables) if a finer breakdown
-  // is ever returned instead.
-  const injCats = ['injectables', 'neurotoxins', 'filler', 'other_injectables'];
-  const injSum = serviceCats.filter((c) => injCats.includes((c.item_category || '').toLowerCase())).reduce((a, c) => a + (n(c.revenue) || 0), 0);
-  const injPct = Math.round((injSum / totalCat) * 100);
+  // donut center = the top slice (largest share) at the current level
+  const topSlice = serviceMix[0] || { label: '—', pct: 0 };
 
   // ---- product mix (unit consumption, by PRODUCT NAME, from /api/product-mix) ----
   // pv(): units for the product feed (Dysport already /3 server-side), count for the fallback.
@@ -854,7 +856,7 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, products, daily, app
         <HeroCard label="Cash Sales" mtd={money(cashMtd, { compact: true, floor: true })} mtdDelta={heroDelta}
           proj={money(projRunRate, { compact: true, floor: true })} projDelta={heroDelta} />
         <HeroCard label="Recognized Revenue" mtd={money(recRev, { compact: true })} mtdDelta={heroDelta}
-          proj={money(projRunRate, { compact: true, floor: true })} projDelta={heroDelta} />
+          proj={money(h.recognized_run_rate ?? projRunRate, { compact: true, floor: true })} projDelta={heroDelta} />
       </div>
 
       {/* KPI groups */}
@@ -928,27 +930,36 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, products, daily, app
       {/* Service Mix + Product Mix */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
         <Card>
-          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Service Mix</div>
-          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2 }}>Share of revenue · {range}</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+            <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Service Mix</div>
+            {drillSeg1 && <span onClick={() => setDrillSeg1(null)} style={{ font: `600 11px ${FONT}`, color: C.teal, cursor: 'pointer' }}>← All services</span>}
+          </div>
+          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray, marginTop: 2, textTransform: 'capitalize' }}>
+            {drillSeg1 ? `${drillSeg1} · sub-categories · ${range}` : `Share of revenue · click a segment to drill in · ${range}`}
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 18 }}>
             <div style={{ width: 120, height: 120, borderRadius: '50%', flex: 'none', background: serviceMix.length ? `conic-gradient(${stops})` : '#EEF3F1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: 68, height: 68, borderRadius: '50%', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ font: `700 17px ${FONT}`, color: C.ink }}>{injSum ? `${injPct}%` : '—'}</span>
-                <span style={{ font: `500 9px ${FONT}`, color: C.gray }}>injectables</span>
+                <span style={{ font: `700 17px ${FONT}`, color: C.ink }}>{serviceMix.length ? `${topSlice.pct}%` : '—'}</span>
+                <span style={{ font: `500 8.5px ${FONT}`, color: C.gray, textAlign: 'center', textTransform: 'capitalize', padding: '0 6px', lineHeight: 1.1 }}>{serviceMix.length ? topSlice.label : ''}</span>
               </div>
             </div>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {serviceMix.map((s) => (
-                <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 8, font: `500 11.5px ${FONT}`, color: C.ink2 }}>
+              {serviceMix.map((s) => {
+                const drillable = !drillSeg1 && s.label !== 'Other';
+                return (
+                <div key={s.label} onClick={() => { if (drillable) setDrillSeg1(s.label); }} title={drillable ? `Drill into ${s.label}` : s.label}
+                     style={{ display: 'flex', alignItems: 'center', gap: 8, font: `500 11.5px ${FONT}`, color: C.ink2, cursor: drillable ? 'pointer' : 'default' }}>
                   <span style={{ width: 9, height: 9, borderRadius: '50%', background: s.color, flex: 'none' }} />
-                  <span style={{ width: 100, flex: 'none', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.label}>{s.label}</span>
+                  <span style={{ width: 100, flex: 'none', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
                   <span style={{ flex: 1, height: 6, background: '#F0F4F3', borderRadius: 3, overflow: 'hidden' }}>
                     <span style={{ display: 'block', height: '100%', width: `${s.pct}%`, background: s.color, borderRadius: 3 }} />
                   </span>
                   <span style={{ width: 34, flex: 'none', textAlign: 'right', color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{s.pct}%</span>
                 </div>
-              ))}
-              {serviceMix.length === 0 && <span style={{ font: `500 12px ${FONT}`, color: C.gray }}>No category data.</span>}
+                );
+              })}
+              {serviceMix.length === 0 && <span style={{ font: `500 12px ${FONT}`, color: C.gray }}>No service data.</span>}
             </div>
           </div>
         </Card>
@@ -1073,18 +1084,18 @@ const LocationTable = ({ rows, totals }) => {
             <span style={{ font: `700 9.5px ${FONT}`, color: totals.budget && totals.cash / totals.budget >= 1 ? C.teal : C.clay, fontVariantNumeric: 'tabular-nums' }}>{totals.budget ? `${((totals.cash / totals.budget) * 100).toFixed(0)}%` : '—'}</span>
           </span>
           <span style={{ ...cell, fontWeight: 700, color: C.ink }}>{money(totals.recRev, { compact: true })}</span>
-          <span style={cell}>{totals.cogsPct != null ? pct(totals.cogsPct, 1) : '—'}</span>
-          <span style={cell}>{totals.payrollPct != null ? pct(totals.payrollPct, 1) : '—'}</span>
-          <span style={cell}>{totals.gmPct != null ? pct(totals.gmPct, 0) : '—'}</span>
+          <span style={cell}>{h.cogs_margin_pct != null ? pct(h.cogs_margin_pct, 1) : '—'}</span>
+          <span style={cell}>{h.payroll_margin_pct != null ? pct(h.payroll_margin_pct, 1) : '—'}</span>
+          <span style={cell}>{h.gross_margin_pct != null ? pct(h.gross_margin_pct, 0) : '—'}</span>
           <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{num(totals.newCust)}</span>
           <span style={cell}>{num(totals.existCust)}</span>
           <span style={cell}>{totals.asp != null ? money(totals.asp) : '—'}</span>
           <span style={cell}>{totals.aspX != null ? money(totals.aspX) : '—'}</span>
-          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{totals.provUtil != null ? pct(totals.provUtil, 0) : '—'}</span>
-          <span style={cell}>{totals.provRevHr != null ? money(totals.provRevHr) : '—'}</span>
-          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{totals.esthUtil != null ? pct(totals.esthUtil, 0) : '—'}</span>
-          <span style={cell}>{totals.esthRevHr != null ? money(totals.esthRevHr) : '—'}</span>
-          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{totals.rebook != null ? pct(totals.rebook, 0) : '—'}</span>
+          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{h.provider_utilization != null ? pct(h.provider_utilization, 0) : '—'}</span>
+          <span style={cell}>{h.rev_per_provider != null ? money(h.rev_per_provider) : '—'}</span>
+          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{h.esthetician_utilization != null ? pct(h.esthetician_utilization, 0) : '—'}</span>
+          <span style={cell}>{h.rev_per_esthetician != null ? money(h.rev_per_esthetician) : '—'}</span>
+          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{h.rebooking_rate != null ? pct(h.rebooking_rate, 0) : '—'}</span>
         </div>
       )}
     </div>

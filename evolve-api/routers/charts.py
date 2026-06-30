@@ -45,6 +45,48 @@ def get_category_breakdown(
         log_and_raise_from_request(exc, request)
 
 
+@router.get("/api/service-mix")
+def get_service_mix(
+    request:    Request,
+    start_date: Optional[str]       = Query(None),
+    end_date:   Optional[str]       = Query(None),
+    locations:  Optional[List[str]] = Query(None),
+):
+    """Service revenue by sub-segment 1 (item_category) -> sub-segment 2 (item_sub_category).
+
+    Returns one row per (segment1, segment2) so the dashboard can show segment1 and
+    drill into segment2. Services only (item_type = 'Service').
+    """
+    try:
+        today = datetime.utcnow().date()
+        e = end_date   or str(today)
+        s = start_date or str(today.replace(day=1))
+        where, params = build_date_filter(s, e, locations)
+
+        svc_guard = (
+            "AND item_type = 'Service' AND item_category IS NOT NULL"
+            if where else
+            "WHERE item_type = 'Service' AND item_category IS NOT NULL"
+        )
+
+        sql = f"""
+        SELECT
+            item_category                          AS segment1,
+            COALESCE(item_sub_category, '(none)')  AS segment2,
+            SUM(sales_exc_tax)                     AS revenue,
+            COUNT(*)                               AS count
+        FROM {FULL_SALES}
+        {where}
+        {svc_guard}
+        GROUP BY item_category, item_sub_category
+        ORDER BY revenue DESC
+        """
+        return run_query(sql, params or None)
+
+    except Exception as exc:
+        log_and_raise_from_request(exc, request)
+
+
 @router.get("/api/product-mix")
 def get_product_mix(
     request:    Request,
