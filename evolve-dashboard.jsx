@@ -1001,7 +1001,7 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
           <LegendPill bg="#FBF1D6" color={C.gold}>Average · Prov $450–550 / Esth $125–175</LegendPill>
           <LegendPill bg="#DDF0E6" color={C.teal}>High · Prov ≥$550 / Esth ≥$175</LegendPill>
         </div>
-        <LocationTable rows={rows} totals={totals} />
+        <LocationTable rows={rows} totals={totals} h={h} />
       </Card>
     </div>
   );
@@ -1018,7 +1018,7 @@ function spreadOrNull(d) { return d ? { delta: d.text, deltaColor: d.color } : {
 
 const GRID_COLS = '1.25fr 0.8fr 1.4fr 0.85fr 0.78fr 0.82fr 0.58fr 0.72fr 0.8fr 0.72fr 0.8fr 0.74fr 0.74fr 0.74fr 0.74fr 0.62fr';
 
-const LocationTable = ({ rows, totals }) => {
+const LocationTable = ({ rows, totals, h }) => {
   const cell = { textAlign: 'right', fontVariantNumeric: 'tabular-nums' };
   const headStyle = { font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: C.gray2 };
   const pillStyle = (col) => ({ display: 'inline-block', padding: '2px 7px', borderRadius: 5, font: `600 11px ${FONT}`, background: col === C.teal ? '#DDF0E6' : col === C.gold ? '#FBF1D6' : '#FBE3E1', color: col, fontVariantNumeric: 'tabular-nums' });
