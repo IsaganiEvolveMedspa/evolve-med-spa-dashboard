@@ -42,7 +42,12 @@ def get_sql_connection():
             user=SQL_SERVER_USER,
             password=SQL_SERVER_PASSWORD,
             database=SQL_SERVER_DATABASE,
-            timeout=10,
+            # Query timeout (seconds). 10s was too tight for the heavier analytical
+            # queries (KPI header, operations-summary) when two views load them
+            # concurrently — they compete for DB resources and intermittently tip
+            # past 10s, returning 500s. 30s absorbs those concurrent-load spikes
+            # while staying under the gateway timeout. (login_timeout stays default.)
+            timeout=30,
             charset='UTF-8'
         )
         print(f"[OK] Connected to SQL Server: {SQL_SERVER_HOST}:{SQL_SERVER_PORT}")
