@@ -1,0 +1,3722 @@
+[
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-02-28",
+  "start_date": "2026-02-28",
+  "guest_code": "JER-G1289",
+  "invoice": "Jer-17912",
+  "status": "Active"
+ },
+ {
+  "center": "Waldorf, MD",
+  "sale_date": "2026-02-27",
+  "start_date": "2026-02-27",
+  "guest_code": "WAL-G1097",
+  "invoice": "Wal-2111",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-02-26",
+  "start_date": "2026-02-26",
+  "guest_code": "JerGNC21295410",
+  "invoice": "Jer-17798",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-02-26",
+  "start_date": "2026-02-26",
+  "guest_code": "RedGNC17027653",
+  "invoice": "Red-11407",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-02-26",
+  "start_date": "2026-02-26",
+  "guest_code": "MON-G1211",
+  "invoice": "MON-17904",
+  "status": "Active"
+ },
+ {
+  "center": "Lancaster, PA",
+  "sale_date": "2026-02-26",
+  "start_date": "2026-02-26",
+  "guest_code": "LAN-G106",
+  "invoice": "1183",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-02-25",
+  "start_date": "2026-02-25",
+  "guest_code": "RED-G509",
+  "invoice": "Red-10702",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-02-25",
+  "start_date": "2026-02-25",
+  "guest_code": "HobGNC12149138",
+  "invoice": "Hob-23377",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-02-25",
+  "start_date": "2026-02-25",
+  "guest_code": "OLDBR797",
+  "invoice": "OldBr-4642",
+  "status": "Suspended"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-02-25",
+  "start_date": "2026-02-25",
+  "guest_code": "HobGNC11992563",
+  "invoice": "Hob-23305",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-02-25",
+  "start_date": "2026-02-25",
+  "guest_code": "FreGNC40454781",
+  "invoice": "Fre-10662",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-02-20",
+  "start_date": "2026-02-20",
+  "guest_code": "HobGNC79049838",
+  "invoice": "Hob-22032",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-02-20",
+  "start_date": "2026-02-20",
+  "guest_code": "SHO-G660",
+  "invoice": "Sho-12332",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-02-20",
+  "start_date": "2026-02-20",
+  "guest_code": "BEL-G1074",
+  "invoice": "Bel-11948",
+  "status": "Expired"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-02-20",
+  "start_date": "2026-02-20",
+  "guest_code": "HOB-G1099",
+  "invoice": "Hob-23081",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-02-20",
+  "start_date": "2026-02-20",
+  "guest_code": "",
+  "invoice": "Hob-21297",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-02-20",
+  "start_date": "2026-02-20",
+  "guest_code": "RED-G423",
+  "invoice": "Red-11233",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-02-20",
+  "start_date": "2026-02-20",
+  "guest_code": "BEL-G1424",
+  "invoice": "Bel-11730",
+  "status": "Active"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-02-20",
+  "start_date": "2026-02-20",
+  "guest_code": "OLDBR790",
+  "invoice": "OldBr-5356",
+  "status": "Closed"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-02-19",
+  "start_date": "2026-02-19",
+  "guest_code": "SHO-G752",
+  "invoice": "Sho-12645",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-02-19",
+  "start_date": "2026-02-19",
+  "guest_code": "HOB-G1414",
+  "invoice": "Hob-22976",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-02-19",
+  "start_date": "2026-02-19",
+  "guest_code": "RID-G1033",
+  "invoice": "Rid-12148",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-02-19",
+  "start_date": "2026-02-19",
+  "guest_code": "JerGNC70728166",
+  "invoice": "Hob-23086",
+  "status": "Closed"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-02-19",
+  "start_date": "2026-02-19",
+  "guest_code": "LDS-GIMP-62755",
+  "invoice": "Jer-17462",
+  "status": "Suspended"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-02-18",
+  "start_date": "2026-02-18",
+  "guest_code": "LDS-GIMP-64756",
+  "invoice": "Hob-20920",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-02-18",
+  "start_date": "2026-02-18",
+  "guest_code": "HobGNC19262044",
+  "invoice": "Hob-22937",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-02-18",
+  "start_date": "2026-02-18",
+  "guest_code": "MonGNC56334160",
+  "invoice": "MON-17749",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-02-18",
+  "start_date": "2026-02-18",
+  "guest_code": "JER-G1356",
+  "invoice": "Jer-17420",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-02-18",
+  "start_date": "2026-02-18",
+  "guest_code": "RED-G717",
+  "invoice": "Red-11161",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-02-18",
+  "start_date": "2026-02-18",
+  "guest_code": "RID-G1030",
+  "invoice": "Rid-12132",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-02-17",
+  "start_date": "2026-02-17",
+  "guest_code": "JerGNC43141664",
+  "invoice": "Red-10683",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-02-17",
+  "start_date": "2026-02-17",
+  "guest_code": "MON-G1181",
+  "invoice": "MON-17688",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-02-16",
+  "start_date": "2026-02-16",
+  "guest_code": "JerGNC96133952",
+  "invoice": "Jer-17310",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-02-14",
+  "start_date": "2026-02-14",
+  "guest_code": "SHO-G707",
+  "invoice": "Den-15096",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-02-14",
+  "start_date": "2026-02-14",
+  "guest_code": "ShoGNC48507421",
+  "invoice": "Red-10161",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-02-13",
+  "start_date": "2026-02-13",
+  "guest_code": "RID-G1011",
+  "invoice": "Rid-11988",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-02-13",
+  "start_date": "2026-02-13",
+  "guest_code": "MON-G1153",
+  "invoice": "MON-17390",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-02-13",
+  "start_date": "2026-02-13",
+  "guest_code": "FRE-G882",
+  "invoice": "Fre-10655",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-02-13",
+  "start_date": "2026-02-13",
+  "guest_code": "FRE-G867",
+  "invoice": "Fre-10572",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-02-12",
+  "start_date": "2026-02-12",
+  "guest_code": "HOB-G1389",
+  "invoice": "Hob-22624",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-02-12",
+  "start_date": "2026-02-12",
+  "guest_code": "RedGNC83517434",
+  "invoice": "Red-10368",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-02-12",
+  "start_date": "2026-02-12",
+  "guest_code": "DEN-G1524",
+  "invoice": "Den-14950",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-02-11",
+  "start_date": "2026-02-11",
+  "guest_code": "HOB-G1457",
+  "invoice": "Hob-22607",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-02-11",
+  "start_date": "2026-02-11",
+  "guest_code": "FreGNC65970362",
+  "invoice": "Fre-10558",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-02-10",
+  "start_date": "2026-02-10",
+  "guest_code": "MON-G1142",
+  "invoice": "MON-17327",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-02-10",
+  "start_date": "2026-02-10",
+  "guest_code": "JER-G1293",
+  "invoice": "Jer-16903",
+  "status": "Suspended"
+ },
+ {
+  "center": "Waldorf, MD",
+  "sale_date": "2026-02-10",
+  "start_date": "2026-02-10",
+  "guest_code": "WAL-G1086",
+  "invoice": "Wal-2247",
+  "status": "Active"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-02-10",
+  "start_date": "2026-02-10",
+  "guest_code": "OLDBR936",
+  "invoice": "OldBr-5201",
+  "status": "Suspended"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-02-10",
+  "start_date": "2026-02-10",
+  "guest_code": "FreGNC2202779",
+  "invoice": "Fre-8262",
+  "status": "Active"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-02-10",
+  "start_date": "2026-02-10",
+  "guest_code": "OLDBR890",
+  "invoice": "OldBr-4956",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-02-10",
+  "start_date": "2026-02-10",
+  "guest_code": "BelGNC12721470",
+  "invoice": "Bel-11615",
+  "status": "Active"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-02-10",
+  "start_date": "2026-02-10",
+  "guest_code": "",
+  "invoice": "OldBr-5147",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-02-10",
+  "start_date": "2026-02-10",
+  "guest_code": "FreGNC35286425",
+  "invoice": "Fre-10564",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-02-07",
+  "start_date": "2026-02-07",
+  "guest_code": "RID-G645",
+  "invoice": "Rid-9409",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-02-06",
+  "start_date": "2026-02-06",
+  "guest_code": "FRE-G322",
+  "invoice": "Fre-10349",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-02-05",
+  "start_date": "2026-02-05",
+  "guest_code": "LDS-GIMP-58345",
+  "invoice": "MON-17264",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-02-05",
+  "start_date": "2026-02-05",
+  "guest_code": "HOB-G719",
+  "invoice": "Hob-17131",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-02-05",
+  "start_date": "2026-02-05",
+  "guest_code": "BRI-G505",
+  "invoice": "1833",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-02-05",
+  "start_date": "2026-02-05",
+  "guest_code": "RED-G771",
+  "invoice": "Red-10835",
+  "status": "Suspended"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-02-04",
+  "start_date": "2026-02-04",
+  "guest_code": "HOB-G418",
+  "invoice": "Hob-22271",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-02-04",
+  "start_date": "2026-02-04",
+  "guest_code": "SHO-G47",
+  "invoice": "Sho-9993",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-02-04",
+  "start_date": "2026-02-04",
+  "guest_code": "FreGNC8637322",
+  "invoice": "Fre-10403",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-02-03",
+  "start_date": "2026-02-03",
+  "guest_code": "ShoGNC55423039",
+  "invoice": "Sho-12633",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-02-03",
+  "start_date": "2026-02-03",
+  "guest_code": "BelGNC48275719",
+  "invoice": "Bel-11375",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-02-03",
+  "start_date": "2026-02-03",
+  "guest_code": "HobGNC13729499",
+  "invoice": "Hob-22076",
+  "status": "Closed"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-01-31",
+  "start_date": "2026-01-31",
+  "guest_code": "JER-G1235",
+  "invoice": "Jer-16597",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-01-30",
+  "start_date": "2026-01-30",
+  "guest_code": "RID-G898",
+  "invoice": "Rid-11413",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-01-27",
+  "start_date": "2026-01-27",
+  "guest_code": "JER-G1236",
+  "invoice": "Jer-16495",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-01-27",
+  "start_date": "2026-01-27",
+  "guest_code": "FRE-G808",
+  "invoice": "Fre-10209",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-01-27",
+  "start_date": "2026-01-27",
+  "guest_code": "MonGNC73013718",
+  "invoice": "MON-16851",
+  "status": "Suspended"
+ },
+ {
+  "center": "Tribeca, NY",
+  "sale_date": "2026-01-25",
+  "start_date": "2026-01-25",
+  "guest_code": "TRI-G1083",
+  "invoice": "Tri-5376",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-01-23",
+  "start_date": "2026-01-23",
+  "guest_code": "SHO-G516",
+  "invoice": "Rid-11169",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-01-23",
+  "start_date": "2026-01-23",
+  "guest_code": "FreGNC18911987",
+  "invoice": "Fre-7848",
+  "status": "Suspended"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-01-22",
+  "start_date": "2026-01-22",
+  "guest_code": "DenGNC4748262",
+  "invoice": "Rid-11448",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-01-21",
+  "start_date": "2026-01-21",
+  "guest_code": "FreGNC16750167",
+  "invoice": "Fre-9880",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-01-21",
+  "start_date": "2026-01-21",
+  "guest_code": "JerGNC84776609",
+  "invoice": "Jer-16325",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-01-20",
+  "start_date": "2026-01-20",
+  "guest_code": "JER-G91",
+  "invoice": "Jer-16303",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-01-20",
+  "start_date": "2026-01-20",
+  "guest_code": "OLDBR402",
+  "invoice": "OldBr-4678",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-01-20",
+  "start_date": "2026-01-20",
+  "guest_code": "RED-G216",
+  "invoice": "Red-10352",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-01-20",
+  "start_date": "2026-01-20",
+  "guest_code": "FreGNC44044555",
+  "invoice": "Fre-9864",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-01-20",
+  "start_date": "2026-01-20",
+  "guest_code": "FreGNC69705983",
+  "invoice": "Fre-9780",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-01-16",
+  "start_date": "2026-01-16",
+  "guest_code": "BelGNC23847138",
+  "invoice": "Bel-10908",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-01-15",
+  "start_date": "2026-01-15",
+  "guest_code": "MON-G1055",
+  "invoice": "MON-16451",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-01-15",
+  "start_date": "2026-01-15",
+  "guest_code": "MON-G1054",
+  "invoice": "MON-16450",
+  "status": "Active"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-01-15",
+  "start_date": "2026-01-15",
+  "guest_code": "BRI-G3",
+  "invoice": "1720",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-01-14",
+  "start_date": "2026-01-14",
+  "guest_code": "OLDBR474",
+  "invoice": "OldBr-4729",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-01-14",
+  "start_date": "2026-01-14",
+  "guest_code": "DEN-G1041",
+  "invoice": "Rid-10870",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-01-14",
+  "start_date": "2026-01-14",
+  "guest_code": "HobGNC23579152",
+  "invoice": "Hob-21270",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-01-13",
+  "start_date": "2026-01-13",
+  "guest_code": "HOB-G1214",
+  "invoice": "Hob-21186",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-01-12",
+  "start_date": "2026-01-12",
+  "guest_code": "JerGNC93736822",
+  "invoice": "Jer-15969",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-01-12",
+  "start_date": "2026-01-12",
+  "guest_code": "JerGNC26070236",
+  "invoice": "Jer-15951",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-01-09",
+  "start_date": "2026-01-09",
+  "guest_code": "MON-G969",
+  "invoice": "MON-15710",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-01-09",
+  "start_date": "2026-01-09",
+  "guest_code": "DenGNC50932961",
+  "invoice": "Den-13742",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-01-09",
+  "start_date": "2026-01-09",
+  "guest_code": "ShoGNC40875585",
+  "invoice": "Sho-11789",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-01-08",
+  "start_date": "2026-01-08",
+  "guest_code": "JerGNC52950436",
+  "invoice": "Jer-15837",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-01-08",
+  "start_date": "2026-01-08",
+  "guest_code": "HobGNC75546738",
+  "invoice": "MON-16162",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-01-08",
+  "start_date": "2026-01-08",
+  "guest_code": "RID-G884",
+  "invoice": "Rid-11042",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-01-06",
+  "start_date": "2026-01-06",
+  "guest_code": "BelGNC92002733",
+  "invoice": "Bel-10597",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-01-06",
+  "start_date": "2026-01-06",
+  "guest_code": "ShoGNC80616221",
+  "invoice": "MON-16032",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-01-05",
+  "start_date": "2026-01-05",
+  "guest_code": "HobGNC89637399",
+  "invoice": "Den-13449",
+  "status": "Active"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-01-03",
+  "start_date": "2026-01-03",
+  "guest_code": "LDS-GIMP-55592",
+  "invoice": "OldBr-4299",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-01-02",
+  "start_date": "2026-01-02",
+  "guest_code": "RED-G748",
+  "invoice": "Red-9955",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-04-30",
+  "start_date": "2026-04-30",
+  "guest_code": "BEL-G504",
+  "invoice": "Bel-13514",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-04-30",
+  "start_date": "2026-04-30",
+  "guest_code": "RED-G1210",
+  "invoice": "Red-13225",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-04-30",
+  "start_date": "2026-04-30",
+  "guest_code": "DEN-G1261",
+  "invoice": "Den-17733",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-04-30",
+  "start_date": "2026-04-30",
+  "guest_code": "RidGNC56484133",
+  "invoice": "Rid-11632",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-04-29",
+  "start_date": "2026-04-29",
+  "guest_code": "FreGNC69929333",
+  "invoice": "Fre-12276",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-04-29",
+  "start_date": "2026-04-29",
+  "guest_code": "",
+  "invoice": "Den-17700",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-04-29",
+  "start_date": "2026-04-29",
+  "guest_code": "LDS-GIMP-73458",
+  "invoice": "Bel-13668",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-04-29",
+  "start_date": "2026-04-29",
+  "guest_code": "HobGNC10110060",
+  "invoice": "Sho-14297",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-04-29",
+  "start_date": "2026-04-29",
+  "guest_code": "RID-G843",
+  "invoice": "Rid-14316",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-04-29",
+  "start_date": "2026-04-29",
+  "guest_code": "JER-G1784",
+  "invoice": "Jer-20476",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-28",
+  "start_date": "2026-04-28",
+  "guest_code": "HobGNC51110233",
+  "invoice": "Hob-26379",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-04-28",
+  "start_date": "2026-04-28",
+  "guest_code": "",
+  "invoice": "Jer-20427",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-28",
+  "start_date": "2026-04-28",
+  "guest_code": "X4GNC27523835",
+  "invoice": "Hob-26280",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-04-28",
+  "start_date": "2026-04-28",
+  "guest_code": "JerGNC35897304",
+  "invoice": "Den-17636",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-04-28",
+  "start_date": "2026-04-28",
+  "guest_code": "HobGNC31896304",
+  "invoice": "Jer-20109",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-04-25",
+  "start_date": "2026-04-25",
+  "guest_code": "WalGNC20102097",
+  "invoice": "Bel-13666",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-04-25",
+  "start_date": "2026-04-25",
+  "guest_code": "RidGNC9003012",
+  "invoice": "Rid-14241",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-25",
+  "start_date": "2026-04-25",
+  "guest_code": "HOB-G1326",
+  "invoice": "Hob-26534",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-04-24",
+  "start_date": "2026-04-24",
+  "guest_code": "ShoGNC99150367",
+  "invoice": "Sho-13804",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-04-24",
+  "start_date": "2026-04-24",
+  "guest_code": "HobGNC59164099",
+  "invoice": "Sho-14764",
+  "status": "Active"
+ },
+ {
+  "center": "Lancaster, PA",
+  "sale_date": "2026-04-24",
+  "start_date": "2026-04-24",
+  "guest_code": "LAN-G773",
+  "invoice": "1762",
+  "status": "Suspended"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-24",
+  "start_date": "2026-04-24",
+  "guest_code": "HOB-G1728",
+  "invoice": "Hob-26174",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-24",
+  "start_date": "2026-04-24",
+  "guest_code": "HOB-G132",
+  "invoice": "Hob-21989",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-04-24",
+  "start_date": "2026-04-24",
+  "guest_code": "ShoGNC69845921",
+  "invoice": "Sho-13987",
+  "status": "Active"
+ },
+ {
+  "center": "Waldorf, MD",
+  "sale_date": "2026-04-24",
+  "start_date": "2026-04-24",
+  "guest_code": "WAL-G1446",
+  "invoice": "Wal-2851",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-04-24",
+  "start_date": "2026-04-24",
+  "guest_code": "HobGNC41919529",
+  "invoice": "Fre-12150",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-04-23",
+  "start_date": "2026-04-23",
+  "guest_code": "FRE-G973",
+  "invoice": "Fre-11751",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-04-23",
+  "start_date": "2026-04-23",
+  "guest_code": "MON-G1073",
+  "invoice": "MON-20170",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-22",
+  "start_date": "2026-04-22",
+  "guest_code": "",
+  "invoice": "Hob-26101",
+  "status": "Active"
+ },
+ {
+  "center": "Tribeca, NY",
+  "sale_date": "2026-04-22",
+  "start_date": "2026-04-22",
+  "guest_code": "TRI-G630",
+  "invoice": "Tri-6138",
+  "status": "Active"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-04-22",
+  "start_date": "2026-04-22",
+  "guest_code": "LDS-GIMP-40645",
+  "invoice": "OldBr-5955",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-04-22",
+  "start_date": "2026-04-22",
+  "guest_code": "DenGNC40265812",
+  "invoice": "Den-17445",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-04-22",
+  "start_date": "2026-04-22",
+  "guest_code": "FreGNC52351676",
+  "invoice": "Fre-12245",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-04-22",
+  "start_date": "2026-04-22",
+  "guest_code": "DenGNC25964493",
+  "invoice": "Den-17444",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-04-22",
+  "start_date": "2026-04-22",
+  "guest_code": "FreGNC10046041",
+  "invoice": "Fre-11544",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-04-22",
+  "start_date": "2026-04-22",
+  "guest_code": "RID-G786",
+  "invoice": "Rid-13997",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-04-22",
+  "start_date": "2026-04-22",
+  "guest_code": "RID-G900",
+  "invoice": "Rid-13350",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-04-22",
+  "start_date": "2026-04-22",
+  "guest_code": "FRE-G1041",
+  "invoice": "Fre-11889",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-04-22",
+  "start_date": "2026-04-22",
+  "guest_code": "RidGNC56477454",
+  "invoice": "Rid-12631",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-04-21",
+  "start_date": "2026-04-21",
+  "guest_code": "JerGNC52950436",
+  "invoice": "Jer-20152",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-04-21",
+  "start_date": "2026-04-21",
+  "guest_code": "JER-G1696",
+  "invoice": "Jer-19993",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-04-21",
+  "start_date": "2026-04-21",
+  "guest_code": "JER-G1192",
+  "invoice": "Jer-20114",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-04-21",
+  "start_date": "2026-04-21",
+  "guest_code": "FreGNC2539363",
+  "invoice": "Fre-12213",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-04-20",
+  "start_date": "2026-04-20",
+  "guest_code": "JerGNC71703742",
+  "invoice": "Jer-20083",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-18",
+  "start_date": "2026-04-18",
+  "guest_code": "HOB-G1718",
+  "invoice": "Hob-26032",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-04-18",
+  "start_date": "2026-04-18",
+  "guest_code": "MonGNC89842211",
+  "invoice": "Rid-14038",
+  "status": "Active"
+ },
+ {
+  "center": "Lancaster, PA",
+  "sale_date": "2026-04-18",
+  "start_date": "2026-04-18",
+  "guest_code": "LAN-G467",
+  "invoice": "1418",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-18",
+  "start_date": "2026-04-18",
+  "guest_code": "HobGNC57377573",
+  "invoice": "Hob-23915",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-04-17",
+  "start_date": "2026-04-17",
+  "guest_code": "DEN-G1116",
+  "invoice": "Den-15505",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-17",
+  "start_date": "2026-04-17",
+  "guest_code": "HobGNC20307863",
+  "invoice": "Hob-24115",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-17",
+  "start_date": "2026-04-17",
+  "guest_code": "HOB-G1228",
+  "invoice": "Hob-25193",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-17",
+  "start_date": "2026-04-17",
+  "guest_code": "BEL-G119",
+  "invoice": "Hob-21659",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-04-17",
+  "start_date": "2026-04-17",
+  "guest_code": "FRE-G999",
+  "invoice": "Fre-11592",
+  "status": "Active"
+ },
+ {
+  "center": "Waldorf, MD",
+  "sale_date": "2026-04-16",
+  "start_date": "2026-04-16",
+  "guest_code": "WAL-G1193",
+  "invoice": "Wal-2794",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-04-16",
+  "start_date": "2026-04-16",
+  "guest_code": "DEN-G1333",
+  "invoice": "Den-17255",
+  "status": "Suspended"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-04-16",
+  "start_date": "2026-04-16",
+  "guest_code": "LDS-GIMP-70813",
+  "invoice": "Den-17254",
+  "status": "Suspended"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-04-16",
+  "start_date": "2026-04-16",
+  "guest_code": "MON-G306",
+  "invoice": "MON-19234",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-04-16",
+  "start_date": "2026-04-16",
+  "guest_code": "JER-G1176",
+  "invoice": "Jer-19925",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-04-16",
+  "start_date": "2026-04-16",
+  "guest_code": "LDS-GIMP-54869",
+  "invoice": "Rid-13932",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-04-16",
+  "start_date": "2026-04-16",
+  "guest_code": "JerGNC34517512",
+  "invoice": "Sho-14489",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-04-15",
+  "start_date": "2026-04-15",
+  "guest_code": "RID-G902",
+  "invoice": "Rid-13735",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-04-15",
+  "start_date": "2026-04-15",
+  "guest_code": "BelGNC74060965",
+  "invoice": "Bel-13318",
+  "status": "Suspended"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-15",
+  "start_date": "2026-04-15",
+  "guest_code": "JER-G685",
+  "invoice": "Hob-25988",
+  "status": "Active"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-04-15",
+  "start_date": "2026-04-15",
+  "guest_code": "OLDBR1071",
+  "invoice": "OldBr-6061",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-04-15",
+  "start_date": "2026-04-15",
+  "guest_code": "FRE-G341",
+  "invoice": "Fre-12070",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-14",
+  "start_date": "2026-04-14",
+  "guest_code": "JerGNC20353596",
+  "invoice": "Hob-23112",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-04-14",
+  "start_date": "2026-04-14",
+  "guest_code": "",
+  "invoice": "Sho-14362",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-14",
+  "start_date": "2026-04-14",
+  "guest_code": "LDS-GIMP-70119",
+  "invoice": "Hob-21519",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-11",
+  "start_date": "2026-04-11",
+  "guest_code": "HobGNC35012308",
+  "invoice": "Hob-25432",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-04-11",
+  "start_date": "2026-04-11",
+  "guest_code": "SHO-G951",
+  "invoice": "Sho-14380",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-04-11",
+  "start_date": "2026-04-11",
+  "guest_code": "ShoGNC53804583",
+  "invoice": "Sho-14367",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-11",
+  "start_date": "2026-04-11",
+  "guest_code": "HOB-G1116",
+  "invoice": "Hob-25085",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-04-11",
+  "start_date": "2026-04-11",
+  "guest_code": "RidGNC39488777",
+  "invoice": "Rid-12898",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-04-10",
+  "start_date": "2026-04-10",
+  "guest_code": "SHO-G747",
+  "invoice": "Sho-14351",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-04-10",
+  "start_date": "2026-04-10",
+  "guest_code": "MON-G1011",
+  "invoice": "MON-19701",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-10",
+  "start_date": "2026-04-10",
+  "guest_code": "HobGNC287691",
+  "invoice": "Hob-23902",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-04-10",
+  "start_date": "2026-04-10",
+  "guest_code": "FRE-G845",
+  "invoice": "Fre-11597",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-10",
+  "start_date": "2026-04-10",
+  "guest_code": "HOB-G847",
+  "invoice": "Hob-25682",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-04-10",
+  "start_date": "2026-04-10",
+  "guest_code": "BRI-G267",
+  "invoice": "2447",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-09",
+  "start_date": "2026-04-09",
+  "guest_code": "HobGNC9724848",
+  "invoice": "Hob-24992",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-04-09",
+  "start_date": "2026-04-09",
+  "guest_code": "RID-G1267",
+  "invoice": "Rid-13750",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-04-09",
+  "start_date": "2026-04-09",
+  "guest_code": "DEN-G283",
+  "invoice": "MON-19368",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-09",
+  "start_date": "2026-04-09",
+  "guest_code": "LDS-GIMP-64174",
+  "invoice": "Hob-25320",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-04-09",
+  "start_date": "2026-04-09",
+  "guest_code": "FreGNC88006917",
+  "invoice": "Fre-11932",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-04-08",
+  "start_date": "2026-04-08",
+  "guest_code": "RID-G1158",
+  "invoice": "Rid-13705",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-04-08",
+  "start_date": "2026-04-08",
+  "guest_code": "HobGNC55539783",
+  "invoice": "Bel-12850",
+  "status": "Active"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-04-08",
+  "start_date": "2026-04-08",
+  "guest_code": "OLDBR1188",
+  "invoice": "OldBr-6069",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-08",
+  "start_date": "2026-04-08",
+  "guest_code": "HobGNC77666306",
+  "invoice": "Hob-20883",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-07",
+  "start_date": "2026-04-07",
+  "guest_code": "HobGNC62262906",
+  "invoice": "Hob-25553",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-04-07",
+  "start_date": "2026-04-07",
+  "guest_code": "MON-G1397",
+  "invoice": "MON-19506",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-04-07",
+  "start_date": "2026-04-07",
+  "guest_code": "HobGNC21379178",
+  "invoice": "MON-19291",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-04-07",
+  "start_date": "2026-04-07",
+  "guest_code": "MON-G1362",
+  "invoice": "MON-19235",
+  "status": "Suspended"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-04-04",
+  "start_date": "2026-04-04",
+  "guest_code": "RED-G984",
+  "invoice": "Red-12133",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-04-04",
+  "start_date": "2026-04-04",
+  "guest_code": "BEL-G1600",
+  "invoice": "Bel-12673",
+  "status": "Active"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-04-04",
+  "start_date": "2026-04-04",
+  "guest_code": "BRI-G112",
+  "invoice": "1211",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-04-04",
+  "start_date": "2026-04-04",
+  "guest_code": "BEL-G1008",
+  "invoice": "Bel-12806",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-04",
+  "start_date": "2026-04-04",
+  "guest_code": "JER-G1618",
+  "invoice": "Hob-25304",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-04-04",
+  "start_date": "2026-04-04",
+  "guest_code": "RID-G1248",
+  "invoice": "Rid-13596",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-03",
+  "start_date": "2026-04-03",
+  "guest_code": "HobGNC40288951",
+  "invoice": "Hob-25366",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-03",
+  "start_date": "2026-04-03",
+  "guest_code": "HobGNC77368853",
+  "invoice": "Hob-25352",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-04-03",
+  "start_date": "2026-04-03",
+  "guest_code": "BEL-G1558",
+  "invoice": "Bel-12805",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-02",
+  "start_date": "2026-04-02",
+  "guest_code": "HobGNC26900340",
+  "invoice": "Hob-25254",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-02",
+  "start_date": "2026-04-02",
+  "guest_code": "LDS-GIMP-64174",
+  "invoice": "Hob-25192",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-04-02",
+  "start_date": "2026-04-02",
+  "guest_code": "JER-G1522",
+  "invoice": "Jer-18750",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-02",
+  "start_date": "2026-04-02",
+  "guest_code": "HOB-G762",
+  "invoice": "Hob-24831",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-04-02",
+  "start_date": "2026-04-02",
+  "guest_code": "RidGNC19482552",
+  "invoice": "Rid-13438",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-04-01",
+  "start_date": "2026-04-01",
+  "guest_code": "HOB-G1595",
+  "invoice": "Hob-24804",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-04-01",
+  "start_date": "2026-04-01",
+  "guest_code": "HobGNC16182184",
+  "invoice": "Sho-14119",
+  "status": "Active"
+ },
+ {
+  "center": "Lancaster, PA",
+  "sale_date": "2026-04-01",
+  "start_date": "2026-04-01",
+  "guest_code": "LAN-G643",
+  "invoice": "1408",
+  "status": "Active"
+ },
+ {
+  "center": "Lancaster, PA",
+  "sale_date": "2026-04-01",
+  "start_date": "2026-04-01",
+  "guest_code": "LAN-G698",
+  "invoice": "1505",
+  "status": "Frozen"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-04-01",
+  "start_date": "2026-04-01",
+  "guest_code": "JER-G688",
+  "invoice": "Jer-18313",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-04-01",
+  "start_date": "2026-04-01",
+  "guest_code": "JER-G1582",
+  "invoice": "Jer-19379",
+  "status": "Active"
+ },
+ {
+  "center": "Lancaster, PA",
+  "sale_date": "2026-04-01",
+  "start_date": "2026-04-01",
+  "guest_code": "LAN-G589",
+  "invoice": "1476",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-03-31",
+  "start_date": "2026-03-31",
+  "guest_code": "FRE-G472",
+  "invoice": "Fre-11816",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-31",
+  "start_date": "2026-03-31",
+  "guest_code": "JER-G744",
+  "invoice": "Jer-19328",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-03-31",
+  "start_date": "2026-03-31",
+  "guest_code": "RID-G1144",
+  "invoice": "Rid-13450",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-03-31",
+  "start_date": "2026-03-31",
+  "guest_code": "RID-G791",
+  "invoice": "Rid-10814",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-31",
+  "start_date": "2026-03-31",
+  "guest_code": "HobGNC71688598",
+  "invoice": "Hob-24908",
+  "status": "Suspended"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-03-30",
+  "start_date": "2026-03-30",
+  "guest_code": "FRE-G955",
+  "invoice": "Fre-11800",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-30",
+  "start_date": "2026-03-30",
+  "guest_code": "JER-G1551",
+  "invoice": "Jer-18940",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-30",
+  "start_date": "2026-03-30",
+  "guest_code": "",
+  "invoice": "Jer-18699",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-30",
+  "start_date": "2026-03-30",
+  "guest_code": "HOB-G1190",
+  "invoice": "Hob-25118",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-03-29",
+  "start_date": "2026-03-29",
+  "guest_code": "SHO-G449",
+  "invoice": "Sho-14059",
+  "status": "Active"
+ },
+ {
+  "center": "Lancaster, PA",
+  "sale_date": "2026-03-28",
+  "start_date": "2026-03-28",
+  "guest_code": "LAN-G275",
+  "invoice": "754",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-27",
+  "start_date": "2026-03-27",
+  "guest_code": "JER-G1118",
+  "invoice": "Jer-19184",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-27",
+  "start_date": "2026-03-27",
+  "guest_code": "HOB-G999",
+  "invoice": "Hob-25049",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-03-27",
+  "start_date": "2026-03-27",
+  "guest_code": "BEL-G1605",
+  "invoice": "Bel-12894",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-03-27",
+  "start_date": "2026-03-27",
+  "guest_code": "MonGNC25169332",
+  "invoice": "MON-19162",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-03-27",
+  "start_date": "2026-03-27",
+  "guest_code": "MON-G1349",
+  "invoice": "MON-19088",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-27",
+  "start_date": "2026-03-27",
+  "guest_code": "HobGNC52606865",
+  "invoice": "Hob-17432",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-03-26",
+  "start_date": "2026-03-26",
+  "guest_code": "RED-G874",
+  "invoice": "Red-11008",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-03-26",
+  "start_date": "2026-03-26",
+  "guest_code": "MonGNC98989672",
+  "invoice": "Sho-13989",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-26",
+  "start_date": "2026-03-26",
+  "guest_code": "HobGNC14756932",
+  "invoice": "Hob-24957",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-26",
+  "start_date": "2026-03-26",
+  "guest_code": "HobGNC99792273",
+  "invoice": "Hob-24443",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-03-26",
+  "start_date": "2026-03-26",
+  "guest_code": "",
+  "invoice": "Den-16558",
+  "status": "Active"
+ },
+ {
+  "center": "Waldorf, MD",
+  "sale_date": "2026-03-26",
+  "start_date": "2026-03-26",
+  "guest_code": "WAL-G1366",
+  "invoice": "Wal-2636",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-26",
+  "start_date": "2026-03-26",
+  "guest_code": "JER-G1574",
+  "invoice": "Jer-18832",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-03-26",
+  "start_date": "2026-03-26",
+  "guest_code": "DenGNC87249932",
+  "invoice": "Bel-12923",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-25",
+  "start_date": "2026-03-25",
+  "guest_code": "HobGNC14989928",
+  "invoice": "Hob-24928",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-03-25",
+  "start_date": "2026-03-25",
+  "guest_code": "BEL-G307",
+  "invoice": "Bel-12845",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-25",
+  "start_date": "2026-03-25",
+  "guest_code": "HobGNC82453157",
+  "invoice": "Hob-24219",
+  "status": "Active"
+ },
+ {
+  "center": "Tribeca, NY",
+  "sale_date": "2026-03-25",
+  "start_date": "2026-03-25",
+  "guest_code": "TRI-G291",
+  "invoice": "Tri-5887",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-03-24",
+  "start_date": "2026-03-24",
+  "guest_code": "BelGNC38459244",
+  "invoice": "Bel-12221",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-03-24",
+  "start_date": "2026-03-24",
+  "guest_code": "RID-G584",
+  "invoice": "Rid-12375",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-03-24",
+  "start_date": "2026-03-24",
+  "guest_code": "HOB-G1294",
+  "invoice": "Rid-12845",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-03-24",
+  "start_date": "2026-03-24",
+  "guest_code": "RedGNC81269567",
+  "invoice": "Red-12170",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-22",
+  "start_date": "2026-03-22",
+  "guest_code": "JER-G846",
+  "invoice": "Hob-24764",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-03-21",
+  "start_date": "2026-03-21",
+  "guest_code": "MON-G1309",
+  "invoice": "MON-18718",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-21",
+  "start_date": "2026-03-21",
+  "guest_code": "HobGNC43706403",
+  "invoice": "Hob-23198",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-03-21",
+  "start_date": "2026-03-21",
+  "guest_code": "HobGNC63591899",
+  "invoice": "Sho-12872",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-21",
+  "start_date": "2026-03-21",
+  "guest_code": "JerGNC5972171",
+  "invoice": "Hob-24600",
+  "status": "Suspended"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-21",
+  "start_date": "2026-03-21",
+  "guest_code": "JER-G771",
+  "invoice": "Jer-18876",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-03-21",
+  "start_date": "2026-03-21",
+  "guest_code": "RED-G865",
+  "invoice": "Red-10633",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-03-20",
+  "start_date": "2026-03-20",
+  "guest_code": "ShoGNC33943219",
+  "invoice": "Sho-13705",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-20",
+  "start_date": "2026-03-20",
+  "guest_code": "",
+  "invoice": "Jer-18645",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-03-20",
+  "start_date": "2026-03-20",
+  "guest_code": "RID-G1090",
+  "invoice": "Rid-12799",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-20",
+  "start_date": "2026-03-20",
+  "guest_code": "JER-G989",
+  "invoice": "Jer-17789",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-03-19",
+  "start_date": "2026-03-19",
+  "guest_code": "LDS-GIMP-72360",
+  "invoice": "Bel-12385",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-19",
+  "start_date": "2026-03-19",
+  "guest_code": "HobGNC80408175",
+  "invoice": "Jer-18780",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-19",
+  "start_date": "2026-03-19",
+  "guest_code": "HobGNC93798426",
+  "invoice": "Hob-23114",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-03-19",
+  "start_date": "2026-03-19",
+  "guest_code": "MonGNC75162715",
+  "invoice": "Den-15758",
+  "status": "Suspended"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-03-19",
+  "start_date": "2026-03-19",
+  "guest_code": "FRE-G996",
+  "invoice": "Fre-11570",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-19",
+  "start_date": "2026-03-19",
+  "guest_code": "JER-G1313",
+  "invoice": "Jer-17775",
+  "status": "Active"
+ },
+ {
+  "center": "Waldorf, MD",
+  "sale_date": "2026-03-19",
+  "start_date": "2026-03-19",
+  "guest_code": "WAL-G1326",
+  "invoice": "Wal-2579",
+  "status": "Suspended"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-18",
+  "start_date": "2026-03-18",
+  "guest_code": "HobGNC5622722",
+  "invoice": "Hob-20097",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-03-18",
+  "start_date": "2026-03-18",
+  "guest_code": "BEL-G634",
+  "invoice": "Bel-12668",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-18",
+  "start_date": "2026-03-18",
+  "guest_code": "JER-G1531",
+  "invoice": "Jer-18725",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-03-18",
+  "start_date": "2026-03-18",
+  "guest_code": "RED-G1047",
+  "invoice": "Red-12002",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-18",
+  "start_date": "2026-03-18",
+  "guest_code": "HOB-G585",
+  "invoice": "Hob-24241",
+  "status": "Active"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-03-18",
+  "start_date": "2026-03-18",
+  "guest_code": "OLDBR118",
+  "invoice": "OldBr-5766",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-03-18",
+  "start_date": "2026-03-18",
+  "guest_code": "MonGNC50696562",
+  "invoice": "MON-17019",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-18",
+  "start_date": "2026-03-18",
+  "guest_code": "JER-G1421",
+  "invoice": "Jer-18609",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-17",
+  "start_date": "2026-03-17",
+  "guest_code": "",
+  "invoice": "Hob-24480",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-17",
+  "start_date": "2026-03-17",
+  "guest_code": "HobGNC91313029",
+  "invoice": "Hob-24281",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-03-17",
+  "start_date": "2026-03-17",
+  "guest_code": "RID-G170",
+  "invoice": "Rid-12880",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-03-17",
+  "start_date": "2026-03-17",
+  "guest_code": "MON-G316",
+  "invoice": "MON-18747",
+  "status": "Suspended"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-03-14",
+  "start_date": "2026-03-14",
+  "guest_code": "MON-G425",
+  "invoice": "MON-18286",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-03-13",
+  "start_date": "2026-03-13",
+  "guest_code": "BRI-G639",
+  "invoice": "2205",
+  "status": "Active"
+ },
+ {
+  "center": "Waldorf, MD",
+  "sale_date": "2026-03-13",
+  "start_date": "2026-03-13",
+  "guest_code": "WAL-G1262",
+  "invoice": "Wal-2401",
+  "status": "Active"
+ },
+ {
+  "center": "Waldorf, MD",
+  "sale_date": "2026-03-13",
+  "start_date": "2026-03-13",
+  "guest_code": "WAL-G1241",
+  "invoice": "Wal-2366",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-12",
+  "start_date": "2026-03-12",
+  "guest_code": "JerGNC35420663",
+  "invoice": "Jer-18373",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-03-12",
+  "start_date": "2026-03-12",
+  "guest_code": "FreGNC22078802",
+  "invoice": "Fre-11410",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-03-12",
+  "start_date": "2026-03-12",
+  "guest_code": "FRE-G831",
+  "invoice": "Fre-10948",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-03-11",
+  "start_date": "2026-03-11",
+  "guest_code": "BelGNC18548030",
+  "invoice": "Fre-11364",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-03-11",
+  "start_date": "2026-03-11",
+  "guest_code": "FreGNC16779132",
+  "invoice": "Fre-10869",
+  "status": "Suspended"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-03-11",
+  "start_date": "2026-03-11",
+  "guest_code": "FreGNC29160218",
+  "invoice": "Fre-11170",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-10",
+  "start_date": "2026-03-10",
+  "guest_code": "JER-G1481",
+  "invoice": "Jer-18294",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-10",
+  "start_date": "2026-03-10",
+  "guest_code": "TriGNC39054453",
+  "invoice": "Jer-18349",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-03-09",
+  "start_date": "2026-03-09",
+  "guest_code": "HobGNC22906060",
+  "invoice": "Den-15961",
+  "status": "Suspended"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-07",
+  "start_date": "2026-03-07",
+  "guest_code": "HOB-G1465",
+  "invoice": "Hob-23991",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-07",
+  "start_date": "2026-03-07",
+  "guest_code": "HOB-G1474",
+  "invoice": "Hob-23496",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-03-07",
+  "start_date": "2026-03-07",
+  "guest_code": "",
+  "invoice": "Bel-12315",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-03-06",
+  "start_date": "2026-03-06",
+  "guest_code": "FreGNC11640560",
+  "invoice": "Fre-10886",
+  "status": "Active"
+ },
+ {
+  "center": "Waldorf, MD",
+  "sale_date": "2026-03-06",
+  "start_date": "2026-03-06",
+  "guest_code": "WAL-G1129",
+  "invoice": "Wal-2197",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-05",
+  "start_date": "2026-03-05",
+  "guest_code": "LDS-GIMP-62753",
+  "invoice": "Hob-23300",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-05",
+  "start_date": "2026-03-05",
+  "guest_code": "HobGNC51832170",
+  "invoice": "Hob-22321",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-03-05",
+  "start_date": "2026-03-05",
+  "guest_code": "FreGNC70355532",
+  "invoice": "Fre-10926",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-03-05",
+  "start_date": "2026-03-05",
+  "guest_code": "BEL-G506",
+  "invoice": "Bel-12343",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-03-05",
+  "start_date": "2026-03-05",
+  "guest_code": "BEL-G1509",
+  "invoice": "Bel-12170",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-04",
+  "start_date": "2026-03-04",
+  "guest_code": "JER-G1347",
+  "invoice": "Jer-17353",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-04",
+  "start_date": "2026-03-04",
+  "guest_code": "JER-G252",
+  "invoice": "Jer-17781",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-03-04",
+  "start_date": "2026-03-04",
+  "guest_code": "MonGNC49934397",
+  "invoice": "MON-18301",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-03-04",
+  "start_date": "2026-03-04",
+  "guest_code": "BelGNC68856054",
+  "invoice": "Bel-11281",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-04",
+  "start_date": "2026-03-04",
+  "guest_code": "HobGPD92742028",
+  "invoice": "Hob-22399",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-03-04",
+  "start_date": "2026-03-04",
+  "guest_code": "DEN-G590",
+  "invoice": "Den-15802",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-03-04",
+  "start_date": "2026-03-04",
+  "guest_code": "JerGNC96815930",
+  "invoice": "Jer-18038",
+  "status": "Cancelled"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-03-03",
+  "start_date": "2026-03-03",
+  "guest_code": "HobGNC78631364",
+  "invoice": "Hob-23691",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-03-01",
+  "start_date": "2026-03-01",
+  "guest_code": "DEN-G151",
+  "invoice": "Den-15710",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-06-27",
+  "start_date": "2026-06-27",
+  "guest_code": "DEN-G1419",
+  "invoice": "Den-18910",
+  "status": "Active"
+ },
+ {
+  "center": "Waldorf, MD",
+  "sale_date": "2026-06-27",
+  "start_date": "2026-06-27",
+  "guest_code": "DenGNC13685633",
+  "invoice": "Wal-3361",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-06-26",
+  "start_date": "2026-06-26",
+  "guest_code": "JER-G1667",
+  "invoice": "Jer-23006",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-06-25",
+  "start_date": "2026-06-25",
+  "guest_code": "JER-G1892",
+  "invoice": "Jer-22964",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-06-25",
+  "start_date": "2026-06-25",
+  "guest_code": "FreGNC4705680",
+  "invoice": "Fre-13410",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-06-24",
+  "start_date": "2026-06-24",
+  "guest_code": "FRE-G1234",
+  "invoice": "Fre-13582",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-06-24",
+  "start_date": "2026-06-24",
+  "guest_code": "RID-G1160",
+  "invoice": "Rid-15836",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-06-22",
+  "start_date": "2026-06-22",
+  "guest_code": "JerGNC86690697",
+  "invoice": "Jer-22698",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-06-22",
+  "start_date": "2026-06-22",
+  "guest_code": "HobGNC74814751",
+  "invoice": "Jer-22694",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-06-19",
+  "start_date": "2026-06-19",
+  "guest_code": "FreGNC95525578",
+  "invoice": "Fre-13201",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-06-19",
+  "start_date": "2026-06-19",
+  "guest_code": "JER-G126",
+  "invoice": "Jer-22615",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-06-19",
+  "start_date": "2026-06-19",
+  "guest_code": "ShoGNC22506521",
+  "invoice": "Sho-16146",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-06-18",
+  "start_date": "2026-06-18",
+  "guest_code": "SHO-G1201",
+  "invoice": "Sho-16251",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-06-18",
+  "start_date": "2026-06-18",
+  "guest_code": "",
+  "invoice": "Fre-13138",
+  "status": "Active"
+ },
+ {
+  "center": "Waldorf, MD",
+  "sale_date": "2026-06-17",
+  "start_date": "2026-06-17",
+  "guest_code": "Hob123",
+  "invoice": "Wal-3312",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-06-17",
+  "start_date": "2026-06-17",
+  "guest_code": "RID-G1580",
+  "invoice": "Rid-15788",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-06-16",
+  "start_date": "2026-06-16",
+  "guest_code": "MON-G1462",
+  "invoice": "MON-21680",
+  "status": "Active"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-06-16",
+  "start_date": "2026-06-16",
+  "guest_code": "ShoGNC55221874",
+  "invoice": "3117",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-06-16",
+  "start_date": "2026-06-16",
+  "guest_code": "JerGNC36646112",
+  "invoice": "Jer-22453",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-06-16",
+  "start_date": "2026-06-16",
+  "guest_code": "JER-G314",
+  "invoice": "Jer-22440",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-06-13",
+  "start_date": "2026-06-13",
+  "guest_code": "BEL-G394",
+  "invoice": "Bel-14367",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-06-12",
+  "start_date": "2026-06-12",
+  "guest_code": "RidGNC99714656",
+  "invoice": "Jer-22316",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-06-12",
+  "start_date": "2026-06-12",
+  "guest_code": "HOB-G1548",
+  "invoice": "Hob-28326",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-06-12",
+  "start_date": "2026-06-12",
+  "guest_code": "BEL-G700",
+  "invoice": "Bel-14996",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-06-12",
+  "start_date": "2026-06-19",
+  "guest_code": "ShoGNC37412270",
+  "invoice": "Sho-16125",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-06-11",
+  "start_date": "2026-06-11",
+  "guest_code": "BEL-G1904",
+  "invoice": "Bel-14752",
+  "status": "Active"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-06-11",
+  "start_date": "2026-06-11",
+  "guest_code": "LDS-GIMP-2987",
+  "invoice": "3130",
+  "status": "Active"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-06-11",
+  "start_date": "2026-06-11",
+  "guest_code": "BRI-G697",
+  "invoice": "3129",
+  "status": "Active"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-06-11",
+  "start_date": "2026-06-11",
+  "guest_code": "LDS-GIMP-2987",
+  "invoice": "3128",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-06-11",
+  "start_date": "2026-06-11",
+  "guest_code": "JER-G1778",
+  "invoice": "Jer-22248",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-06-11",
+  "start_date": "2026-06-11",
+  "guest_code": "LDS-GIMP-35737",
+  "invoice": "Bel-13941",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-06-11",
+  "start_date": "2026-06-11",
+  "guest_code": "DEN-G1586",
+  "invoice": "Den-19248",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-06-11",
+  "start_date": "2026-06-11",
+  "guest_code": "DEN-G916",
+  "invoice": "Den-19283",
+  "status": "Active"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-06-11",
+  "start_date": "2026-06-11",
+  "guest_code": "BRI-G908",
+  "invoice": "3125",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-06-10",
+  "start_date": "2026-06-10",
+  "guest_code": "RED-G1223",
+  "invoice": "Red-14169",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-06-10",
+  "start_date": "2026-06-10",
+  "guest_code": "RID-G1509",
+  "invoice": "Rid-15557",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-06-10",
+  "start_date": "2026-06-10",
+  "guest_code": "RID-G1569",
+  "invoice": "Rid-15501",
+  "status": "Active"
+ },
+ {
+  "center": "Waldorf, MD",
+  "sale_date": "2026-06-10",
+  "start_date": "2026-06-10",
+  "guest_code": "BEL-G264",
+  "invoice": "Wal-3223",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-06-09",
+  "start_date": "2026-06-09",
+  "guest_code": "SHO-G992",
+  "invoice": "Sho-15032",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-06-09",
+  "start_date": "2026-06-09",
+  "guest_code": "ShoGNC75191409",
+  "invoice": "Sho-15247",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-06-06",
+  "start_date": "2026-06-06",
+  "guest_code": "RidGNC97693235",
+  "invoice": "Rid-14300",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-06-05",
+  "start_date": "2026-06-05",
+  "guest_code": "HOB-G1807",
+  "invoice": "Hob-28373",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-06-05",
+  "start_date": "2026-06-05",
+  "guest_code": "JerGNC69517860",
+  "invoice": "Jer-21035",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-06-05",
+  "start_date": "2026-06-05",
+  "guest_code": "HobGNC44407800",
+  "invoice": "Hob-27979",
+  "status": "Active"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-06-05",
+  "start_date": "2026-06-05",
+  "guest_code": "",
+  "invoice": "2739",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-06-05",
+  "start_date": "2026-06-05",
+  "guest_code": "FRE-G534",
+  "invoice": "Fre-12653",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-06-04",
+  "start_date": "2026-06-04",
+  "guest_code": "RED-G755",
+  "invoice": "Red-12080",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-06-04",
+  "start_date": "2026-06-04",
+  "guest_code": "MonGNC1970487",
+  "invoice": "MON-21632",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-06-04",
+  "start_date": "2026-06-04",
+  "guest_code": "JER-G2017",
+  "invoice": "Jer-21946",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-06-04",
+  "start_date": "2026-06-04",
+  "guest_code": "MonGNC76141124",
+  "invoice": "MON-21622",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-06-03",
+  "start_date": "2026-06-03",
+  "guest_code": "JER-G841",
+  "invoice": "Jer-21733",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-06-03",
+  "start_date": "2026-06-03",
+  "guest_code": "HOB-G1273",
+  "invoice": "Hob-28245",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-06-03",
+  "start_date": "2026-06-03",
+  "guest_code": "RedGNC91447223",
+  "invoice": "Red-14078",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-06-02",
+  "start_date": "2026-06-02",
+  "guest_code": "HobGNC89644326",
+  "invoice": "Hob-28502",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-06-02",
+  "start_date": "2026-06-02",
+  "guest_code": "DenGNC56028187",
+  "invoice": "Den-17947",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-06-02",
+  "start_date": "2026-06-02",
+  "guest_code": "JerGNC96798093",
+  "invoice": "Jer-21841",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-06-01",
+  "start_date": "2026-06-01",
+  "guest_code": "HobGNC74936235",
+  "invoice": "Jer-21596",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-30",
+  "start_date": "2026-05-30",
+  "guest_code": "HOB-G1859",
+  "invoice": "Hob-27349",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-30",
+  "start_date": "2026-05-30",
+  "guest_code": "HOB-G1930",
+  "invoice": "Hob-28296",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-05-30",
+  "start_date": "2026-05-30",
+  "guest_code": "JER-G767",
+  "invoice": "Jer-21720",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-05-30",
+  "start_date": "2026-05-30",
+  "guest_code": "FRE-G164",
+  "invoice": "Fre-10674",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-05-30",
+  "start_date": "2026-05-30",
+  "guest_code": "JerGNC50168709",
+  "invoice": "Jer-21681",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-30",
+  "start_date": "2026-05-30",
+  "guest_code": "HobGNC77495462",
+  "invoice": "Hob-27210",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-05-30",
+  "start_date": "2026-05-30",
+  "guest_code": "HobGNC63591899",
+  "invoice": "Sho-14880",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-30",
+  "start_date": "2026-05-30",
+  "guest_code": "LDS-GIMP-18940",
+  "invoice": "Hob-27654",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-30",
+  "start_date": "2026-05-30",
+  "guest_code": "",
+  "invoice": "Bel-14703",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-30",
+  "start_date": "2026-05-30",
+  "guest_code": "HOB-G1945",
+  "invoice": "Hob-28451",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-05-29",
+  "start_date": "2026-05-29",
+  "guest_code": "JER-G1858",
+  "invoice": "Jer-21674",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-05-29",
+  "start_date": "2026-05-29",
+  "guest_code": "JER-G1118",
+  "invoice": "Jer-21672",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-05-29",
+  "start_date": "2026-05-29",
+  "guest_code": "JER-G1641",
+  "invoice": "Jer-19022",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-05-29",
+  "start_date": "2026-05-29",
+  "guest_code": "SHO-G58",
+  "invoice": "Sho-15672",
+  "status": "Active"
+ },
+ {
+  "center": "Denville, NJ",
+  "sale_date": "2026-05-29",
+  "start_date": "2026-05-29",
+  "guest_code": "DEN-G973",
+  "invoice": "Den-18670",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-05-29",
+  "start_date": "2026-05-29",
+  "guest_code": "SHO-G484",
+  "invoice": "Sho-13522",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-05-29",
+  "start_date": "2026-05-29",
+  "guest_code": "ShoGNC77152847",
+  "invoice": "Sho-15373",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-05-28",
+  "start_date": "2026-05-28",
+  "guest_code": "JerGNC36539210",
+  "invoice": "Red-13205",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-05-27",
+  "start_date": "2026-05-27",
+  "guest_code": "JER-G1841",
+  "invoice": "Jer-21566",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-27",
+  "start_date": "2026-05-27",
+  "guest_code": "HOB-G1474",
+  "invoice": "Hob-28255",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-05-27",
+  "start_date": "2026-05-27",
+  "guest_code": "JerGNC63720236",
+  "invoice": "Jer-20146",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-27",
+  "start_date": "2026-05-27",
+  "guest_code": "BelGNC68224458",
+  "invoice": "Bel-14516",
+  "status": "Active"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-05-26",
+  "start_date": "2026-05-26",
+  "guest_code": "BRI-G831",
+  "invoice": "2953",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-05-26",
+  "start_date": "2026-05-26",
+  "guest_code": "FRE-G894",
+  "invoice": "Fre-11501",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-23",
+  "start_date": "2026-05-23",
+  "guest_code": "HOB-G1674",
+  "invoice": "Hob-27604",
+  "status": "Suspended"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-05-22",
+  "start_date": "2026-05-22",
+  "guest_code": "RID-G768",
+  "invoice": "Rid-14528",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-05-22",
+  "start_date": "2026-05-22",
+  "guest_code": "RED-G1343",
+  "invoice": "Red-13767",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-05-22",
+  "start_date": "2026-05-22",
+  "guest_code": "RID-G954",
+  "invoice": "Rid-15049",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-05-22",
+  "start_date": "2026-05-22",
+  "guest_code": "RED-G1343",
+  "invoice": "Red-13765",
+  "status": "Active"
+ },
+ {
+  "center": "Lancaster, PA",
+  "sale_date": "2026-05-22",
+  "start_date": "2026-05-22",
+  "guest_code": "",
+  "invoice": "1923",
+  "status": "Suspended"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-22",
+  "start_date": "2026-05-22",
+  "guest_code": "HobGNC61311158",
+  "invoice": "Hob-27958",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-21",
+  "start_date": "2026-05-21",
+  "guest_code": "BelGNC19060811",
+  "invoice": "Bel-14142",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-05-21",
+  "start_date": "2026-05-21",
+  "guest_code": "ShoGNC6268115",
+  "invoice": "Sho-15319",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-21",
+  "start_date": "2026-05-21",
+  "guest_code": "HOB-G1191",
+  "invoice": "Hob-27902",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-05-21",
+  "start_date": "2026-05-21",
+  "guest_code": "MON-G1004",
+  "invoice": "MON-21225",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-05-21",
+  "start_date": "2026-05-21",
+  "guest_code": "FRE-G709",
+  "invoice": "Fre-12845",
+  "status": "Active"
+ },
+ {
+  "center": "Tribeca, NY",
+  "sale_date": "2026-05-21",
+  "start_date": "2026-05-21",
+  "guest_code": "TRI-G375",
+  "invoice": "Tri-6562",
+  "status": "Closed"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-05-21",
+  "start_date": "2026-05-21",
+  "guest_code": "FreGNC94496371",
+  "invoice": "Fre-12882",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-21",
+  "start_date": "2026-05-21",
+  "guest_code": "BelGNC99711791",
+  "invoice": "Bel-14445",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-20",
+  "start_date": "2026-05-20",
+  "guest_code": "HOB-G1775",
+  "invoice": "Hob-26682",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-20",
+  "start_date": "2026-05-20",
+  "guest_code": "BEL-G949",
+  "invoice": "Bel-13565",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-20",
+  "start_date": "2026-05-20",
+  "guest_code": "BelGNC90266352",
+  "invoice": "Bel-14376",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-05-20",
+  "start_date": "2026-05-20",
+  "guest_code": "FRE-G580",
+  "invoice": "Fre-11986",
+  "status": "Suspended"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-20",
+  "start_date": "2026-05-20",
+  "guest_code": "HobGNC25098558",
+  "invoice": "Hob-27707",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-05-20",
+  "start_date": "2026-05-20",
+  "guest_code": "MonGNC77811116",
+  "invoice": "MON-21161",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-05-19",
+  "start_date": "2026-05-19",
+  "guest_code": "FRE-G326",
+  "invoice": "Fre-12862",
+  "status": "Suspended"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-05-19",
+  "start_date": "2026-05-19",
+  "guest_code": "ShoGNC98233137",
+  "invoice": "Rid-12070",
+  "status": "Active"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-05-19",
+  "start_date": "2026-05-19",
+  "guest_code": "RidGNC2352895",
+  "invoice": "2884",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-05-17",
+  "start_date": "2026-05-17",
+  "guest_code": "redbank",
+  "invoice": "Red-13631",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-05-16",
+  "start_date": "2026-05-16",
+  "guest_code": "FreGNC31506454",
+  "invoice": "Fre-12800",
+  "status": "Active"
+ },
+ {
+  "center": "Jersey City, NJ",
+  "sale_date": "2026-05-16",
+  "start_date": "2026-05-16",
+  "guest_code": "JER-G738",
+  "invoice": "Jer-19748",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-05-16",
+  "start_date": "2026-05-16",
+  "guest_code": "FRE-G1046",
+  "invoice": "Fre-12405",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-05-16",
+  "start_date": "2026-05-16",
+  "guest_code": "RID-G503",
+  "invoice": "Rid-11918",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-15",
+  "start_date": "2026-05-15",
+  "guest_code": "BEL-G1337",
+  "invoice": "Bel-13268",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-05-15",
+  "start_date": "2026-05-15",
+  "guest_code": "X4GNC51268799",
+  "invoice": "Rid-14713",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-15",
+  "start_date": "2026-05-15",
+  "guest_code": "BEL-G912",
+  "invoice": "Bel-14112",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-05-15",
+  "start_date": "2026-05-15",
+  "guest_code": "MonGNC49854414",
+  "invoice": "MON-21015",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-05-14",
+  "start_date": "2026-05-14",
+  "guest_code": "WAL-G882",
+  "invoice": "Rid-14794",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-05-14",
+  "start_date": "2026-05-14",
+  "guest_code": "FreGNC28011086",
+  "invoice": "Fre-12739",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-05-14",
+  "start_date": "2026-05-14",
+  "guest_code": "HobGNC23190575",
+  "invoice": "MON-20796",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-14",
+  "start_date": "2026-05-14",
+  "guest_code": "BEL-G1727",
+  "invoice": "Bel-13508",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-14",
+  "start_date": "2026-05-14",
+  "guest_code": "HOB-G1573",
+  "invoice": "Hob-26698",
+  "status": "Active"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-05-14",
+  "start_date": "2026-05-14",
+  "guest_code": "",
+  "invoice": "OldBr-6520",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-05-14",
+  "start_date": "2026-05-14",
+  "guest_code": "MON-G588",
+  "invoice": "MON-20965",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-14",
+  "start_date": "2026-05-14",
+  "guest_code": "HOB-G1845",
+  "invoice": "Hob-27211",
+  "status": "Active"
+ },
+ {
+  "center": "Frederick, MD",
+  "sale_date": "2026-05-14",
+  "start_date": "2026-05-14",
+  "guest_code": "FreGNC80057780",
+  "invoice": "Fre-12705",
+  "status": "Active"
+ },
+ {
+  "center": "Tribeca, NY",
+  "sale_date": "2026-05-13",
+  "start_date": "2026-05-13",
+  "guest_code": "TriGNC6911859",
+  "invoice": "Tri-6376",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-13",
+  "start_date": "2026-05-13",
+  "guest_code": "HOB-G633",
+  "invoice": "Hob-27090",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-13",
+  "start_date": "2026-05-13",
+  "guest_code": "HOB-G970",
+  "invoice": "Hob-27027",
+  "status": "Active"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-05-13",
+  "start_date": "2026-05-13",
+  "guest_code": "OLDBR1272",
+  "invoice": "OldBr-6623",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-05-13",
+  "start_date": "2026-05-13",
+  "guest_code": "MON-G1101",
+  "invoice": "MON-20902",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-05-12",
+  "start_date": "2026-05-12",
+  "guest_code": "ShoGNC10460764",
+  "invoice": "Sho-14726",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-05-12",
+  "start_date": "2026-05-12",
+  "guest_code": "SHO-G973",
+  "invoice": "Sho-14446",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-12",
+  "start_date": "2026-05-12",
+  "guest_code": "HobGNC52640298",
+  "invoice": "Hob-25911",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-09",
+  "start_date": "2026-05-09",
+  "guest_code": "HobGNC30728279",
+  "invoice": "Hob-27243",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-09",
+  "start_date": "2026-05-09",
+  "guest_code": "HobGNC46003939",
+  "invoice": "Hob-27015",
+  "status": "Active"
+ },
+ {
+  "center": "Waldorf, MD",
+  "sale_date": "2026-05-09",
+  "start_date": "2026-05-09",
+  "guest_code": "WAL-G1240",
+  "invoice": "Wal-2736",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-09",
+  "start_date": "2026-05-09",
+  "guest_code": "HOB-G641",
+  "invoice": "Hob-22039",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-09",
+  "start_date": "2026-05-09",
+  "guest_code": "BEL-G62",
+  "invoice": "Bel-14028",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-09",
+  "start_date": "2026-05-09",
+  "guest_code": "BEL-G1186",
+  "invoice": "Bel-11517",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-05-08",
+  "start_date": "2026-05-08",
+  "guest_code": "MON-G1433",
+  "invoice": "MON-20536",
+  "status": "Active"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-05-08",
+  "start_date": "2026-05-08",
+  "guest_code": "BRI-G805",
+  "invoice": "2729",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-05-08",
+  "start_date": "2026-05-08",
+  "guest_code": "SHO-G1045",
+  "invoice": "Sho-15130",
+  "status": "Active"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-05-08",
+  "start_date": "2026-05-08",
+  "guest_code": "BRI-G813",
+  "invoice": "2788",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-05-08",
+  "start_date": "2026-05-08",
+  "guest_code": "LDS-GIMP-47537",
+  "invoice": "Rid-14583",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-05-08",
+  "start_date": "2026-05-08",
+  "guest_code": "RID-G1164",
+  "invoice": "Rid-14601",
+  "status": "Active"
+ },
+ {
+  "center": "Ridgewood, NJ",
+  "sale_date": "2026-05-07",
+  "start_date": "2026-05-07",
+  "guest_code": "RID-G1338",
+  "invoice": "Rid-14418",
+  "status": "Suspended"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-07",
+  "start_date": "2026-05-07",
+  "guest_code": "HOB-G1528",
+  "invoice": "Hob-24915",
+  "status": "Active"
+ },
+ {
+  "center": "Old Bridge, NJ",
+  "sale_date": "2026-05-07",
+  "start_date": "2026-05-07",
+  "guest_code": "RedGNC35501008",
+  "invoice": "OldBr-6561",
+  "status": "Active"
+ },
+ {
+  "center": "Short Hills, NJ",
+  "sale_date": "2026-05-06",
+  "start_date": "2026-05-06",
+  "guest_code": "SHO-G904",
+  "invoice": "Sho-15055",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-06",
+  "start_date": "2026-05-06",
+  "guest_code": "HobGNC71638812",
+  "invoice": "Hob-26615",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-05",
+  "start_date": "2026-05-05",
+  "guest_code": "BelGNC27811294",
+  "invoice": "Bel-14009",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-05",
+  "start_date": "2026-05-05",
+  "guest_code": "BEL-G1789",
+  "invoice": "Bel-13835",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-02",
+  "start_date": "2026-05-02",
+  "guest_code": "BEL-G1626",
+  "invoice": "Bel-13146",
+  "status": "Active"
+ },
+ {
+  "center": "Montclair, NJ",
+  "sale_date": "2026-05-02",
+  "start_date": "2026-05-02",
+  "guest_code": "MON-G1502",
+  "invoice": "MON-20545",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-05-02",
+  "start_date": "2026-05-02",
+  "guest_code": "RedGNC81269567",
+  "invoice": "Red-13281",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-05-01",
+  "start_date": "2026-05-01",
+  "guest_code": "HOB-G1302",
+  "invoice": "Hob-26487",
+  "status": "Active"
+ },
+ {
+  "center": "Bel Air, MD",
+  "sale_date": "2026-05-01",
+  "start_date": "2026-05-01",
+  "guest_code": "X2GNC54443457",
+  "invoice": "Bel-13103",
+  "status": "Active"
+ }
+]
