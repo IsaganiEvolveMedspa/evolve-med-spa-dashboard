@@ -6,9 +6,10 @@ New Customer Visits.
   is a membership only, they are not counted.
 
 Source: BRONZE_ZENOTI_SALES_ACCRUAL (recognized sales, has sale_date + guest_name).
-  - first sale date = MIN(sale_date) per guest_name across all history (closed sales)
-  - "non-membership first purchase" = the first-date rows include a row whose
-    item_category is not 'Memberships'
+  - first sale date = MIN(sale_date) per guest_name across all history
+  - "membershipversionid = Not Applicable" equivalent: the sales table has no
+    membershipversionid column, so a membership first-purchase is detected via
+    item_category = 'Memberships' (membership-only first sale is excluded)
   - location filter uses center_name directly (when locations are selected, "first
     sale" is scoped to those centers, i.e. new to the selected center(s))
 
@@ -59,20 +60,19 @@ def _new_customer_visits(s: str, e: str, locations: Optional[list[str]]) -> int:
 
     sql = f"""
         WITH cand AS (
-            -- guests with a (closed) sale in the window — only these can be "new this month"
+            -- guests with a sale in the window — only these can be "new this month"
             SELECT DISTINCT s.guest_name
             FROM {FULL_SALES} s
             WHERE s.sale_date >= '{s}' AND s.sale_date < DATEADD(DAY, 1, '{e}')
               AND s.guest_name IS NOT NULL
-              AND LOWER(s.status) = 'closed'
               {loc_clause}
         ),
         first_sale AS (
-            -- each candidate guest's first-ever (closed) sale date
+            -- each candidate guest's first-ever sale date
             SELECT s.guest_name, MIN(CAST(s.sale_date AS DATE)) AS first_dt
             FROM {FULL_SALES} s
             JOIN cand c ON c.guest_name = s.guest_name
-            WHERE LOWER(s.status) = 'closed'
+            WHERE 1 = 1
               {loc_clause}
             GROUP BY s.guest_name
         )
@@ -82,8 +82,8 @@ def _new_customer_visits(s: str, e: str, locations: Optional[list[str]]) -> int:
           ON s.guest_name = fs.guest_name
          AND CAST(s.sale_date AS DATE) = fs.first_dt
         WHERE fs.first_dt BETWEEN '{s}' AND '{e}'
-          AND LOWER(s.status) = 'closed'
-          -- first purchase is non-membership (a membership-only first sale is excluded)
+          -- first purchase is non-membership (membershipversionid='Not Applicable'
+          -- equivalent on the sales table: item_category is not 'Memberships')
           AND (s.item_category IS NULL OR s.item_category <> 'Memberships')
           {loc_clause}
     """
