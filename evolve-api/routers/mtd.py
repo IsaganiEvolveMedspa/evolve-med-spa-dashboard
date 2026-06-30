@@ -1,6 +1,6 @@
 import calendar
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from datetime import date, datetime, timedelta
 from typing import Optional, List
 
@@ -14,6 +14,7 @@ from utils.ad_spend import mtd_ad_spend, client_acquisition_cost
 from utils.payroll import compute_salary_by_center, salary_margin_pct
 from utils.operating_days import cash_run_rate, recognized_run_rate
 from utils.sss import sss_growth_yoy
+from utils.new_customers import new_customer_visits
 from utils.errors import log_and_raise_from_request
 
 router = APIRouter()
@@ -389,14 +390,24 @@ def get_mtd_kpi_header(
                     timings[label] = round(time.perf_counter() - t0, 2)
             return wrapper
 
+        # new_visits has two sources: the main cash query computes a fast value
+        # (m.new_visits) that's always available, and new_customer_visits() computes
+        # the authoritative "first-ever sale date per guest_name (non-membership)" off
+        # BRONZE_ZENOTI_SALES_ACCRUAL. The latter can be heavy on a cold table, so we
+        # wait at most SLOW_CAP for it and otherwise keep the cash value (its cache
+        # fills in the background). shutdown(wait=False) so a slow straggler never
+        # blocks the response.
+        SLOW_CAP = 6.0
         t_all = time.perf_counter()
-        with ThreadPoolExecutor(max_workers=6) as pool:
+        pool = ThreadPoolExecutor(max_workers=7)
+        try:
             f_main     = pool.submit(timed("main_sql", run_query), sql, all_params or None)
             f_cogs     = pool.submit(timed("cogs", fetch_cogs_and_accrual), s, e, locations)
             f_salary   = pool.submit(timed("salary", compute_salary_by_center), s, e, locations)
             f_cash_rr  = pool.submit(timed("cash_run_rate", cash_run_rate), s, e, locations, yesterday)
             f_recog_rr = pool.submit(timed("recog_run_rate", recognized_run_rate), s, e, locations, last_sale_day)
             f_sss      = pool.submit(timed("sss", sss_growth_yoy), s, e, locations, yesterday)
+            f_visits   = pool.submit(timed("new_visits", new_customer_visits), s, e, locations)
 
             rows            = f_main.result()
             cm              = f_cogs.result()
@@ -404,6 +415,12 @@ def get_mtd_kpi_header(
             result_cash_rr  = f_cash_rr.result()
             result_recog_rr = f_recog_rr.result()
             result_sss      = f_sss.result()
+            try:
+                result_visits = f_visits.result(timeout=max(0.1, SLOW_CAP - (time.perf_counter() - t_all)))
+            except FuturesTimeout:
+                result_visits = None       # keep the cash fallback; cache fills in background
+        finally:
+            pool.shutdown(wait=False)
         timings["_parallel_wall"] = round(time.perf_counter() - t_all, 2)
 
         result = rows[0] if rows else {}
@@ -429,9 +446,12 @@ def get_mtd_kpi_header(
         result["recognized_run_rate"] = result_recog_rr
         # SSS Growth YoY % = projected run rate vs prior-year same month, same-store only.
         result["same_store_yoy"] = result_sss
-        # MTD Ad Spend (chain-level, from bundled Google/FB ad export) + CAC.
-        # New Customer Visits (result["new_visits"]) comes from the main cash query above
-        # (first-visit guests with a non-membership purchase); CAC = ad spend / new visits.
+        # New Customer Visits = distinct guests whose first-ever (closed) sale date is
+        # this month and is non-membership, from BRONZE_ZENOTI_SALES_ACCRUAL. If that
+        # scan didn't finish within the cap, fall back to the cash value (m.new_visits).
+        if result_visits is not None:
+            result["new_visits"] = result_visits
+        # MTD Ad Spend (chain-level, from bundled Google/FB ad export) + CAC = ad spend / new visits.
         result["mtd_ad_spend"] = mtd_ad_spend(s, e)
         result["client_acquisition_cost"] = client_acquisition_cost(
             result.get("mtd_ad_spend"), result.get("new_visits") or result.get("new_client_count"))
