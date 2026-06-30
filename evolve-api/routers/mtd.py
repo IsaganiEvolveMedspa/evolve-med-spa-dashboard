@@ -15,6 +15,7 @@ from utils.payroll import compute_salary_by_center, salary_margin_pct
 from utils.operating_days import cash_run_rate, recognized_run_rate
 from utils.sss import sss_growth_yoy
 from utils.new_customers import new_existing_visits
+from utils.memberships import new_memberships
 from utils.errors import log_and_raise_from_request
 
 router = APIRouter()
@@ -400,7 +401,7 @@ def get_mtd_kpi_header(
         SLOW_CAP = 12.0   # only the FIRST (cold) sales-accrual scan can hit this;
                           # stale-while-revalidate serves cached values instantly after.
         t_all = time.perf_counter()
-        pool = ThreadPoolExecutor(max_workers=7)
+        pool = ThreadPoolExecutor(max_workers=8)
         try:
             f_main     = pool.submit(timed("main_sql", run_query), sql, all_params or None)
             f_cogs     = pool.submit(timed("cogs", fetch_cogs_and_accrual), s, e, locations)
@@ -409,6 +410,7 @@ def get_mtd_kpi_header(
             f_recog_rr = pool.submit(timed("recog_run_rate", recognized_run_rate), s, e, locations, last_sale_day)
             f_sss      = pool.submit(timed("sss", sss_growth_yoy), s, e, locations, yesterday)
             f_visits   = pool.submit(timed("new_existing", new_existing_visits), s, e, locations)
+            f_memb     = pool.submit(timed("memberships", new_memberships), s, e, locations)
 
             rows            = f_main.result()
             cm              = f_cogs.result()
@@ -416,6 +418,7 @@ def get_mtd_kpi_header(
             result_cash_rr  = f_cash_rr.result()
             result_recog_rr = f_recog_rr.result()
             result_sss      = f_sss.result()
+            new_memb        = f_memb.result()
             try:
                 result_visits = f_visits.result(timeout=max(0.1, SLOW_CAP - (time.perf_counter() - t_all)))
             except FuturesTimeout:
@@ -437,10 +440,14 @@ def get_mtd_kpi_header(
         result["payroll_margin_pct"] = payroll_m
         # Gross margin % = 100 − real COGS margin % − real payroll margin %.
         result["gross_margin_pct"] = (100 - (cogs_m or 0) - (payroll_m or 0)) if tot_sales else None
-        # Membership Adoption = New Memberships / Non-Member unique guests * 100. Both
-        # new_members (cash item_category='Memberships') and membership_adoption_rate come
-        # straight from the main cash query now (the Bi_DimMembershipUser_s3 table was stale,
-        # so it always read 0); no override needed.
+        # Membership Adoption = New Memberships / Non-Member unique guests * 100.
+        #   New Memberships = memberships CREATED this month AND STARTING this month, from
+        #     Bi_DimMembershipUser_s3 (COUNT DISTINCT UserMembershipId, IsDeleted=0).
+        #   Non-Members     = distinct cash guests with the `member` flag = 'no'.
+        # Reads 0 if Bi_DimMembershipUser_s3 has no current-month rows (data-freshness gap).
+        non_member = result.get("non_member_count") or 0
+        result["new_members"] = new_memb
+        result["membership_adoption_rate"] = (new_memb / non_member * 100) if non_member else None
         # Cash Sales run rate = Σ_loc (MTD cash / working days elapsed) × total working days.
         result["cash_run_rate"] = result_cash_rr
         # Recognized Revenue run rate — same working-days projection on recognized revenue.
