@@ -1087,8 +1087,8 @@ const LocationTable = ({ rows, totals, h }) => {
           <span style={cell}>{h.cogs_margin_pct != null ? pct(h.cogs_margin_pct, 1) : '—'}</span>
           <span style={cell}>{h.payroll_margin_pct != null ? pct(h.payroll_margin_pct, 1) : '—'}</span>
           <span style={cell}>{h.gross_margin_pct != null ? pct(h.gross_margin_pct, 0) : '—'}</span>
-          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{num(totals.newCust)}</span>
-          <span style={cell}>{num(totals.existCust)}</span>
+          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{num(h.new_visits != null ? h.new_visits : totals.newCust)}</span>
+          <span style={cell}>{num(h.existing_client_count != null ? h.existing_client_count : totals.existCust)}</span>
           <span style={cell}>{totals.asp != null ? money(totals.asp) : '—'}</span>
           <span style={cell}>{totals.aspX != null ? money(totals.aspX) : '—'}</span>
           <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{h.provider_utilization != null ? pct(h.provider_utilization, 0) : '—'}</span>
