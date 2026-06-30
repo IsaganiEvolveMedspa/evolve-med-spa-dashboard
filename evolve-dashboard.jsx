@@ -370,9 +370,9 @@ const Dashboard = () => {
     'Memberships': <MembershipsView />,
     'Analytics Overview': <InvAnalyticsView />,
     'Inventory Turnover': <InvTurnoverView />,
-    'Consumption & WOS': <InvSoon name="Consumption & Weeks of Supply" />,
-    'Cost per Unit': <InvSoon name="Cost per Unit" />,
-    'Costing Sheet': <InvSoon name="Costing Sheet" />,
+    'Consumption & WOS': <InvConsumptionView />,
+    'Cost per Unit': <InvCostPerUnitView />,
+    'Costing Sheet': <InvCostingSheetView />,
     'System vs Purchase Cost': <InvSoon name="System vs Purchase Cost" />,
     'PO Matching': <InvSoon name="PO Matching" />,
     'Inventory Movement': <InvSoon name="Inventory Movement" />,
@@ -2796,6 +2796,197 @@ const InvTrueUpsView = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <Card><CardTitle title="Adjustment Value by Location" /><div style={{ marginTop: 16 }}>{byLoc.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
         <Card><CardTitle title="By Reason" /><div style={{ marginTop: 16 }}>{byReason.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
+      </div>
+    </div>
+  );
+};
+
+const InvHeat = ({ colLabels, rows }) => {
+  const all = rows.flatMap((r) => r.cells).filter((v) => v != null);
+  const mx = Math.max(...all), mn = Math.min(...all), rng = (mx - mn) || 1;
+  const colorFor = (v) => { if (v == null) return C.line2; const t = (v - mn) / rng; return t < 0.34 ? '#EAC6B4' : t < 0.67 ? '#CFE7DD' : '#9CD4C5'; };
+  const grid = `118px repeat(${colLabels.length}, 1fr)`;
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 3, font: `600 8.5px ${FONT}`, color: C.gray2, marginBottom: 5 }}>
+        <span />{colLabels.map((c, i) => <span key={i} style={{ textAlign: 'center' }}>{c}</span>)}
+      </div>
+      {rows.map((r, ri) => (
+        <div key={ri} style={{ display: 'grid', gridTemplateColumns: grid, gap: 3, marginBottom: 3, alignItems: 'center' }}>
+          <span style={{ font: `500 10px ${FONT}`, color: C.ink2 }}>{r.label}</span>
+          {r.cells.map((v, ci) => <span key={ci} style={{ textAlign: 'center', background: colorFor(v), borderRadius: 3, padding: '4px 0', font: `600 9.5px ${FONT}`, color: C.ink }}>{v != null ? v : '—'}</span>)}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ---- Consumption & Weeks of Supply ----
+const InvConsumptionView = () => {
+  const kpis = [
+    { label: 'Network Consumption', value: '3,290 u', sub: 'last month' },
+    { label: 'Avg Weeks of Supply', value: '4.5', sub: 'network' },
+    { label: 'SKUs < 2 Weeks', value: '1', sub: 'critical', color: C.red },
+    { label: 'SKUs > 16 Weeks', value: '0', sub: 'overstock' },
+    { label: 'Forecast Next-Month', value: '3,540 u', sub: 'trend + seasonal', color: C.teal },
+  ];
+  const wos = [
+    { p: 'Restylane Kysse', loc: 'Lancaster', oh: 8, wu: 11, w: '0.7', vol: ['Variable', 'red'], st: ['Critical', 'red'] },
+    { p: 'Morpheus8 Tips', loc: 'Frederick', oh: 24, wu: 9, w: '2.6', vol: ['Volatile', 'amber'], st: ['Low', 'clay'] },
+    { p: 'Sculptra', loc: 'Montclair', oh: 16, wu: 6, w: '2.8', vol: ['Volatile', 'amber'], st: ['Low', 'clay'] },
+    { p: 'Juvederm Voluma', loc: 'Bridgewater', oh: 22, wu: 7, w: '3.2', vol: ['Volatile', 'amber'], st: ['Low', 'clay'] },
+    { p: 'Topical Numbing (BLT)', loc: 'Old Bridge', oh: 210, wu: 56, w: '3.8', vol: ['Variable', 'red'], st: ['Low', 'clay'] },
+    { p: 'Jeuveau 100u', loc: 'Denville', oh: 64, wu: 17, w: '3.9', vol: ['Variable', 'red'], st: ['Low', 'clay'] },
+    { p: 'Xeomin 100u', loc: 'Tribeca', oh: 84, wu: 19, w: '4.4', vol: ['Volatile', 'amber'], st: ['Healthy', 'teal'] },
+    { p: 'Hydrafacial Boosters', loc: 'Hoboken', oh: 188, wu: 41, w: '4.6', vol: ['Stable', 'teal'], st: ['Healthy', 'teal'] },
+    { p: 'Botox 100u', loc: 'Montclair', oh: 312, wu: 62, w: '5.0', vol: ['Stable', 'teal'], st: ['Healthy', 'teal'] },
+    { p: 'PRF Tubes', loc: 'Short Hills', oh: 1240, wu: 228, w: '5.4', vol: ['Stable', 'teal'], st: ['Healthy', 'teal'] },
+    { p: 'Dysport 300u', loc: 'Bel Air', oh: 420, wu: 58, w: '7.2', vol: ['Stable', 'teal'], st: ['Healthy', 'teal'] },
+    { p: 'EltaMD UV Clear', loc: 'Ridgewood', oh: 540, wu: 70, w: '7.7', vol: ['Stable', 'teal'], st: ['Healthy', 'teal'] },
+  ];
+  const movers = [
+    { label: 'Neuromodulators', right: '+12.5%', pct: 100, color: C.teal },
+    { label: 'Fillers', right: '+9.2%', pct: 74, color: C.teal },
+    { label: 'Biostimulators', right: '+4.8%', pct: 38, color: C.teal },
+    { label: 'Sculptra', right: '+3.1%', pct: 25, color: C.teal },
+    { label: 'EltaMD UV Clear', right: '−8.4%', pct: 67, color: C.clay },
+    { label: 'Versa Filler', right: '−11.0%', pct: 88, color: C.red },
+  ];
+  const heat = [
+    { label: 'Neuromodulators', cells: [5.2, 4.8, 4.5, 5.0, 4.6, 4.9, 5.1, 4.7] },
+    { label: 'Fillers', cells: [3.8, 4.0, 3.5, 3.9, 3.6, 3.4, 3.7, 3.9] },
+    { label: 'Biostimulators', cells: [2.8, 3.1, 2.9, 3.0, 2.7, 2.6, 2.9, 2.8] },
+    { label: 'Consumables', cells: [6.5, 6.8, 6.2, 6.6, 7.0, 6.4, 6.7, 6.9] },
+    { label: 'Retail', cells: [8.1, 7.8, 8.4, 7.9, 8.2, 8.0, 7.7, 8.3] },
+  ];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <InvAlert />
+      <InvKpis items={kpis} />
+      <Card>
+        <CardTitle title="Consumption & Forecast" sub="24 months · units · shaded band = next 3-mo forecast" />
+        <div style={{ marginTop: 10 }}><InvSpark data={[1800, 1900, 1750, 2100, 2000, 2300, 2200, 2600, 2450, 2900, 3100, 2800, 3050, 3290, 3380, 3540]} h={92} /></div>
+      </Card>
+      <Card>
+        <CardTitle title="Weeks of Supply" sub="<2 wks critical · 2–4.5 low · 4–16 healthy · >16 overstock · sorted by WOS asc" />
+        <div style={{ marginTop: 12 }}>
+          <InvTable
+            cols={[
+              { h: 'Product', k: 'p', strong: true, w: '1.4fr' }, { h: 'Location', k: 'loc' },
+              { h: 'On-Hand', k: 'oh', align: 'right' }, { h: 'Weekly Use', k: 'wu', align: 'right' }, { h: 'WOS', k: 'w', align: 'right' },
+              { h: 'Volatility', align: 'right', render: (r) => <InvPill text={r.vol[0]} tone={r.vol[1]} /> },
+              { h: 'Status', align: 'right', render: (r) => <InvPill text={r.st[0]} tone={r.st[1]} /> },
+            ]}
+            rows={wos}
+          />
+        </div>
+      </Card>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16 }}>
+        <Card><CardTitle title="Weeks-of-Supply Heatmap" sub="Weeks of supply · category × month" /><div style={{ marginTop: 14 }}><InvHeat colLabels={['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May']} rows={heat} /></div></Card>
+        <Card><CardTitle title="Demand Movers · MoM" /><div style={{ marginTop: 16 }}>{movers.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
+      </div>
+    </div>
+  );
+};
+
+// ---- Cost per Unit ----
+const InvCostPerUnitView = () => {
+  const kpis = [
+    { label: 'Weighted Avg Cost / Unit', value: '$121.83', sub: '▲ vs prior', color: C.clay },
+    { label: 'SKUs w/ Cost Change', value: '14', sub: 'this month' },
+    { label: 'Biggest Mover (Month)', value: 'Jeuveau 100u', sub: '+5.1% unit cost' },
+    { label: 'Inventory on Hand', value: '$28K', sub: 'at cost' },
+  ];
+  const net = [
+    { p: 'Jeuveau 100u', sup: 'Evolus', ac: '$400', oh: '$420', cons: '105', ch: '+5.1%', up: true },
+    { p: 'Nitrile Gloves M', sup: 'Amazon Business', ac: '$0.30', oh: '$8.40', cons: '2,100', ch: '+2.8%', up: true },
+    { p: 'Juvederm Voluma', sup: 'Allergan', ac: '$309', oh: '$3.1K', cons: '48', ch: '−2.1%', up: false },
+    { p: 'Morpheus8 Tips', sup: 'InMode', ac: '$300', oh: '$2.4K', cons: '31', ch: '+7.4%', up: true },
+    { p: 'Restylane Kysse', sup: 'Galderma', ac: '$305', oh: '$2.7K', cons: '40', ch: '+1.6%', up: true },
+    { p: 'Sculptra', sup: 'Galderma', ac: '$385', oh: '$4.2K', cons: '52', ch: '+0.9%', up: true },
+    { p: '31G Needles', sup: 'Amazon Business', ac: '$0.18', oh: '$0.9K', cons: '1,800', ch: '−1.2%', up: false },
+    { p: 'Dysport 300u', sup: 'Galderma', ac: '$452', oh: '$6.3K', cons: '88', ch: '+3.8%', up: true },
+    { p: 'PRF Tubes', sup: 'McKesson', ac: '$1.20', oh: '$1.3K', cons: '228', ch: '+3.2%', up: true },
+    { p: 'Botox 100u', sup: 'Allergan', ac: '$560', oh: '$13.5K', cons: '135', ch: '+4.6%', up: true },
+    { p: 'EltaMD UV Clear', sup: 'EltaMD', ac: '$26', oh: '$2.1K', cons: '70', ch: '+4.1%', up: true },
+    { p: 'Xeomin 100u', sup: 'Merz', ac: '$480', oh: '$9.1K', cons: '1,704', ch: '+5.3%', up: true },
+  ];
+  const tableCols = [
+    { h: 'Product', k: 'p', strong: true, w: '1.3fr' }, { h: 'Supplier', k: 'sup', w: '1.1fr' },
+    { h: 'Avg Cost', k: 'ac', align: 'right' }, { h: 'On-Hand $', k: 'oh', align: 'right' }, { h: 'Consumed', k: 'cons', align: 'right' },
+    { h: 'Change', align: 'right', render: (r) => <span style={{ color: r.up ? C.clay : C.teal, fontWeight: 600 }}>{r.ch}</span> },
+  ];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <InvAlert />
+      <InvKpis items={kpis} />
+      <Card><CardTitle title="Cost per Unit — Network" sub="Weighted unit cost, on-hand value & 24-mo cost trend · Zenoti" /><div style={{ marginTop: 12 }}><InvTable cols={tableCols} rows={net} /></div></Card>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <Card>
+          <CardTitle title="Weighted Avg Cost/Unit — Toxins" right={<span style={{ font: `700 18px ${FONT}`, color: C.ink }}>$3.12</span>} />
+          <div style={{ font: `600 10px ${FONT}`, color: C.green, marginBottom: 6 }}>▲ 20.2% vs 24-mo avg</div>
+          <InvSpark data={[2.4, 2.5, 2.6, 2.55, 2.7, 2.8, 2.85, 2.9, 3.0, 3.05, 3.1, 3.12]} h={70} />
+        </Card>
+        <Card>
+          <CardTitle title="Weighted Avg Cost/Syringe — Fillers" right={<span style={{ font: `700 18px ${FONT}`, color: C.ink }}>$260</span>} />
+          <div style={{ font: `600 10px ${FONT}`, color: C.green, marginBottom: 6 }}>▲ 26.3% vs 24-mo avg</div>
+          <InvSpark data={[205, 210, 215, 222, 228, 235, 240, 246, 250, 255, 258, 260]} h={70} />
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+// ---- Costing Sheet ----
+const InvCostingSheetView = () => {
+  const kpis = [
+    { label: 'Products Tracked', value: '184', sub: 'with cost history' },
+    { label: 'Tracking Window', value: '18 mo', sub: 'Dec ’24 – May ’26' },
+    { label: 'Median Cost Change', value: '0.0%', sub: 'typical product vs BB' },
+    { label: 'Cost Increases', value: '31', sub: 'products up >10%', color: C.clay },
+    { label: 'Cost Decreases', value: '45', sub: 'products down >10%', color: C.teal },
+  ];
+  const avgCost = [
+    { p: '4% Pure Retinol Peel (BB)', c: '$27.50' }, { p: 'Acne Peel (5x) (BB)', c: '$107.00' },
+    { p: 'AHA BHA Hydroxy Mask (BB)', c: '$36.00' }, { p: 'Elastin Regenerating Skin Nectar', c: '$48.00' },
+    { p: 'Average Vol (BB)', c: '$52.00' }, { p: 'B-12 (BB)', c: '$26.00' },
+    { p: 'Beta Carotene (BB)', c: '$40.00' }, { p: 'Bakers Balance', c: '$130.00' },
+    { p: 'TNS Ceramide Treatment Cream (BB)', c: '$66.00' },
+  ];
+  const inc = [
+    { label: 'TNS Ceramide Treatment Cream', right: '+141.0%', pct: 100, color: C.red },
+    { label: 'ZO Skin Rosatint Booster (BB)', right: '+98.7%', pct: 70, color: C.red },
+    { label: 'ZO Skin Brightening Booster (BB)', right: '+76.4%', pct: 54, color: C.clay },
+    { label: 'Restylane (Contour)', right: '+58.2%', pct: 41, color: C.clay },
+    { label: 'SkinPen Tip', right: '+44.1%', pct: 31, color: C.clay },
+    { label: '1% Clinical Active Serum', right: '+40.3%', pct: 29, color: C.clay },
+  ];
+  const dec = [
+    { label: 'Eclipse PRP Kit (Kit)', right: '−80.7%', pct: 100, color: C.teal },
+    { label: 'VE Peel - Purity', right: '−78.3%', pct: 97, color: C.teal },
+    { label: 'Bakers Balance', right: '−75.6%', pct: 94, color: C.teal },
+    { label: 'SkinMedica Instant Bright Eye Mask', right: '−75.1%', pct: 93, color: C.teal },
+    { label: 'CoolSculpting Elite Treatment Card', right: '−70.4%', pct: 87, color: C.teal },
+    { label: 'Microneedling - Tip', right: '−51.2%', pct: 63, color: C.teal },
+  ];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <InvKpis items={kpis} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: 16 }}>
+        <Card><CardTitle title="Average Unit Cost by Product" sub="Latest unit cost vs 18-month baseline" /><div style={{ marginTop: 12 }}><InvTable cols={[{ h: 'Product', k: 'p', strong: true, w: '2fr' }, { h: 'Avg Unit Cost', k: 'c', align: 'right' }]} rows={avgCost} /></div></Card>
+        <Card>
+          <CardTitle title="TNS Ceramide Treatment Cream (BB)" sub="Largest cost increase in window" />
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, margin: '8px 0' }}>
+            <span style={{ font: `500 13px ${FONT}`, color: C.gray3 }}>$27.36</span>
+            <span style={{ font: `700 22px ${FONT}`, color: C.ink }}>→ $66.00</span>
+            <span style={{ font: `600 12px ${FONT}`, color: C.red }}>+141.0%</span>
+          </div>
+          <InvSpark data={[27.36, 28, 30, 33, 38, 42, 47, 52, 58, 61, 64, 66]} h={80} color={C.red} />
+        </Card>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <Card><CardTitle title="Biggest Cost Increases" sub="Largest unit-cost rise vs baseline" /><div style={{ marginTop: 16 }}>{inc.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
+        <Card><CardTitle title="Biggest Cost Decreases" sub="Largest unit-cost drop vs baseline" /><div style={{ marginTop: 16 }}>{dec.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
       </div>
     </div>
   );
