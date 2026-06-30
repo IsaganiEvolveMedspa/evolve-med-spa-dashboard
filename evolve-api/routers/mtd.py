@@ -1,6 +1,6 @@
 import calendar
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from typing import Optional, List
 
@@ -13,9 +13,7 @@ from utils.cogs import fetch_cogs_and_accrual, cogs_margin_pct
 from utils.ad_spend import mtd_ad_spend, client_acquisition_cost
 from utils.payroll import compute_salary_by_center, salary_margin_pct
 from utils.operating_days import cash_run_rate, recognized_run_rate
-from utils.memberships import new_memberships
 from utils.sss import sss_growth_yoy
-from utils.new_customers import new_customer_visits
 from utils.errors import log_and_raise_from_request
 
 router = APIRouter()
@@ -214,6 +212,12 @@ def get_mtd_kpi_header(
                 COUNT(DISTINCT CASE WHEN LOWER(c.member) = 'yes'        THEN c.guest_name END)                AS member_count,
                 COUNT(DISTINCT CASE WHEN LOWER(c.member) = 'no'         THEN c.guest_name END)                AS non_member_count,
                 COUNT(DISTINCT CASE WHEN c.item_category = 'Memberships' THEN c.guest_name END)               AS new_members,
+                -- New Customer Visits (cash basis): first-visit guests whose purchase this
+                -- month is NOT a membership (a guest whose only purchase is a membership is
+                -- not counted as a new service visit). Replaces the slow Bi_FactCollections
+                -- first-ever scan with the already-scanned, always-current cash data.
+                COUNT(DISTINCT CASE WHEN gc.is_new = 1 AND c.item_category != 'Memberships'
+                                     THEN c.guest_name END)                                                   AS new_visits,
                 -- Membership Adoption Rate = New Memberships / Non-Member unique guests * 100.
                 -- Denominator uses the `member` flag (non-members only), per KPI spec —
                 -- NOT all guests. NOTE: spec's true numerator is memberships *created*
@@ -334,6 +338,7 @@ def get_mtd_kpi_header(
             m.member_count,
             m.non_member_count,
             m.new_members,
+            m.new_visits,
             m.membership_adoption_rate,
             m.blended_asp,
             m.asp_new_clients,
@@ -364,15 +369,15 @@ def get_mtd_kpi_header(
         # NOTE: sched_block appears TWICE (schedule_util + provider_rev) → sched_x twice.
         all_params = merge_params(params, params, y_loc_p, y_loc_p, y_loc_p, sched_x, sched_x, params_sales, appt_loc_p)
 
-        # The main KPI query and every enrichment helper are independent (each runs
-        # its own pooled DB connection and depends only on s/e/locations + the already-
-        # resolved yesterday/last_sale_day). Run them concurrently instead of one after
-        # another — sequential execution made the header ~27s (≈10 round-trips) and tripped
-        # the Railway gateway timeout (502s). Parallel, the header is bounded by the single
-        # slowest query (a few seconds). mtd_ad_spend is file-based (no DB) so it stays inline.
-        # Per-step wall-clock timings (each thread writes its own distinct key —
-        # atomic in CPython). Returned under "_timings" only when ?debug is set so
-        # we can see which query dominates without redeploying to guess.
+        # The main KPI query and the enrichment helpers are independent (each runs its
+        # own pooled DB connection and depends only on s/e/locations + the already-
+        # resolved yesterday/last_sale_day). Run them concurrently — sequential execution
+        # made the header ~27s and tripped the Railway gateway (502s). Parallel, the header
+        # is bounded by the single slowest query. mtd_ad_spend is file-based (no DB) so it
+        # stays inline. new_members / new_visits now come from the main cash query itself
+        # (no separate Bi_* warehouse scans), so there are no slow helpers left to cap.
+        # Per-step wall-clock timings (each thread writes its own distinct key — atomic in
+        # CPython) are returned under "_timings" only when ?debug is set.
         timings: dict[str, float] = {}
 
         def timed(label, fn):
@@ -384,25 +389,14 @@ def get_mtd_kpi_header(
                     timings[label] = round(time.perf_counter() - t0, 2)
             return wrapper
 
-        # Two BI-table metrics (new_memberships, new_customer_visits) can take 15-30s
-        # on a cold/un-indexed warehouse table. They're cached + single-flight inside
-        # their helpers, so we only WAIT up to SLOW_CAP for them here: if the cold
-        # computation isn't done in time the header still returns promptly (with the
-        # last cached value or 0), while the background thread finishes and fills the
-        # cache so the next load is instant. shutdown(wait=False) avoids blocking on
-        # the straggler. The fast queries are awaited normally.
-        SLOW_CAP = 6.0
         t_all = time.perf_counter()
-        pool = ThreadPoolExecutor(max_workers=8)
-        try:
+        with ThreadPoolExecutor(max_workers=6) as pool:
             f_main     = pool.submit(timed("main_sql", run_query), sql, all_params or None)
             f_cogs     = pool.submit(timed("cogs", fetch_cogs_and_accrual), s, e, locations)
             f_salary   = pool.submit(timed("salary", compute_salary_by_center), s, e, locations)
-            f_memb     = pool.submit(timed("memberships", new_memberships), s, e, locations)
             f_cash_rr  = pool.submit(timed("cash_run_rate", cash_run_rate), s, e, locations, yesterday)
             f_recog_rr = pool.submit(timed("recog_run_rate", recognized_run_rate), s, e, locations, last_sale_day)
             f_sss      = pool.submit(timed("sss", sss_growth_yoy), s, e, locations, yesterday)
-            f_visits   = pool.submit(timed("new_visits", new_customer_visits), s, e, locations)
 
             rows            = f_main.result()
             cm              = f_cogs.result()
@@ -410,18 +404,6 @@ def get_mtd_kpi_header(
             result_cash_rr  = f_cash_rr.result()
             result_recog_rr = f_recog_rr.result()
             result_sss      = f_sss.result()
-
-            def capped(fut, default):
-                remaining = SLOW_CAP - (time.perf_counter() - t_all)
-                try:
-                    return fut.result(timeout=max(0.1, remaining))
-                except FuturesTimeout:
-                    return default          # background thread keeps running -> fills cache
-
-            nm            = capped(f_memb, 0)
-            result_visits = capped(f_visits, 0)
-        finally:
-            pool.shutdown(wait=False)       # don't block on slow BI stragglers
         timings["_parallel_wall"] = round(time.perf_counter() - t_all, 2)
 
         result = rows[0] if rows else {}
@@ -437,12 +419,10 @@ def get_mtd_kpi_header(
         result["payroll_margin_pct"] = payroll_m
         # Gross margin % = 100 − real COGS margin % − real payroll margin %.
         result["gross_margin_pct"] = (100 - (cogs_m or 0) - (payroll_m or 0)) if tot_sales else None
-        # Membership Adoption = new memberships (created this month AND starting this month,
-        # from Bi_DimMembershipUser_s3) / non-member unique guests (cash). Replaces the old
-        # cash-line proxy numerator.
-        non_member = result.get("non_member_count") or 0
-        result["new_members"] = nm
-        result["membership_adoption_rate"] = (nm / non_member * 100) if non_member else None
+        # Membership Adoption = New Memberships / Non-Member unique guests * 100. Both
+        # new_members (cash item_category='Memberships') and membership_adoption_rate come
+        # straight from the main cash query now (the Bi_DimMembershipUser_s3 table was stale,
+        # so it always read 0); no override needed.
         # Cash Sales run rate = Σ_loc (MTD cash / working days elapsed) × total working days.
         result["cash_run_rate"] = result_cash_rr
         # Recognized Revenue run rate — same working-days projection on recognized revenue.
@@ -450,9 +430,9 @@ def get_mtd_kpi_header(
         # SSS Growth YoY % = projected run rate vs prior-year same month, same-store only.
         result["same_store_yoy"] = result_sss
         # MTD Ad Spend (chain-level, from bundled Google/FB ad export) + CAC.
+        # New Customer Visits (result["new_visits"]) comes from the main cash query above
+        # (first-visit guests with a non-membership purchase); CAC = ad spend / new visits.
         result["mtd_ad_spend"] = mtd_ad_spend(s, e)
-        # New Customer Visits = guests whose first sale (non-membership) is this month.
-        result["new_visits"] = result_visits
         result["client_acquisition_cost"] = client_acquisition_cost(
             result.get("mtd_ad_spend"), result.get("new_visits") or result.get("new_client_count"))
         if debug:
