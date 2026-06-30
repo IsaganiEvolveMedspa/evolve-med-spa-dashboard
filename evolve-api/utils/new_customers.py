@@ -20,6 +20,7 @@ so we pre-filter to those candidates before the full-history MIN(). Cached +
 single-flight; the KPI header caps how long it waits for it.
 """
 import logging
+import threading
 from typing import Optional
 
 from config import FULL_SALES
@@ -28,21 +29,42 @@ from utils.slowcache import TTLSingleFlight
 
 log = logging.getLogger(__name__)
 
-# 10-min TTL + single-flight: one computation per (s,e,locations) at a time.
-_CACHE = TTLSingleFlight(ttl_seconds=600)
+# 30-min TTL + single-flight. Stale-while-revalidate: a stale value is served
+# instantly while a background thread refreshes it, so the header never blocks on
+# (or falls back away from) this scan after the first warm-up — which fixes the
+# "new visits flickers 1134 <-> 778" issue when the cache went cold under load.
+_CACHE = TTLSingleFlight(ttl_seconds=1800)
 
 _ZERO = {"new": 0, "existing": 0}
 
 
+def _refresh(key, s, e, locations):
+    try:
+        _CACHE.finish(key, _compute(s, e, locations))
+    except Exception as exc:
+        log.warning("new_existing_visits background refresh failed: %s", exc)
+        _CACHE.abort(key)
+
+
 def new_existing_visits(s: str, e: str, locations: Optional[list[str]]) -> dict:
-    """Return {"new": int, "existing": int} for the month (cached + single-flight)."""
+    """Return {"new","existing","asp_new","asp_existing"} (cached, stale-while-revalidate)."""
     key = (s, e, tuple(sorted(locations)) if locations else None)
-    hit, val = _CACHE.get_fresh(key)
-    if hit:
+
+    fresh, val = _CACHE.get_fresh(key)
+    if fresh:
         return val
-    if not _CACHE.begin(key):                 # another thread is computing
-        any_hit, any_val = _CACHE.get_any(key)
-        return any_val if any_hit else dict(_ZERO)
+
+    has_any, any_val = _CACHE.get_any(key)
+    if has_any:
+        # Serve the stale value immediately; kick off one background refresh.
+        if _CACHE.begin(key):
+            threading.Thread(target=_refresh, args=(key, s, e, locations), daemon=True).start()
+        return any_val
+
+    # No cached value yet — compute synchronously (single-flight); this is the only
+    # path that can block, and only on the first request per (s,e,locations).
+    if not _CACHE.begin(key):
+        return dict(_ZERO)
     try:
         val = _compute(s, e, locations)
         _CACHE.finish(key, val)

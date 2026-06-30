@@ -397,7 +397,8 @@ def get_mtd_kpi_header(
         # heavy on a cold table, so we wait at most SLOW_CAP for it and otherwise keep the
         # cash values (its cache fills in the background). shutdown(wait=False) so a slow
         # straggler never blocks the response.
-        SLOW_CAP = 6.0
+        SLOW_CAP = 12.0   # only the FIRST (cold) sales-accrual scan can hit this;
+                          # stale-while-revalidate serves cached values instantly after.
         t_all = time.perf_counter()
         pool = ThreadPoolExecutor(max_workers=7)
         try:
