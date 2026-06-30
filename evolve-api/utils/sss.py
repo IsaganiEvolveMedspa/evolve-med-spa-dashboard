@@ -1,24 +1,25 @@
 """
 Same-Store Sales (SSS) Growth YoY %.
 
-  SSS YoY % = ( Σ Projected Run Rate (current full month)  −  Σ Prior-Year Same-Month sales )
-              / Σ Prior-Year Same-Month sales  × 100
+  SSS YoY % = ( Σ Current-year MTD sales  −  Σ Prior-year same-period sales )
+              / Σ Prior-year same-period sales  × 100
   over SAME-STORE locations only (open > 12 months as of the reporting month).
 
-  - Projected Run Rate (per location) = (MTD cash / working days elapsed) × total working days
-    (same working-days projection as the Cash Sales run rate).
-  - Prior-Year Same-Month sales (per location) = full prior-year calendar-month cash.
-  - Same-store = first cash date on/before (reporting month start − 12 months).
+  - Current MTD       = cash sales from month start through the latest data day.
+  - Prior-year period = the SAME elapsed window one year earlier (month start −1yr
+    through latest data day −1yr), so we compare like-for-like MTD, not a partial
+    month against a full prior month.
+  - Same-store        = location open > 12 months, i.e. it had cash on/before
+    (reporting month start − 12 months).
   Cash basis throughout (sales_collected_exc_tax, with the cash payment-type filter).
 """
-import calendar
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from config import FULL_CASH
 from db import run_query
-from utils.operating_days import _open_days, _count_between, _CASH_PAY_FILTER
+from utils.operating_days import _CASH_PAY_FILTER
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +44,14 @@ def _sum_by_center(start_iso: str, end_iso: str, locations):
     return {r["center_name"]: float(r["cash"] or 0) for r in run_query(sql, params or None)}
 
 
+def _shift_year(d, years: int):
+    """Same calendar date `years` earlier; Feb 29 -> falls back ~365 days."""
+    try:
+        return d.replace(year=d.year + years)
+    except ValueError:
+        return d - timedelta(days=365 * abs(years))
+
+
 def sss_growth_yoy(s: str, e: str, locations: Optional[list[str]], latest_date: str) -> Optional[float]:
     try:
         return _sss_growth_yoy(s, e, locations, latest_date)
@@ -52,26 +61,20 @@ def sss_growth_yoy(s: str, e: str, locations: Optional[list[str]], latest_date: 
 
 
 def _sss_growth_yoy(s: str, e: str, locations: Optional[list[str]], latest_date: str) -> Optional[float]:
-    table = _open_days()
-    if not table:
-        return None
-
     s_dt        = datetime.strptime(s, "%Y-%m-%d").date()
+    latest_dt   = datetime.strptime(latest_date, "%Y-%m-%d").date()
     month_start = s_dt.replace(day=1)
-    month_end   = s_dt.replace(day=calendar.monthrange(s_dt.year, s_dt.month)[1])
-    py_start    = month_start.replace(year=month_start.year - 1)
-    py_end      = month_end.replace(year=month_end.year - 1)
+
+    # Prior-year SAME elapsed MTD window.
+    py_start  = _shift_year(month_start, -1)
+    py_latest = _shift_year(latest_dt, -1)
     # Same-store cutoff: open > 12 months => first cash on/before (month_start − 12 months).
-    cutoff      = py_start
+    cutoff    = py_start
 
-    cur_mtd  = _sum_by_center(month_start.isoformat(), latest_date, locations)   # MTD cash per loc
-    py_full  = _sum_by_center(py_start.isoformat(), py_end.isoformat(), locations)  # PY full-month cash
+    cur = _sum_by_center(month_start.isoformat(), latest_date,         locations)  # current MTD
+    pri = _sum_by_center(py_start.isoformat(),    py_latest.isoformat(), locations)  # prior-year same MTD
 
-    # Same-store filter: a center counts iff it had cash ON/BEFORE the cutoff
-    # (open > 12 months). Previously this did MIN(payment_date) GROUP BY center
-    # over ALL history with no date bound — a full-table scan of the cash table
-    # that pushed the KPI header past the 10s query timeout. We only need set
-    # membership, so bound the scan to rows on/before the cutoff date.
+    # Same-store set: locations open > 12 months = had cash on/before the cutoff.
     loc, params = _loc_clause(locations)
     same_store_sql = f"""
         SELECT DISTINCT center_name
@@ -81,19 +84,7 @@ def _sss_growth_yoy(s: str, e: str, locations: Optional[list[str]], latest_date:
     """
     same_store = {r["center_name"] for r in run_query(same_store_sql, params or None)}
 
-    ms_iso  = month_start.isoformat()
-    me_iso  = month_end.isoformat()
-    tot_proj, tot_py = 0.0, 0.0
-    for center, py_sales in py_full.items():
-        if center not in same_store:
-            continue                                  # not same-store (open ≤ 12 months)
-        days = table.get(center, [])
-        elapsed_wd = _count_between(days, ms_iso, latest_date)
-        total_wd   = _count_between(days, ms_iso, me_iso)
-        if elapsed_wd <= 0 or py_sales <= 0:
-            continue
-        proj = cur_mtd.get(center, 0.0) / elapsed_wd * total_wd   # projected full-month run rate
-        tot_proj += proj
-        tot_py   += py_sales
-
-    return ((tot_proj - tot_py) / tot_py * 100) if tot_py else None
+    # Compare current-year MTD vs prior-year same MTD, summed over same-store locations only.
+    tot_cur = sum(v for c, v in cur.items() if c in same_store)
+    tot_pri = sum(v for c, v in pri.items() if c in same_store)
+    return ((tot_cur - tot_pri) / tot_pri * 100) if tot_pri else None
