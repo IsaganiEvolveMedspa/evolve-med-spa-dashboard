@@ -368,7 +368,7 @@ const Dashboard = () => {
     'Locations': <LocationsView />, 'Acquisition': <AcquisitionView />, 'Call Center': <CallCenterView />,
     'Clinical': <ClinicalView />, 'Patients / CRM': <PatientsView />, 'Staff / Providers': <StaffView />,
     'Memberships': <MembershipsView />,
-    'Analytics Overview': <InvAnalyticsView />,
+    'Analytics Overview': <InvAnalyticsView onNavigate={(v) => { setActiveView(v); setOpenGroups((g) => ({ ...g, Inventory: true })); }} />,
     'Inventory Turnover': <InvTurnoverView />,
     'Consumption & WOS': <InvConsumptionView />,
     'Cost per Unit': <InvCostPerUnitView />,
@@ -2619,7 +2619,7 @@ const InvTable = ({ cols, rows }) => {
 };
 
 // ---- Analytics Overview ----
-const InvAnalyticsView = () => {
+const InvAnalyticsView = ({ onNavigate }) => {
   const kpis = [
     { label: 'Avg Cost-Variance', value: '+6.3%', sub: 'system vs latest PO', color: C.clay },
     { label: 'PO Match Rate', value: '88.5%', sub: 'clean 3-way' },
@@ -2629,10 +2629,13 @@ const InvAnalyticsView = () => {
     { label: 'True-Up Value', value: '−$18.4K', sub: 'net adjustment', color: C.red },
   ];
   const scorecard = [
-    { a: 'Cost per Unit', hl: '$182 wtd', f: 6 }, { a: 'Costing Drift', hl: '+6.3% avg', f: 9 },
-    { a: 'PO Matching', hl: '88.5% clean', f: 5 }, { a: 'Transfers', hl: '12 open', f: 5 },
-    { a: 'True-Ups', hl: '−$18.4K net', f: 7 }, { a: 'Inventory Turnover', hl: '7.3× / 9.0× tgt', f: 4 },
-    { a: 'Weeks of Supply', hl: '9.6 wks avg', f: 6 },
+    { a: 'Cost per Unit', hl: '$182 wtd', f: 6, to: 'Cost per Unit' },
+    { a: 'Costing Drift', hl: '+6.3% avg', f: 9, to: 'System vs Purchase Cost' },
+    { a: 'PO Matching', hl: '88.5% clean', f: 5, to: 'PO Matching' },
+    { a: 'Transfers', hl: '12 open', f: 5, to: 'Transfers' },
+    { a: 'True-Ups', hl: '−$18.4K net', f: 7, to: 'True-Ups' },
+    { a: 'Inventory Turnover', hl: '7.3× / 9.0× tgt', f: 4, to: 'Inventory Turnover' },
+    { a: 'Weeks of Supply', hl: '9.6 wks avg', f: 6, to: 'Consumption & WOS' },
   ];
   const impact = [
     { label: 'Cost variance', right: '$58.2K', pct: 100, color: C.red },
@@ -2653,7 +2656,7 @@ const InvAnalyticsView = () => {
                 { h: 'Analysis', k: 'a', strong: true, render: (r) => <span><span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: r.f >= 7 ? C.red : r.f >= 5 ? C.clay : C.teal, marginRight: 8 }} />{r.a}</span> },
                 { h: 'Headline', k: 'hl', align: 'right' },
                 { h: 'Flags', k: 'f', align: 'right', w: '0.5fr' },
-                { h: '', align: 'right', w: '0.5fr', render: () => <span style={{ color: C.teal, font: `600 11px ${FONT}` }}>View →</span> },
+                { h: '', align: 'right', w: '0.5fr', render: (r) => <span onClick={() => onNavigate && onNavigate(r.to)} style={{ color: C.teal, font: `600 11px ${FONT}`, cursor: 'pointer' }}>View →</span> },
               ]}
               rows={scorecard}
             />
