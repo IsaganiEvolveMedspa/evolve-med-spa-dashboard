@@ -11,6 +11,10 @@ item_category = 'Memberships'; a membership-only first sale is excluded).
   Existing Customer = first-ever sale date is BEFORE the reporting month
                       (i.e. has a past-purchase record not in this month → returning).
 
+Also returns ASP per segment (per customer): each segment's non-membership MTD
+sales / that segment's customer count — same classification as the counts, so
+ASP New/Existing tie out with New/Existing Customer Visits.
+
 Performance: only guests who transacted in [s, e] can be new/existing this month,
 so we pre-filter to those candidates before the full-history MIN(). Cached +
 single-flight; the KPI header caps how long it waits for it.
@@ -54,7 +58,7 @@ def _compute(s: str, e: str, locations: Optional[list[str]]) -> dict:
     if locations:
         ph = ", ".join(["%s"] * len(locations))
         loc_clause = f"AND s.center_name IN ({ph})"
-        params = list(locations) * 3          # loc_clause appears 3 times below
+        params = list(locations) * 4          # loc_clause appears 4 times below
 
     sql = f"""
         WITH cand AS (
@@ -83,15 +87,35 @@ def _compute(s: str, e: str, locations: Optional[list[str]]) -> dict:
              AND CAST(s.sale_date AS DATE) = fs.first_dt
             WHERE (s.item_category IS NULL OR s.item_category <> 'Memberships')
               {loc_clause}
+        ),
+        mtd_sales AS (
+            -- each candidate guest's non-membership sales within the month (for ASP)
+            SELECT s.guest_name, SUM(s.sales_exc_tax) AS amt
+            FROM {FULL_SALES} s
+            JOIN first_nonmemb fn ON fn.guest_name = s.guest_name
+            WHERE s.sale_date >= '{s}' AND s.sale_date < DATEADD(DAY, 1, '{e}')
+              AND (s.item_category IS NULL OR s.item_category <> 'Memberships')
+              {loc_clause}
+            GROUP BY s.guest_name
         )
         SELECT
-            SUM(CASE WHEN first_dt BETWEEN '{s}' AND '{e}' THEN 1 ELSE 0 END) AS new_visits,
-            SUM(CASE WHEN first_dt <  '{s}'                THEN 1 ELSE 0 END) AS existing_visits
-        FROM first_nonmemb
+            SUM(CASE WHEN fn.first_dt BETWEEN '{s}' AND '{e}' THEN 1 ELSE 0 END)                  AS new_visits,
+            SUM(CASE WHEN fn.first_dt <  '{s}'                THEN 1 ELSE 0 END)                  AS existing_visits,
+            SUM(CASE WHEN fn.first_dt BETWEEN '{s}' AND '{e}' THEN COALESCE(ms.amt, 0) ELSE 0 END) AS new_sales,
+            SUM(CASE WHEN fn.first_dt <  '{s}'                THEN COALESCE(ms.amt, 0) ELSE 0 END) AS existing_sales
+        FROM first_nonmemb fn
+        LEFT JOIN mtd_sales ms ON ms.guest_name = fn.guest_name
     """
     rows = run_query(sql, params or None)
     r = rows[0] if rows else {}
+    new_n   = int(r.get("new_visits") or 0)
+    exist_n = int(r.get("existing_visits") or 0)
+    new_s   = float(r.get("new_sales") or 0)
+    exist_s = float(r.get("existing_sales") or 0)
     return {
-        "new":      int(r.get("new_visits") or 0),
-        "existing": int(r.get("existing_visits") or 0),
+        "new":          new_n,
+        "existing":     exist_n,
+        # ASP per customer (non-membership sales this month / customers in segment)
+        "asp_new":      round(new_s / new_n, 2)     if new_n   else None,
+        "asp_existing": round(exist_s / exist_n, 2) if exist_n else None,
     }

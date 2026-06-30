@@ -453,6 +453,12 @@ def get_mtd_kpi_header(
         if result_visits is not None:
             result["new_visits"]            = result_visits.get("new")
             result["existing_client_count"] = result_visits.get("existing")
+            # ASP New/Existing on the SAME sales-accrual segmentation (per customer):
+            # segment non-membership MTD sales / segment customer count.
+            if result_visits.get("asp_new") is not None:
+                result["asp_new_clients"] = result_visits.get("asp_new")
+            if result_visits.get("asp_existing") is not None:
+                result["asp_existing_clients"] = result_visits.get("asp_existing")
         # MTD Ad Spend (chain-level, from bundled Google/FB ad export) + CAC = ad spend / new visits.
         result["mtd_ad_spend"] = mtd_ad_spend(s, e)
         result["client_acquisition_cost"] = client_acquisition_cost(
