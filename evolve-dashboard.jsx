@@ -373,10 +373,10 @@ const Dashboard = () => {
     'Consumption & WOS': <InvConsumptionView />,
     'Cost per Unit': <InvCostPerUnitView />,
     'Costing Sheet': <InvCostingSheetView />,
-    'System vs Purchase Cost': <InvSoon name="System vs Purchase Cost" />,
-    'PO Matching': <InvSoon name="PO Matching" />,
-    'Inventory Movement': <InvSoon name="Inventory Movement" />,
-    'Transfers': <InvSoon name="Transfers" />,
+    'System vs Purchase Cost': <InvSystemCostView />,
+    'PO Matching': <InvPOMatchingView />,
+    'Inventory Movement': <InvMovementView />,
+    'Transfers': <InvTransfersView />,
     'True-Ups': <InvTrueUpsView />,
   }[activeView] || <OverviewView />;
 
@@ -2987,6 +2987,249 @@ const InvCostingSheetView = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <Card><CardTitle title="Biggest Cost Increases" sub="Largest unit-cost rise vs baseline" /><div style={{ marginTop: 16 }}>{inc.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
         <Card><CardTitle title="Biggest Cost Decreases" sub="Largest unit-cost drop vs baseline" /><div style={{ marginTop: 16 }}>{dec.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
+      </div>
+    </div>
+  );
+};
+
+// ---- System vs Purchase Cost ----
+const InvSystemCostView = () => {
+  const kpis = [
+    { label: 'SKUs With Drift', value: '33%', sub: 'vs latest PO', color: C.clay },
+    { label: 'Flagged SKUs', value: '9', sub: '▲ vs prior', color: C.clay },
+    { label: 'Total $ Mis-Valuation', value: '$20.3K', sub: 'system vs realized', color: C.red },
+    { label: 'Avg Absolute Variance', value: '12.0%', sub: 'across flagged' },
+  ];
+  const drift = [
+    { p: 'Dysport 300u', sup: 'Galderma', sc: '$400', po: '$452', dt: 'May 02', v: '+$52', vp: '+13.0%', up: true, fl: true },
+    { p: 'Sculptra', sup: 'Galderma', sc: '$385', po: '$372', dt: 'Apr 28', v: '−$13', vp: '−3.4%', up: false, fl: false },
+    { p: 'Juvederm Voluma', sup: 'Allergan', sc: '$309', po: '$324', dt: 'May 06', v: '+$15', vp: '+4.9%', up: true, fl: true },
+    { p: 'Morpheus8 Tips', sup: 'InMode', sc: '$300', po: '$338', dt: 'Apr 22', v: '+$38', vp: '+12.7%', up: true, fl: true },
+    { p: 'Nitrile Gloves M', sup: 'Amazon Business', sc: '$0.30', po: '$0.34', dt: 'May 04', v: '+$0.04', vp: '+13.3%', up: true, fl: true },
+    { p: 'SkinVive', sup: 'Allergan', sc: '$260', po: '$245', dt: 'Apr 30', v: '−$15', vp: '−5.8%', up: false, fl: true },
+    { p: 'Restylane Kysse', sup: 'Galderma', sc: '$305', po: '$318', dt: 'May 06', v: '+$13', vp: '+4.3%', up: true, fl: false },
+    { p: 'PRF Tubes', sup: 'McKesson', sc: '$1.20', po: '$1.32', dt: 'May 01', v: '+$0.12', vp: '+10.0%', up: true, fl: true },
+    { p: '31G Needles', sup: 'Amazon Business', sc: '$0.18', po: '$0.20', dt: 'Apr 26', v: '+$0.02', vp: '+11.1%', up: true, fl: true },
+  ];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <InvAlert />
+      <InvKpis items={kpis} />
+      <Card>
+        <CardTitle title="Costing Drift — System vs Latest Purchase" sub="System cost vs latest delivered PO unit cost · costing drift · Zenoti" />
+        <div style={{ marginTop: 12 }}>
+          <InvTable
+            cols={[
+              { h: 'Product', k: 'p', strong: true, w: '1.3fr' }, { h: 'Supplier', k: 'sup' },
+              { h: 'System $', k: 'sc', align: 'right' }, { h: 'Latest PO $', k: 'po', align: 'right' }, { h: 'Latest', k: 'dt', align: 'right' },
+              { h: 'Variance $', align: 'right', render: (r) => <span style={{ color: r.up ? C.clay : C.teal, fontWeight: 600 }}>{r.v}</span> },
+              { h: 'Variance %', align: 'right', render: (r) => <span style={{ color: r.up ? C.clay : C.teal }}>{r.vp}</span> },
+              { h: 'Flag', align: 'right', render: (r) => r.fl ? <InvPill text="Flag" tone="red" /> : <span style={{ color: C.gray2 }}>—</span> },
+            ]}
+            rows={drift}
+          />
+        </div>
+      </Card>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <Card>
+          <CardTitle title="Direction of Drift" sub="Is configured/system cost under- or over-stated vs realized purchase?" />
+          <div style={{ marginTop: 16 }}>
+            <InvBar label="System UNDERSTATED — system costs less than realized (14 SKUs)" right="$26.9K" pct={100} color={C.red} />
+            <InvBar label="System OVERSTATED — system costs more than realized (6 SKUs)" right="$5.7K" pct={21} color={C.teal} />
+          </div>
+        </Card>
+        <Card>
+          <CardTitle title="System vs Latest Purchase" sub="Each dot = a SKU · above line = system understated" />
+          <svg width="100%" height="150" viewBox="0 0 300 150" style={{ marginTop: 10 }}>
+            <line x1="10" y1="140" x2="290" y2="10" stroke={C.line} strokeWidth="1" strokeDasharray="4 4" />
+            {[[40, 120, 6, C.clay], [70, 95, 5, C.clay], [110, 105, 8, C.red], [140, 70, 5, C.clay], [170, 60, 6, C.red], [200, 80, 4, C.teal], [230, 40, 7, C.clay], [120, 50, 5, C.teal], [90, 75, 4, C.teal]].map((d, i) => <circle key={i} cx={d[0]} cy={d[1]} r={d[2]} fill={d[3]} fillOpacity="0.6" />)}
+          </svg>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+// ---- PO Matching ----
+const InvPOMatchingView = () => {
+  const kpis = [
+    { label: 'Exception Rate', value: '14%', sub: 'of POs not clean', color: C.clay },
+    { label: 'Open Mismatches', value: '4', sub: 'qty / price' },
+    { label: 'Price Mismatches', value: '5', sub: 'invoice ≠ PO', color: C.clay },
+    { label: 'Unreconciled Invoices', value: '3', sub: 'aging concern', color: C.red },
+    { label: '$ Exposure', value: '$32.9K', sub: 'open mismatches', color: C.red },
+  ];
+  const po = [
+    { id: 'PO-4310', p: 'Dysport 300u', sup: 'Galderma', o: 20, r: 20, i: 20, m: '$9,040', st: ['Matched', 'teal'] },
+    { id: 'PO-4502', p: 'Juvederm Voluma', sup: 'Allergan', o: 12, r: 12, i: 12, m: '$3,708', st: ['Matched', 'teal'] },
+    { id: 'PO-4488', p: 'Sculptra', sup: 'Galderma', o: 24, r: 24, i: 24, m: '$9,240', st: ['Matched', 'teal'] },
+    { id: 'PO-4471', p: 'Jeuveau 100u', sup: 'Evolus', o: 30, r: 30, i: 0, m: '$12,000', st: ['Missing invoice', 'red'] },
+    { id: 'PO-4309', p: 'EltaMD UV Clear', sup: 'EltaMD', o: 80, r: 80, i: 80, m: '$2,080', st: ['Matched', 'teal'] },
+    { id: 'PO-4456', p: 'Hydrafacial Boosters', sup: 'Hydrafacial', o: 40, r: 40, i: 40, m: '$1,880', st: ['Matched', 'teal'] },
+    { id: 'PO-4505', p: 'Restylane Lyft', sup: 'Galderma', o: 24, r: 20, i: 24, m: '$5,640', st: ['Short-ship', 'clay'] },
+    { id: 'PO-4495', p: 'EltaMD UV Clear', sup: 'EltaMD', o: 80, r: 80, i: 80, m: '$2,160', st: ['Price drift', 'amber'] },
+    { id: 'PO-4478', p: 'Nitrile Gloves M', sup: 'Amazon Business', o: 40, r: 40, i: 40, m: '$12', st: ['Matched', 'teal'] },
+    { id: 'PO-4443', p: 'Xeomin 100u', sup: 'Merz', o: 18, r: 18, i: 18, m: '$8,640', st: ['Price drift', 'amber'] },
+    { id: 'PO-4467', p: 'Topical Numbing (BLT)', sup: 'Extremus', o: 50, r: 50, i: 50, m: '$480', st: ['Matched', 'teal'] },
+    { id: 'PO-4451', p: 'Morpheus8 Tips', sup: 'InMode', o: 12, r: 14, i: 12, m: '$3,600', st: ['Qty over', 'clay'] },
+    { id: 'PO-4396', p: 'Restylane Kysse', sup: 'Galderma', o: 16, r: 16, i: 0, m: '$4,880', st: ['Missing invoice', 'red'] },
+  ];
+  const exc = [
+    { label: 'Qty short', right: '3', pct: 75, color: C.clay }, { label: 'Qty over', right: '1', pct: 25, color: C.clayLite },
+    { label: 'Price up', right: '4', pct: 100, color: C.red }, { label: 'Price down', right: '1', pct: 25, color: C.teal },
+    { label: 'Missing invoice', right: '2', pct: 50, color: C.redBright }, { label: 'Aging > 30d', right: '3', pct: 75, color: C.navy },
+  ];
+  const aging = [
+    { label: '0–15 days', right: '5', pct: 100, color: C.teal }, { label: '16–30 days', right: '3', pct: 60, color: C.clay },
+    { label: '31–60 days', right: '2', pct: 40, color: C.redBright }, { label: '60+ days', right: '1', pct: 20, color: C.red },
+  ];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <InvAlert />
+      <InvKpis items={kpis} />
+      <Card>
+        <CardTitle title="Three-Way Match — Ordered · Received · Invoiced" sub="Quantity and price match across PO, GRN and invoice · Zenoti" />
+        <div style={{ marginTop: 12 }}>
+          <InvTable
+            cols={[
+              { h: 'PO', k: 'id', strong: true }, { h: 'Product', k: 'p', w: '1.3fr' }, { h: 'Supplier', k: 'sup' },
+              { h: 'Ord', k: 'o', align: 'right', w: '0.5fr' }, { h: 'Rec', k: 'r', align: 'right', w: '0.5fr' }, { h: 'Inv', k: 'i', align: 'right', w: '0.5fr' },
+              { h: 'Match $', k: 'm', align: 'right' }, { h: 'Status', align: 'right', render: (r) => <InvPill text={r.st[0]} tone={r.st[1]} /> },
+            ]}
+            rows={po}
+          />
+        </div>
+      </Card>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <Card><CardTitle title="Exception Breakdown" /><div style={{ marginTop: 16 }}>{exc.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
+        <Card><CardTitle title="Unreconciled PO Aging" sub="Open mismatches by age" /><div style={{ marginTop: 16 }}>{aging.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
+      </div>
+    </div>
+  );
+};
+
+// ---- Inventory Movement ----
+const InvMovementView = () => {
+  const kpis = [
+    { label: 'Beginning Inventory', value: '$1.56M', sub: 'at cost' },
+    { label: 'Purchases', value: '+$406K', sub: 'delivered PO lines', color: C.teal },
+    { label: 'Net Transfers', value: '+$3.1K', sub: 'inter-site', color: C.teal },
+    { label: 'COGS / Consumed', value: '−$464K', sub: 'service + retail', color: C.red },
+    { label: 'True-Ups / Adj', value: '+$1.1K', sub: 'net adjustments', color: C.teal },
+    { label: 'Ending Inventory', value: '$1.50M', sub: 'computed roll-forward' },
+  ];
+  const wf = [
+    { label: 'Beginning', right: '$1.56M', pct: 100, color: C.navy },
+    { label: 'Purchases', right: '+$406K', pct: 26, color: C.teal },
+    { label: 'Net Transfers', right: '+$3.1K', pct: 2, color: C.tealLite },
+    { label: 'COGS / Consumed', right: '−$464K', pct: 30, color: C.clay },
+    { label: 'Adjustments', right: '+$1.1K', pct: 2, color: C.tealLite },
+    { label: 'Ending', right: '$1.50M', pct: 96, color: C.navy },
+  ];
+  const recon = [
+    ['Beginning Inventory', '$1.56M'], ['Purchases', '+$406K'], ['Net Transfers', '+$3.1K'],
+    ['COGS / Consumed', '−$464K'], ['Manual Adjustments', '+$1.1K'], ['Expected Ending', '$1.50M'],
+  ];
+  const roll = [
+    { l: 'Warehouse', b: '$200K', pu: '+$210K', co: '−$180K', e: '$222K', v: '+$2.0K' },
+    { l: 'Jersey City', b: '$89.4K', pu: '+$24.1K', co: '−$28.0K', e: '$88.9K', v: '−$0.5K' },
+    { l: 'Bel Air', b: '$129K', pu: '+$31.0K', co: '−$33.0K', e: '$130K', v: '+$0.9K' },
+    { l: 'Frederick', b: '$77.4K', pu: '+$18.2K', co: '−$19.0K', e: '$78.0K', v: '+$0.4K' },
+    { l: 'Lancaster', b: '$55.7K', pu: '+$14.0K', co: '−$13.5K', e: '$56.3K', v: '+$0.6K' },
+    { l: 'Bridgewater', b: '$102K', pu: '+$22.0K', co: '−$24.0K', e: '$101K', v: '−$0.7K' },
+    { l: 'Montclair', b: '$89.9K', pu: '+$21.0K', co: '−$22.0K', e: '$90.1K', v: '+$0.2K' },
+    { l: 'Denville', b: '$82.7K', pu: '+$19.5K', co: '−$20.0K', e: '$82.9K', v: '+$0.2K' },
+    { l: 'Ridgewood', b: '$75.0K', pu: '+$17.0K', co: '−$18.0K', e: '$74.5K', v: '−$0.5K' },
+    { l: 'Hoboken', b: '$129K', pu: '+$30.0K', co: '−$31.0K', e: '$129K', v: '+$0.1K' },
+    { l: 'Waldorf', b: '$82.5K', pu: '+$19.0K', co: '−$20.0K', e: '$82.1K', v: '−$0.4K' },
+    { l: 'Tribeca', b: '$112K', pu: '+$28.0K', co: '−$27.0K', e: '$113K', v: '+$0.8K' },
+    { l: 'Red Bank', b: '$90.0K', pu: '+$21.0K', co: '−$21.5K', e: '$90.3K', v: '+$0.3K' },
+    { l: 'Old Bridge', b: '$83.4K', pu: '+$20.0K', co: '−$20.0K', e: '$83.8K', v: '+$0.4K' },
+    { l: 'Short Hills', b: '$124K', pu: '+$29.0K', co: '−$28.0K', e: '$125K', v: '+$0.6K' },
+  ];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <InvAlert />
+      <InvKpis items={kpis} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16 }}>
+        <Card><CardTitle title="Movement Waterfall" sub="Network roll-up · cost basis" /><div style={{ marginTop: 16 }}>{wf.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
+        <Card>
+          <CardTitle title="Reconciliation" sub="Expected vs actual ending — variance within tolerance" />
+          <div style={{ marginTop: 12 }}>
+            {recon.map((r, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${C.line3}`, font: `500 12px ${FONT}`, color: i === 5 ? C.ink : C.ink2, fontWeight: i === 5 ? 700 : 500 }}><span>{r[0]}</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{r[1]}</span></div>)}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, padding: '8px 11px', background: '#EAF5F0', borderRadius: 8, font: `600 12px ${FONT}`, color: C.teal }}><span>Unexplained Variance — Actual $1.50M</span><span>+$376</span></div>
+          </div>
+        </Card>
+      </div>
+      <Card>
+        <CardTitle title="Roll-Forward Table" sub="Beginning → purchases → consumed → ending, per location · cost basis" />
+        <div style={{ marginTop: 12 }}>
+          <InvTable
+            cols={[
+              { h: 'Location', k: 'l', strong: true }, { h: 'Beginning', k: 'b', align: 'right' },
+              { h: 'Purchases', align: 'right', render: (r) => <span style={{ color: C.teal }}>{r.pu}</span> },
+              { h: 'Consumed', align: 'right', render: (r) => <span style={{ color: C.clay }}>{r.co}</span> },
+              { h: 'Ending', k: 'e', align: 'right', strong: true },
+              { h: 'Variance', align: 'right', render: (r) => <span style={{ color: r.v.startsWith('−') ? C.clay : C.teal }}>{r.v}</span> },
+            ]}
+            rows={roll}
+          />
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+// ---- Transfers ----
+const InvTransfersView = () => {
+  const kpis = [
+    { label: 'Open Transfers', value: '6', sub: 'in flight' },
+    { label: 'In-Transit Value', value: '$19.5K', sub: 'at cost' },
+    { label: 'Stuck Transfers', value: '4', sub: '> 14 days', color: C.red },
+    { label: 'Qty Mismatch', value: '1', sub: 'sent ≠ received', color: C.clay },
+    { label: 'Cost Discrepancy', value: '3', sub: 'value gaps', color: C.clay },
+  ];
+  const tx = [
+    { id: 'PO-T308', p: 'Restylane Lyft', rt: 'Hoboken → Lancaster', q: 6, s: 'May 02', r: 'May 06', st: ['Received', 'teal'], c: '$1,830' },
+    { id: 'PO-T299', p: 'Morpheus8 Tips', rt: 'Frederick → Montclair', q: 8, s: 'May 04', r: '—', st: ['In transit', 'clay'], c: '$2,400' },
+    { id: 'PO-T321', p: 'Dysport 300u', rt: 'Jersey City → Waldorf', q: 20, s: 'Apr 22', r: '—', st: ['Stuck', 'red'], c: '$9,040' },
+    { id: 'PO-T298', p: 'Juvederm Voluma', rt: 'Hoboken → Bel Air', q: 12, s: 'May 01', r: 'May 05', st: ['Qty mismatch', 'amber'], c: '$3,708' },
+    { id: 'PO-T306', p: 'PRF Tubes', rt: 'Hoboken → Short Hills', q: 500, s: 'May 03', r: 'May 06', st: ['Received', 'teal'], c: '$600' },
+    { id: 'PO-T334', p: 'Restylane Kysse', rt: 'Jersey City → Short Hills', q: 8, s: 'May 05', r: '—', st: ['In transit', 'clay'], c: '$2,440' },
+    { id: 'PO-T324', p: 'Topical Numbing (BLT)', rt: 'Hoboken → Old Bridge', q: 30, s: 'Apr 28', r: '—', st: ['Stuck', 'red'], c: '$360' },
+  ];
+  const heat = [
+    { label: 'Jersey City', cells: [0, 3, 2, 1, 4, 2] },
+    { label: 'Hoboken', cells: [5, 0, 3, 2, 1, 4] },
+    { label: 'Warehouse', cells: [4, 6, 0, 3, 2, 5] },
+  ];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <InvAlert />
+      <InvKpis items={kpis} />
+      <Card>
+        <CardTitle title="Transfer Insights" sub="Sent vs received, in-transit aging & cost integrity · Zenoti" />
+        <div style={{ marginTop: 12 }}>
+          <InvTable
+            cols={[
+              { h: 'ID', k: 'id', strong: true }, { h: 'Product', k: 'p', w: '1.2fr' }, { h: 'Route', k: 'rt', w: '1.4fr' },
+              { h: 'Qty', k: 'q', align: 'right', w: '0.5fr' }, { h: 'Sent', k: 's', align: 'right' }, { h: 'Received', k: 'r', align: 'right' },
+              { h: 'Status', align: 'right', render: (r) => <InvPill text={r.st[0]} tone={r.st[1]} /> }, { h: 'Cost', k: 'c', align: 'right' },
+            ]}
+            rows={tx}
+          />
+        </div>
+      </Card>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 16 }}>
+        <Card><CardTitle title="Source → Destination Volume" sub="Transfer line count · rows = source · darker = more" /><div style={{ marginTop: 14 }}><InvHeat colLabels={['JC', 'Hob', 'WH', 'Bel', 'SH', 'Lan']} rows={heat} /></div></Card>
+        <Card>
+          <CardTitle title="What to Investigate" />
+          <ul style={{ margin: '12px 0 0', paddingLeft: 18, font: `500 11.5px ${FONT}`, color: C.ink2, lineHeight: 1.7 }}>
+            <li><b>Restylane Kysse</b> & <b>Sculptra</b> repeatedly transferred OUT of Jersey City while still held over — possible firefighting; consider a standing direct order to the sink sites.</li>
+            <li><b>Jersey City → Waldorf</b> Dysport stuck 8+ days — chase the carrier / confirm receipt.</li>
+            <li><b>Hoboken → Bel Air</b> Juvederm qty mismatch (sent 12, received 10) — reconcile and adjust on-hand.</li>
+          </ul>
+        </Card>
       </div>
     </div>
   );
