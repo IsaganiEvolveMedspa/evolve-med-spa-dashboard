@@ -9,8 +9,9 @@ Same-Store Sales (SSS) Growth YoY %.
   - Prior-year period = the SAME elapsed window one year earlier (month start −1yr
     through latest data day −1yr), so we compare like-for-like MTD, not a partial
     month against a full prior month.
-  - Same-store        = location open > 12 months, i.e. it had cash on/before
-    (reporting month start − 12 months).
+  - Same-store        = location open > 12 months (real open date on/before the
+    reporting month start − 12 months) and not closed during the period. Open/close
+    dates come from data/store_dates.json (see utils/store_dates).
   Cash basis throughout (sales_collected_exc_tax, with the cash payment-type filter).
 """
 import logging
@@ -20,6 +21,7 @@ from typing import Optional
 from config import FULL_CASH
 from db import run_query
 from utils.operating_days import _CASH_PAY_FILTER
+from utils.store_dates import same_store_centers
 
 log = logging.getLogger(__name__)
 
@@ -74,15 +76,9 @@ def _sss_growth_yoy(s: str, e: str, locations: Optional[list[str]], latest_date:
     cur = _sum_by_center(month_start.isoformat(), latest_date,         locations)  # current MTD
     pri = _sum_by_center(py_start.isoformat(),    py_latest.isoformat(), locations)  # prior-year same MTD
 
-    # Same-store set: locations open > 12 months = had cash on/before the cutoff.
-    loc, params = _loc_clause(locations)
-    same_store_sql = f"""
-        SELECT DISTINCT center_name
-        FROM {FULL_CASH}
-        WHERE payment_date < DATEADD(DAY, 1, '{cutoff.isoformat()}')
-        {_CASH_PAY_FILTER} {loc}
-    """
-    same_store = {r["center_name"] for r in run_query(same_store_sql, params or None)}
+    # Same-store set from real open/close dates: open on/before the cutoff (> 12
+    # months as of the reporting month) and not closed by the current period end.
+    same_store = same_store_centers(cutoff.isoformat(), latest_date)
 
     # Compare current-year MTD vs prior-year same MTD, summed over same-store locations only.
     tot_cur = sum(v for c, v in cur.items() if c in same_store)

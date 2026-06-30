@@ -10,3 +10,4 @@ bigquery_service_account.json
 !data/ad_spend_daily.json
 !data/payroll_schedules.json
 !data/operating_days.json
+!data/store_dates.json

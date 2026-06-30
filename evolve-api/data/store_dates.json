@@ -1,0 +1,22 @@
+{
+  "Hoboken, NJ":      { "open": "2020-05-31", "close": null },
+  "Jersey City, NJ":  { "open": "2020-10-31", "close": null },
+  "Montclair, NJ":    { "open": "2021-01-31", "close": null },
+  "Short Hills, NJ":  { "open": "2021-04-30", "close": null },
+  "Denville, NJ":     { "open": "2021-07-31", "close": null },
+  "Red Bank, NJ":     { "open": "2021-12-31", "close": null },
+  "Tribeca, NY":      { "open": "2021-12-31", "close": null },
+  "Bel Air, MD":      { "open": "2022-03-31", "close": null },
+  "Frederick, MD":    { "open": "2022-03-31", "close": null },
+  "Ridgewood, NJ":    { "open": "2022-05-31", "close": null },
+  "Waldorf, MD":      { "open": "2024-07-31", "close": null },
+  "Old Bridge, NJ":   { "open": "2024-09-30", "close": null },
+  "Lancaster, PA":    { "open": "2025-07-11", "close": null },
+  "Bridgewater, NJ":  { "open": "2025-07-08", "close": null },
+
+  "Staten Island, NY": { "open": "2023-09-30", "close": "2024-09-07" },
+  "Marlton, NJ":       { "open": "2023-09-30", "close": "2024-09-07" },
+  "Montvale, NJ":      { "open": "2023-10-31", "close": "2024-09-07" },
+  "Pikesville, MD":    { "open": "2023-12-31", "close": "2024-09-07" },
+  "Scarsdale, NY":     { "open": "2024-01-31", "close": "2025-06-30" }
+}
