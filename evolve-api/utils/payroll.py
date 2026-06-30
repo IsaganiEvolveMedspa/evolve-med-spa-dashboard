@@ -85,23 +85,32 @@ def compute_salary_by_center(
         units = float(r["qty"] or 0) if item["per_syringe"] else float(r["occ"] or 0)
         ffs[r["center_name"]] = ffs.get(r["center_name"], 0.0) + item["latest_ffs"] * units
 
-    # ── sales accrual (drives comm and the margin denominator), per center ──
+    # ── sales accrual per center ──
+    #   `sales`         = total accrual (margin denominator, all categories)
+    #   `commissionable`= accrual EXCLUDING retail & memberships (commission is paid on
+    #                     service production only, not retail or membership sales)
     sales_sql = f"""
-        SELECT center_name, SUM(sales_exc_tax) AS sales
+        SELECT center_name,
+               SUM(sales_exc_tax) AS sales,
+               SUM(CASE WHEN item_category IS NULL
+                         OR (item_category NOT LIKE 'Retail%%' AND item_category <> 'Memberships')
+                        THEN sales_exc_tax ELSE 0 END) AS commissionable
         FROM {FULL_SALES}
         {sales_where}
         GROUP BY center_name
     """
     sales: dict[str, float] = {}
+    commissionable: dict[str, float] = {}
     for r in run_query(sales_sql, sales_p or None):
         sales[r["center_name"]] = float(r["sales"] or 0)
+        commissionable[r["center_name"]] = float(r["commissionable"] or 0)
 
     out: dict[str, dict[str, float]] = {}
     for center in set(base) | set(ffs) | set(sales):
         b = base.get(center, 0.0)
         f = ffs.get(center, 0.0)
         accrual = sales.get(center, 0.0)
-        c = comm_rate * accrual
+        c = comm_rate * commissionable.get(center, 0.0)   # 15% of commissionable sales only
         benefits = (b + f + c) * benefits_f
         salary = b + f + c + benefits
         out[center] = {
