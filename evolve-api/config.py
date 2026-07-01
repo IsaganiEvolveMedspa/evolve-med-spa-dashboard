@@ -142,6 +142,21 @@ FULL_COGS     = COGS_TABLE
 FULL_MEMBERSHIP = MEMBERSHIP_TABLE
 FULL_FACT_COLLECTIONS = FACT_COLLECTIONS_TABLE
 
+# ─── Overlay (fill the gap when bronze lags the live site) ────────────────────
+# When OVERLAY_ENABLED=true, read through the gap-fill VIEWS (bronze UNION ALL
+# overlay-for-missing-dates) instead of the bronze tables. Views are drop-in
+# table replacements, so no query changes are needed. FIRST run
+# data/overlay/overlay_setup.sql in SQL (creates OVERLAY_* staging + V_* views);
+# regenerate it with scripts/build_overlay_sql.py after dropping new CSV exports
+# in data/overlay/. To disable: set OVERLAY_ENABLED=false (or drop the views).
+OVERLAY_ENABLED = os.getenv("OVERLAY_ENABLED", "false").lower() == "true"
+if OVERLAY_ENABLED:
+    FULL_SALES    = "dbo.V_ZENOTI_SALES_ACCRUAL"
+    FULL_CASH     = "dbo.V_ZENOTI_CASH_COLLECTIONS"
+    FULL_COGS     = "dbo.V_ZENOTI_COST_OF_GOODS"
+    FULL_APPT     = "dbo.V_ZENOTI_APPOINTMENTS"
+    FULL_SCHEDULE = "dbo.V_ZENOTI_EMPLOYEE_SCHEDULES"
+
 
 # ─── BigQuery table identifiers (api_log, insights, errors) ───────────────────
 PROJECT_ID     = os.getenv("BIGQUERY_PROJECT_ID", "your-project-id")
