@@ -4,6 +4,9 @@
 
 -- ===== dbo.BRONZE_ZENOTI_SALES_ACCRUAL (391 overlay rows) =====
 IF OBJECT_ID('dbo.OVERLAY_ZENOTI_SALES_ACCRUAL') IS NULL SELECT TOP 0 * INTO dbo.OVERLAY_ZENOTI_SALES_ACCRUAL FROM dbo.BRONZE_ZENOTI_SALES_ACCRUAL;
+DECLARE @s nvarchar(max)=N'';
+SELECT @s=@s+'ALTER TABLE dbo.OVERLAY_ZENOTI_SALES_ACCRUAL ALTER COLUMN ['+c.COLUMN_NAME+'] '+c.DATA_TYPE+CASE WHEN c.DATA_TYPE IN ('varchar','nvarchar','char','nchar','binary','varbinary') THEN '('+CASE WHEN c.CHARACTER_MAXIMUM_LENGTH=-1 THEN 'max' ELSE CAST(c.CHARACTER_MAXIMUM_LENGTH AS varchar(11)) END+')' WHEN c.DATA_TYPE IN ('decimal','numeric') THEN '('+CAST(c.NUMERIC_PRECISION AS varchar(11))+','+CAST(c.NUMERIC_SCALE AS varchar(11))+')' WHEN c.DATA_TYPE IN ('datetime2','time','datetimeoffset') THEN '('+CAST(ISNULL(c.DATETIME_PRECISION,7) AS varchar(11))+')' ELSE '' END+' NULL;' FROM INFORMATION_SCHEMA.COLUMNS c WHERE c.TABLE_SCHEMA='dbo' AND c.TABLE_NAME='OVERLAY_ZENOTI_SALES_ACCRUAL' AND c.IS_NULLABLE='NO' AND COLUMNPROPERTY(OBJECT_ID('dbo.OVERLAY_ZENOTI_SALES_ACCRUAL'),c.COLUMN_NAME,'IsIdentity')=0;
+EXEC sys.sp_executesql @s;
 TRUNCATE TABLE dbo.OVERLAY_ZENOTI_SALES_ACCRUAL;
 INSERT INTO dbo.OVERLAY_ZENOTI_SALES_ACCRUAL (sale_date, sales_exc_tax, sales_inc_tax, status, item_category, item_sub_category, item_type, item_name, center_name, guest_name, invoice_no, serviced_by, sold_by) VALUES
 ('6/30/2026', '0.0000', '0.0000', 'Closed', 'Facials', 'Facials', 'Service', 'Hydrafacial', 'Bel Air, MD', 'Laura Cardinal', 'Bel-15366', 'Training Model2', 'Training Model2'),
@@ -403,6 +406,9 @@ GO
 
 -- ===== dbo.BRONZE_ZENOTI_CASH_COLLECTIONS (326 overlay rows) =====
 IF OBJECT_ID('dbo.OVERLAY_ZENOTI_CASH_COLLECTIONS') IS NULL SELECT TOP 0 * INTO dbo.OVERLAY_ZENOTI_CASH_COLLECTIONS FROM dbo.BRONZE_ZENOTI_CASH_COLLECTIONS;
+DECLARE @s nvarchar(max)=N'';
+SELECT @s=@s+'ALTER TABLE dbo.OVERLAY_ZENOTI_CASH_COLLECTIONS ALTER COLUMN ['+c.COLUMN_NAME+'] '+c.DATA_TYPE+CASE WHEN c.DATA_TYPE IN ('varchar','nvarchar','char','nchar','binary','varbinary') THEN '('+CASE WHEN c.CHARACTER_MAXIMUM_LENGTH=-1 THEN 'max' ELSE CAST(c.CHARACTER_MAXIMUM_LENGTH AS varchar(11)) END+')' WHEN c.DATA_TYPE IN ('decimal','numeric') THEN '('+CAST(c.NUMERIC_PRECISION AS varchar(11))+','+CAST(c.NUMERIC_SCALE AS varchar(11))+')' WHEN c.DATA_TYPE IN ('datetime2','time','datetimeoffset') THEN '('+CAST(ISNULL(c.DATETIME_PRECISION,7) AS varchar(11))+')' ELSE '' END+' NULL;' FROM INFORMATION_SCHEMA.COLUMNS c WHERE c.TABLE_SCHEMA='dbo' AND c.TABLE_NAME='OVERLAY_ZENOTI_CASH_COLLECTIONS' AND c.IS_NULLABLE='NO' AND COLUMNPROPERTY(OBJECT_ID('dbo.OVERLAY_ZENOTI_CASH_COLLECTIONS'),c.COLUMN_NAME,'IsIdentity')=0;
+EXEC sys.sp_executesql @s;
 TRUNCATE TABLE dbo.OVERLAY_ZENOTI_CASH_COLLECTIONS;
 INSERT INTO dbo.OVERLAY_ZENOTI_CASH_COLLECTIONS (payment_date, sales_collected_exc_tax, payment_type, member, first_visit, guest_name, guest_code, item_category, center_name) VALUES
 ('6/30/2026', '125.0000', 'Card', 'Yes', 'No', 'Dana Humpf', 'BelGNC78243190', 'Not Specified', 'Bel Air, MD'),
@@ -737,6 +743,9 @@ GO
 
 -- ===== dbo.BRONZE_ZENOTI_COST_OF_GOODS (195 overlay rows) =====
 IF OBJECT_ID('dbo.OVERLAY_ZENOTI_COST_OF_GOODS') IS NULL SELECT TOP 0 * INTO dbo.OVERLAY_ZENOTI_COST_OF_GOODS FROM dbo.BRONZE_ZENOTI_COST_OF_GOODS;
+DECLARE @s nvarchar(max)=N'';
+SELECT @s=@s+'ALTER TABLE dbo.OVERLAY_ZENOTI_COST_OF_GOODS ALTER COLUMN ['+c.COLUMN_NAME+'] '+c.DATA_TYPE+CASE WHEN c.DATA_TYPE IN ('varchar','nvarchar','char','nchar','binary','varbinary') THEN '('+CASE WHEN c.CHARACTER_MAXIMUM_LENGTH=-1 THEN 'max' ELSE CAST(c.CHARACTER_MAXIMUM_LENGTH AS varchar(11)) END+')' WHEN c.DATA_TYPE IN ('decimal','numeric') THEN '('+CAST(c.NUMERIC_PRECISION AS varchar(11))+','+CAST(c.NUMERIC_SCALE AS varchar(11))+')' WHEN c.DATA_TYPE IN ('datetime2','time','datetimeoffset') THEN '('+CAST(ISNULL(c.DATETIME_PRECISION,7) AS varchar(11))+')' ELSE '' END+' NULL;' FROM INFORMATION_SCHEMA.COLUMNS c WHERE c.TABLE_SCHEMA='dbo' AND c.TABLE_NAME='OVERLAY_ZENOTI_COST_OF_GOODS' AND c.IS_NULLABLE='NO' AND COLUMNPROPERTY(OBJECT_ID('dbo.OVERLAY_ZENOTI_COST_OF_GOODS'),c.COLUMN_NAME,'IsIdentity')=0;
+EXEC sys.sp_executesql @s;
 TRUNCATE TABLE dbo.OVERLAY_ZENOTI_COST_OF_GOODS;
 INSERT INTO dbo.OVERLAY_ZENOTI_COST_OF_GOODS (transaction_date, cost_of_goods, service_name, product_name, qty, center_name, invoice_no) VALUES
 ('6/30/2026', '49.9300', 'Microneedling (1 Area)', 'SkinPen Tip', '1.0000', 'Jersey City, NJ', 'Jer-22439'),
@@ -940,6 +949,9 @@ GO
 
 -- ===== dbo.BRONZE_ZENOTI_APPOINTMENTS (498 overlay rows) =====
 IF OBJECT_ID('dbo.OVERLAY_ZENOTI_APPOINTMENTS') IS NULL SELECT TOP 0 * INTO dbo.OVERLAY_ZENOTI_APPOINTMENTS FROM dbo.BRONZE_ZENOTI_APPOINTMENTS;
+DECLARE @s nvarchar(max)=N'';
+SELECT @s=@s+'ALTER TABLE dbo.OVERLAY_ZENOTI_APPOINTMENTS ALTER COLUMN ['+c.COLUMN_NAME+'] '+c.DATA_TYPE+CASE WHEN c.DATA_TYPE IN ('varchar','nvarchar','char','nchar','binary','varbinary') THEN '('+CASE WHEN c.CHARACTER_MAXIMUM_LENGTH=-1 THEN 'max' ELSE CAST(c.CHARACTER_MAXIMUM_LENGTH AS varchar(11)) END+')' WHEN c.DATA_TYPE IN ('decimal','numeric') THEN '('+CAST(c.NUMERIC_PRECISION AS varchar(11))+','+CAST(c.NUMERIC_SCALE AS varchar(11))+')' WHEN c.DATA_TYPE IN ('datetime2','time','datetimeoffset') THEN '('+CAST(ISNULL(c.DATETIME_PRECISION,7) AS varchar(11))+')' ELSE '' END+' NULL;' FROM INFORMATION_SCHEMA.COLUMNS c WHERE c.TABLE_SCHEMA='dbo' AND c.TABLE_NAME='OVERLAY_ZENOTI_APPOINTMENTS' AND c.IS_NULLABLE='NO' AND COLUMNPROPERTY(OBJECT_ID('dbo.OVERLAY_ZENOTI_APPOINTMENTS'),c.COLUMN_NAME,'IsIdentity')=0;
+EXEC sys.sp_executesql @s;
 TRUNCATE TABLE dbo.OVERLAY_ZENOTI_APPOINTMENTS;
 INSERT INTO dbo.OVERLAY_ZENOTI_APPOINTMENTS (appointment_date, status, add_on, rebooked, invoice_no, guest_code, guest_name, first_visit, service_name, service_category, providers, center_name, checkin_time, start_time, actual_duration) VALUES
 ('6/30/2026', 'Cancelled', 'No', 'Yes', 'Wal-3179', NULL, 'Kim Hall', 'No', 'BBL - 20 Syringes', 'Injectables', 'Breana Durrah', 'Waldorf, MD', NULL, '6/30/2026 10:00 AM', NULL),
@@ -1446,6 +1458,9 @@ GO
 
 -- ===== dbo.BRONZE_ZENOTI_EMPLOYEE_SCHEDULES (1 overlay rows) =====
 IF OBJECT_ID('dbo.OVERLAY_ZENOTI_EMPLOYEE_SCHEDULES') IS NULL SELECT TOP 0 * INTO dbo.OVERLAY_ZENOTI_EMPLOYEE_SCHEDULES FROM dbo.BRONZE_ZENOTI_EMPLOYEE_SCHEDULES;
+DECLARE @s nvarchar(max)=N'';
+SELECT @s=@s+'ALTER TABLE dbo.OVERLAY_ZENOTI_EMPLOYEE_SCHEDULES ALTER COLUMN ['+c.COLUMN_NAME+'] '+c.DATA_TYPE+CASE WHEN c.DATA_TYPE IN ('varchar','nvarchar','char','nchar','binary','varbinary') THEN '('+CASE WHEN c.CHARACTER_MAXIMUM_LENGTH=-1 THEN 'max' ELSE CAST(c.CHARACTER_MAXIMUM_LENGTH AS varchar(11)) END+')' WHEN c.DATA_TYPE IN ('decimal','numeric') THEN '('+CAST(c.NUMERIC_PRECISION AS varchar(11))+','+CAST(c.NUMERIC_SCALE AS varchar(11))+')' WHEN c.DATA_TYPE IN ('datetime2','time','datetimeoffset') THEN '('+CAST(ISNULL(c.DATETIME_PRECISION,7) AS varchar(11))+')' ELSE '' END+' NULL;' FROM INFORMATION_SCHEMA.COLUMNS c WHERE c.TABLE_SCHEMA='dbo' AND c.TABLE_NAME='OVERLAY_ZENOTI_EMPLOYEE_SCHEDULES' AND c.IS_NULLABLE='NO' AND COLUMNPROPERTY(OBJECT_ID('dbo.OVERLAY_ZENOTI_EMPLOYEE_SCHEDULES'),c.COLUMN_NAME,'IsIdentity')=0;
+EXEC sys.sp_executesql @s;
 TRUNCATE TABLE dbo.OVERLAY_ZENOTI_EMPLOYEE_SCHEDULES;
 INSERT INTO dbo.OVERLAY_ZENOTI_EMPLOYEE_SCHEDULES (date, employee_name, job_name, status, center_name, block_out_hours_paid, scheduled_hours, booked_hours) VALUES
 ('6/30/2026', 'Jessa Brooks', 'Treatment Provider', 'Working', 'Lancaster, PA', '30', '7:30', '4:30');

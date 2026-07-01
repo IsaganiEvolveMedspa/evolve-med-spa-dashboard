@@ -108,8 +108,23 @@ def main():
         idx, data = read_rows(os.path.join(DATA, t["csv"]))
         cols = [c for c in t["map"] if t["map"][c] in idx]     # bronze cols we can populate
         collist = ", ".join(cols)
+        ov_unq = ov.split(".")[-1]
         out.append(f"-- ===== {bronze} ({len(data)} overlay rows) =====")
         out.append(f"IF OBJECT_ID('{ov}') IS NULL SELECT TOP 0 * INTO {ov} FROM {bronze};")
+        # The clone copies NOT NULL constraints but not defaults/identity, so any
+        # NOT-NULL column we don't populate (e.g. row_id) would reject the INSERT.
+        # Make every non-identity NOT-NULL column NULLable (types resolved dynamically).
+        out.append(
+            "DECLARE @s nvarchar(max)=N'';\n"
+            f"SELECT @s=@s+'ALTER TABLE {ov} ALTER COLUMN ['+c.COLUMN_NAME+'] '+c.DATA_TYPE+"
+            "CASE WHEN c.DATA_TYPE IN ('varchar','nvarchar','char','nchar','binary','varbinary') "
+            "THEN '('+CASE WHEN c.CHARACTER_MAXIMUM_LENGTH=-1 THEN 'max' ELSE CAST(c.CHARACTER_MAXIMUM_LENGTH AS varchar(11)) END+')' "
+            "WHEN c.DATA_TYPE IN ('decimal','numeric') THEN '('+CAST(c.NUMERIC_PRECISION AS varchar(11))+','+CAST(c.NUMERIC_SCALE AS varchar(11))+')' "
+            "WHEN c.DATA_TYPE IN ('datetime2','time','datetimeoffset') THEN '('+CAST(ISNULL(c.DATETIME_PRECISION,7) AS varchar(11))+')' "
+            "ELSE '' END+' NULL;' "
+            f"FROM INFORMATION_SCHEMA.COLUMNS c WHERE c.TABLE_SCHEMA='dbo' AND c.TABLE_NAME='{ov_unq}' "
+            f"AND c.IS_NULLABLE='NO' AND COLUMNPROPERTY(OBJECT_ID('{ov}'),c.COLUMN_NAME,'IsIdentity')=0;\n"
+            "EXEC sys.sp_executesql @s;")
         out.append(f"TRUNCATE TABLE {ov};")
         # batched INSERTs (<=500 rows per statement)
         B = 500
