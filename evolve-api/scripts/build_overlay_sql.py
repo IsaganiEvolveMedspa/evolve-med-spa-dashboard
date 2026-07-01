@@ -70,6 +70,16 @@ TABLES = [
             "center_name": "Work Center", "block_out_hours_paid": "Block Out Hours Paid",
             "scheduled_hours": "Scheduled Hours", "booked_hours": "Booked Hours",
         },
+        # Drop training/test accounts (e.g. "Training Model2") so their booked hours
+        # don't distort provider/esthetician Rev/HR. Matched on the CSV name column,
+        # case-insensitive substring.
+        "exclude_name_csvcol": "Employee Name",
+        "exclude_name_like": ["training", "test", "demo"],
+        # The Zenoti attendance export has no employee_id column, but Rev/HR sums
+        # booked hours matched on employee_id (rev_hour.py). So after loading, backfill
+        # employee_id on the overlay rows from bronze by (trimmed) employee_name — else
+        # these rows land with NULL id and are silently excluded from the hours total.
+        "backfill_id": {"id_col": "employee_id", "name_col": "employee_name"},
     },
 ]
 
@@ -116,6 +126,17 @@ def main():
     for t in TABLES:
         bronze = t["bronze"]; ov = overlay_name(bronze); vw = view_name(bronze); dcol = t["date"]
         idx, data = read_rows(os.path.join(DATA, t["csv"]))
+        # Optional: drop rows whose name column matches an excluded substring
+        # (training/test accounts). Case-insensitive.
+        excl_col = t.get("exclude_name_csvcol")
+        excl_like = [s.lower() for s in t.get("exclude_name_like", [])]
+        if excl_col and excl_like and excl_col in idx:
+            j = idx[excl_col]
+            before = len(data)
+            data = [r for r in data
+                    if not any(k in (r[j] if len(r) > j else "").lower() for k in excl_like)]
+            if before != len(data):
+                print(f"  [{t['csv']}] excluded {before - len(data)} row(s) matching {excl_like}")
         cols = [c for c in t["map"] if t["map"][c] in idx]     # bronze cols we can populate
         collist = ", ".join(cols)
         ov_unq = ov.split(".")[-1]
@@ -151,6 +172,19 @@ def main():
                 vals.append("(" + ", ".join(sql_val(r[idx[t['map'][c]]], c) for c in cols) + ")")
             out.append(",\n".join(vals) + ";")
         out.append("GO")
+        # Optional: backfill an id column from bronze by (trimmed) name. Needed for
+        # tables whose CSV export lacks the id the app joins on (e.g. employee_id for
+        # Rev/HR booked-hour matching). Own batch so it runs after the INSERTs commit.
+        bf = t.get("backfill_id")
+        if bf:
+            idc, namec = bf["id_col"], bf["name_col"]
+            out.append(
+                f"UPDATE ov SET ov.{idc} = b.{idc}\n"
+                f"FROM {ov} ov\n"
+                f"CROSS APPLY (SELECT TOP 1 {idc} FROM {bronze} b\n"
+                f"             WHERE LTRIM(RTRIM(b.{namec})) = LTRIM(RTRIM(ov.{namec}))\n"
+                f"               AND b.{idc} IS NOT NULL) b;")
+            out.append("GO")
         # gap-fill view: overlay only contributes dates the bronze doesn't have yet
         out.append(
             f"CREATE OR ALTER VIEW {vw} AS "

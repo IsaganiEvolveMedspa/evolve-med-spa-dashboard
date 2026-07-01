@@ -1464,7 +1464,7 @@ GO
 CREATE OR ALTER VIEW dbo.V_ZENOTI_APPOINTMENTS AS SELECT * FROM dbo.BRONZE_ZENOTI_APPOINTMENTS UNION ALL SELECT * FROM dbo.OVERLAY_ZENOTI_APPOINTMENTS ov WHERE CAST(ov.appointment_date AS DATE) > (SELECT MAX(CAST(appointment_date AS DATE)) FROM dbo.BRONZE_ZENOTI_APPOINTMENTS);
 GO
 
--- ===== dbo.BRONZE_ZENOTI_EMPLOYEE_SCHEDULES (1 overlay rows) =====
+-- ===== dbo.BRONZE_ZENOTI_EMPLOYEE_SCHEDULES (24 overlay rows) =====
 IF OBJECT_ID('dbo.OVERLAY_ZENOTI_EMPLOYEE_SCHEDULES','U') IS NOT NULL DROP TABLE dbo.OVERLAY_ZENOTI_EMPLOYEE_SCHEDULES;
 SELECT TOP 0 * INTO dbo.OVERLAY_ZENOTI_EMPLOYEE_SCHEDULES FROM dbo.BRONZE_ZENOTI_EMPLOYEE_SCHEDULES;
 GO
@@ -1473,7 +1473,36 @@ SELECT @s=@s+'ALTER TABLE dbo.OVERLAY_ZENOTI_EMPLOYEE_SCHEDULES ALTER COLUMN ['+
 EXEC sys.sp_executesql @s;
 GO
 INSERT INTO dbo.OVERLAY_ZENOTI_EMPLOYEE_SCHEDULES (date, employee_name, job_name, status, center_name, block_out_hours_paid, scheduled_hours, booked_hours) VALUES
-('6/30/2026', 'Jessa Brooks', 'Treatment Provider', 'Working', 'Lancaster, PA', '30', '7:30', '4:30');
+('6/30/2026', 'Brittany King', 'Esthetician', 'Working', 'Bel Air, MD', '480', '8:00', '0:00'),
+('6/30/2026', 'Macarena Silvestri', 'Treatment Provider', 'Working', 'Bridgewater, NJ', '30', '8:00', '6:05'),
+('6/30/2026', 'Jackie Moyer', 'Treatment Provider', 'Working', 'Denville, NJ', '30', '8:00', '6:15'),
+('6/30/2026', 'Joanna Machel', 'Treatment Provider', 'Working', 'Denville, NJ', '30', '8:00', '6:45'),
+('6/30/2026', 'Lis Castro', 'Esthetician', 'Working', 'Denville, NJ', '30', '8:00', '4:45'),
+('6/30/2026', 'Geri Gan', 'Treatment Provider', 'Working', 'Frederick, MD', '30', '8:00', '0:00'),
+('6/30/2026', 'Caroline Swartz', 'Esthetician', 'Working', 'Hoboken, NJ', '30', '8:00', '1:15'),
+('6/30/2026', 'Deanna Dragone', 'Treatment Provider', 'Working', 'Hoboken, NJ', '0', '8:00', '2:00'),
+('6/30/2026', 'Giuliana Popolillo', 'Treatment Provider', 'Working', 'Hoboken, NJ', '0', '9:00', '1:30'),
+('6/30/2026', 'Scarlin Sanchez', 'Esthetician', 'Working', 'Hoboken, NJ', '30', '8:00', '1:10'),
+('6/30/2026', 'Silvana Rivas', 'Treatment Provider', 'Working', 'Hoboken, NJ', '0', '9:00', '1:30'),
+('6/30/2026', 'Daylin Bastidas', 'Esthetician', 'Working', 'Jersey City, NJ', '30', '8:00', '7:30'),
+('6/30/2026', 'Paige Martin', 'Treatment Provider', 'Working', 'Jersey City, NJ', '0', '10:00', '11:45'),
+('6/30/2026', 'Jessa Brooks', 'Treatment Provider', 'Working', 'Lancaster, PA', '30', '7:30', '4:30'),
+('6/30/2026', 'Patricia Ashmore', 'Treatment Provider', 'Working', 'Montclair, NJ', '0', '7:00', '5:15'),
+('6/30/2026', 'Alyssa Nicol', 'Treatment Provider', 'Working', 'Old Bridge, NJ', '30', '8:00', '8:10'),
+('6/30/2026', 'Domenica Fassari', 'Esthetician', 'Working', 'Old Bridge, NJ', '30', '8:00', '4:15'),
+('6/30/2026', 'Kristina Giakas', 'Treatment Provider', 'Working', 'Red Bank, NJ', '30', '7:00', '6:45'),
+('6/30/2026', 'Michelle Maddatu', 'Treatment Provider', 'Working', 'Red Bank, NJ', '0', '6:00', '5:50'),
+('6/30/2026', 'Annette Webson', 'Esthetician', 'Working', 'Ridgewood, NJ', '30', '7:00', '4:15'),
+('6/30/2026', 'Ceyli Reyes', 'Treatment Provider', 'Working', 'Ridgewood, NJ', '0', '8:00', '5:25'),
+('6/30/2026', 'Leah Roundtree', 'Esthetician', 'Working', 'Short Hills, NJ', '30', '8:00', '5:15'),
+('6/30/2026', 'Sherin Panayil', 'Treatment Provider', 'Working', 'Tribeca, NY', '0', '9:15', '5:45'),
+('6/30/2026', 'Breana Durrah', 'Treatment Provider', 'Working', 'Waldorf, MD', '0', '8:00', '4:40');
+GO
+UPDATE ov SET ov.employee_id = b.employee_id
+FROM dbo.OVERLAY_ZENOTI_EMPLOYEE_SCHEDULES ov
+CROSS APPLY (SELECT TOP 1 employee_id FROM dbo.BRONZE_ZENOTI_EMPLOYEE_SCHEDULES b
+             WHERE LTRIM(RTRIM(b.employee_name)) = LTRIM(RTRIM(ov.employee_name))
+               AND b.employee_id IS NOT NULL) b;
 GO
 CREATE OR ALTER VIEW dbo.V_ZENOTI_EMPLOYEE_SCHEDULES AS SELECT * FROM dbo.BRONZE_ZENOTI_EMPLOYEE_SCHEDULES UNION ALL SELECT * FROM dbo.OVERLAY_ZENOTI_EMPLOYEE_SCHEDULES ov WHERE CAST(ov.date AS DATE) > (SELECT MAX(CAST(date AS DATE)) FROM dbo.BRONZE_ZENOTI_EMPLOYEE_SCHEDULES);
 GO
