@@ -91,10 +91,20 @@ def read_rows(path):
     return idx, data
 
 
-def sql_val(v):
+# Bronze columns that are integer-typed — the CSV gives them as '1.0000', which
+# won't implicitly convert to int, so coerce to a whole number.
+_INT_COLS = {"qty"}
+
+
+def sql_val(v, col=None):
     v = (v or "").strip()
     if v == "":
         return "NULL"
+    if col in _INT_COLS:
+        try:
+            return str(int(round(float(v))))
+        except ValueError:
+            return "NULL"
     return "'" + v.replace("'", "''") + "'"
 
 
@@ -110,10 +120,15 @@ def main():
         collist = ", ".join(cols)
         ov_unq = ov.split(".")[-1]
         out.append(f"-- ===== {bronze} ({len(data)} overlay rows) =====")
-        out.append(f"IF OBJECT_ID('{ov}') IS NULL SELECT TOP 0 * INTO {ov} FROM {bronze};")
+        # Fresh clone every run (drop leftovers from failed runs). The DROP of the
+        # base overlay table is safe even if V_* references it (non-schemabound view).
+        out.append(f"IF OBJECT_ID('{ov}','U') IS NOT NULL DROP TABLE {ov};")
+        out.append(f"SELECT TOP 0 * INTO {ov} FROM {bronze};")
+        out.append("GO")
         # The clone copies NOT NULL constraints but not defaults/identity, so any
-        # NOT-NULL column we don't populate (e.g. row_id) would reject the INSERT.
-        # Make every non-identity NOT-NULL column NULLable (types resolved dynamically).
+        # NOT-NULL column we don't populate (e.g. row_id, ingestion_timestamp) would
+        # reject the INSERT. Make every non-identity NOT-NULL column NULLable.
+        # (Own batch + GO so the INSERT below compiles against the new schema.)
         out.append(
             "DECLARE @s nvarchar(max)=N'';\n"
             f"SELECT @s=@s+'ALTER TABLE {ov} ALTER COLUMN ['+c.COLUMN_NAME+'] '+c.DATA_TYPE+"
@@ -125,7 +140,7 @@ def main():
             f"FROM INFORMATION_SCHEMA.COLUMNS c WHERE c.TABLE_SCHEMA='dbo' AND c.TABLE_NAME='{ov_unq}' "
             f"AND c.IS_NULLABLE='NO' AND COLUMNPROPERTY(OBJECT_ID('{ov}'),c.COLUMN_NAME,'IsIdentity')=0;\n"
             "EXEC sys.sp_executesql @s;")
-        out.append(f"TRUNCATE TABLE {ov};")
+        out.append("GO")
         # batched INSERTs (<=500 rows per statement)
         B = 500
         for i in range(0, len(data), B):
@@ -133,11 +148,12 @@ def main():
             out.append(f"INSERT INTO {ov} ({collist}) VALUES")
             vals = []
             for r in chunk:
-                vals.append("(" + ", ".join(sql_val(r[idx[t['map'][c]]]) for c in cols) + ")")
+                vals.append("(" + ", ".join(sql_val(r[idx[t['map'][c]]], c) for c in cols) + ")")
             out.append(",\n".join(vals) + ";")
+        out.append("GO")
         # gap-fill view: overlay only contributes dates the bronze doesn't have yet
         out.append(
-            f"GO\nCREATE OR ALTER VIEW {vw} AS "
+            f"CREATE OR ALTER VIEW {vw} AS "
             f"SELECT * FROM {bronze} "
             f"UNION ALL "
             f"SELECT * FROM {ov} ov "
