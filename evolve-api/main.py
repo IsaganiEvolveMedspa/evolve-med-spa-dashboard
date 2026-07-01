@@ -27,6 +27,8 @@ Everything else lives in:
     retention.py     <- GET /api/new-guest-return-rate
 """
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -68,5 +70,19 @@ app.include_router(retention.router,    tags=["Retention"])
 # --- Health ---
 @app.get("/health", tags=["System"])
 def health():
-    """Liveness probe — returns 200 if the API process is running."""
-    return {"status": "ok", "version": app.version}
+    """Liveness probe — returns 200 if the API process is running.
+
+    Also echoes the overlay wiring the *running process* actually loaded, so we
+    can confirm the OVERLAY_ENABLED env var reached this deployment without
+    guessing at the Railway UI. `overlay_env_raw` shows the raw string (quotes /
+    whitespace visible); `overlay_enabled` is the parsed boolean; `cogs_source`
+    is the table/view the COGS queries will hit.
+    """
+    return {
+        "status": "ok",
+        "version": app.version,
+        "overlay_enabled": config.OVERLAY_ENABLED,
+        "overlay_env_raw": repr(os.getenv("OVERLAY_ENABLED")),
+        "cogs_source": config.FULL_COGS,
+        "sales_source": config.FULL_SALES,
+    }
