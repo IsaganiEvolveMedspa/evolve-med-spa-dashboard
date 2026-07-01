@@ -23,8 +23,15 @@ log = logging.getLogger(__name__)
 
 
 def _role_rev_per_hour(s: str, e: str, locations: Optional[list[str]], role_lower: str) -> Optional[float]:
-    """Σ role sales ÷ Σ role booked hours (decoupled). None if no hours. role_lower is a
-    fixed code constant ('esthetician' / 'treatment provider'), not user input."""
+    """Σ role sales ÷ Σ role booked hours (decoupled). None if no hours.
+
+    Role membership is resolved by EMPLOYEE, not by per-row job_name: the schedule
+    table has many rows with a NULL job_name, so filtering booked hours on
+    job_name=<role> dropped ~20% of a role's hours (e.g. providers 1,938 vs 2,450
+    real). Instead we build the set of employee_ids that carry the role on ANY row,
+    then sum ALL booked hours for those employees (recovering the NULL-job rows).
+    Numerator = sales by those same employees (matched on serviced_by name).
+    role_lower is a fixed code constant, not user input."""
     try:
         sched_where, sched_p = build_date_filter(s, e, locations, date_col="date")
         sales_where, sales_p = build_date_filter(s, e, locations, date_col="sale_date")
@@ -41,10 +48,14 @@ def _role_rev_per_hour(s: str, e: str, locations: Optional[list[str]], role_lowe
                    )) AS rev,
                 (SELECT SUM({hhmm_to_hours('booked_hours')})
                    FROM {FULL_SCHEDULE} {sched_where}
-                   {sched_and} LOWER(job_name) = '{role_lower}') AS hrs
+                   {sched_and} employee_id IN (
+                       SELECT DISTINCT employee_id FROM {FULL_SCHEDULE} {sched_where}
+                       {sched_and} LOWER(job_name) = '{role_lower}' AND employee_id IS NOT NULL
+                   )) AS hrs
         """
-        # param order matches appearance: sales_where, inner sched_where, hrs sched_where
-        params = merge_params(sales_p, sched_p, sched_p)
+        # param order by appearance: sales_where, numerator sched_where,
+        # hrs-outer sched_where, hrs-inner sched_where
+        params = merge_params(sales_p, sched_p, sched_p, sched_p)
         rows = run_query(sql, params or None)
         if not rows:
             return None
