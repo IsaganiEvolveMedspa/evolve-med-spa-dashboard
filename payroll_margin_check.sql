@@ -1,3 +1,4 @@
+-- Reads BRONZE_* tables directly (overlay is OFF on the backend). COGS excludes 6/30.
 DECLARE @s date='2026-06-01', @e date='2026-06-30';
 
 ;WITH wages(role,wage) AS (SELECT * FROM (VALUES
@@ -256,14 +257,14 @@ ffs_rates(service,latest_ffs,per_syringe) AS (SELECT * FROM (VALUES
   ) v(service,latest_ffs,per_syringe)),
 sched AS (
   SELECT center_name, LOWER(job_name) AS role, SUM((CASE WHEN scheduled_hours LIKE '%:%' THEN CAST(SUBSTRING(scheduled_hours,1,CHARINDEX(':',scheduled_hours)-1) AS FLOAT)+CAST(SUBSTRING(scheduled_hours,CHARINDEX(':',scheduled_hours)+1,LEN(scheduled_hours)) AS FLOAT)/60.0 ELSE COALESCE(TRY_CAST(scheduled_hours AS FLOAT),0) END)) AS hrs
-  FROM dbo.V_ZENOTI_EMPLOYEE_SCHEDULES
+  FROM dbo.BRONZE_ZENOTI_EMPLOYEE_SCHEDULES
   WHERE CAST([date] AS DATE) BETWEEN @s AND @e
   GROUP BY center_name, LOWER(job_name)),
 base AS (SELECT sc.center_name, SUM(w.wage*sc.hrs) AS base
   FROM sched sc JOIN wages w ON w.role=sc.role GROUP BY sc.center_name),
 cogs AS (
   SELECT center_name, LOWER(service_name) AS service, SUM(qty) AS qty, COUNT(DISTINCT invoice_no) AS occ
-  FROM dbo.V_ZENOTI_COST_OF_GOODS
+  FROM dbo.BRONZE_ZENOTI_COST_OF_GOODS
   WHERE CAST(transaction_date AS DATE) BETWEEN @s AND @e AND service_name IS NOT NULL
   GROUP BY center_name, LOWER(service_name)),
 ffs AS (SELECT c.center_name, SUM(fr.latest_ffs*CASE WHEN fr.per_syringe=1 THEN c.qty ELSE c.occ END) AS ffs
@@ -271,7 +272,7 @@ ffs AS (SELECT c.center_name, SUM(fr.latest_ffs*CASE WHEN fr.per_syringe=1 THEN 
 sales AS (
   SELECT center_name, SUM(sales_exc_tax) AS sales,
          SUM(CASE WHEN item_category LIKE '%Retail%' THEN sales_exc_tax ELSE 0 END) AS commissionable
-  FROM dbo.V_ZENOTI_SALES_ACCRUAL
+  FROM dbo.BRONZE_ZENOTI_SALES_ACCRUAL
   WHERE CAST(sale_date AS DATE) BETWEEN @s AND @e
   GROUP BY center_name),
 centers AS (SELECT center_name FROM base UNION SELECT center_name FROM ffs UNION SELECT center_name FROM sales),
