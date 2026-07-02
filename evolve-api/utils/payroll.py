@@ -4,7 +4,7 @@ schedules with live DB data.
 
   base salary      = Σ  role hourly wage × scheduled_hours          (wages JSON × schedule DB)
   ffs              = Σ  Latest FFS × qty   (per-syringe → COGS qty; else 1 per row)
-  comm             = 15% × sales_exc_tax
+  comm             = 15% × retail product sales (item_category contains 'Retail')
   benefits & taxes = (base + ffs + comm) × benefits_factor (0.125)
   salary           = base + ffs + comm + benefits
   salary margin %  = salary / sales accrual (SUM sales_exc_tax) × 100
@@ -87,13 +87,12 @@ def compute_salary_by_center(
 
     # ── sales accrual per center ──
     #   `sales`         = total accrual (margin denominator, all categories)
-    #   `commissionable`= accrual EXCLUDING retail & memberships (commission is paid on
-    #                     service production only, not retail or membership sales)
+    #   `commissionable`= retail/product sales only (item_category contains 'Retail');
+    #                     commission is paid at comm_rate on retail product sales.
     sales_sql = f"""
         SELECT center_name,
                SUM(sales_exc_tax) AS sales,
-               SUM(CASE WHEN item_category IS NULL
-                         OR (item_category NOT LIKE 'Retail%%' AND item_category <> 'Memberships')
+               SUM(CASE WHEN item_category LIKE '%%Retail%%'
                         THEN sales_exc_tax ELSE 0 END) AS commissionable
         FROM {FULL_SALES}
         {sales_where}

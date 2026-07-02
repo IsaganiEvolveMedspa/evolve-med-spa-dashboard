@@ -270,8 +270,7 @@ ffs AS (SELECT c.center_name, SUM(fr.latest_ffs*CASE WHEN fr.per_syringe=1 THEN 
   FROM cogs c JOIN ffs_rates fr ON fr.service=c.service GROUP BY c.center_name),
 sales AS (
   SELECT center_name, SUM(sales_exc_tax) AS sales,
-         SUM(CASE WHEN item_category IS NULL OR (item_category NOT LIKE 'Retail%' AND item_category<>'Memberships')
-                  THEN sales_exc_tax ELSE 0 END) AS commissionable
+         SUM(CASE WHEN item_category LIKE '%Retail%' THEN sales_exc_tax ELSE 0 END) AS commissionable
   FROM dbo.V_ZENOTI_SALES_ACCRUAL
   WHERE CAST(sale_date AS DATE) BETWEEN @s AND @e
   GROUP BY center_name),
