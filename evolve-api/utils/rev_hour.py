@@ -1,16 +1,21 @@
 """
-Decoupled Revenue / booked-hour by role (Esthetician, Treatment Provider).
+Revenue / booked-hour by role (Esthetician, Treatment Provider).
 
-The header's main query computes rev/hr via a per-day + center schedule↔sales
-join, which drops role sales on days/centers not matched to a schedule row
-(~20% leak observed for estheticians). We instead compute it DECOUPLED:
+Role is defined by the employee schedule's job_name, matched by employee_name:
 
-    rev/hr <role> = Σ sales_exc_tax by <role> employees
-                    ÷ Σ <role> booked hours
+    rev/hr <role> = Σ sales_exc_tax where sold_by is <role> staff
+                    ÷ Σ booked hours of <role> staff
 
-i.e. total role revenue over total role booked hours (no per-day/center join),
-which captures the full role revenue. Still respects the location filter (both
-the employee set and the sales are scoped to the selected centers).
+Both sides resolve role membership the SAME way — the set of employee_names that
+carry <role> on any schedule row in the period — so numerator and denominator
+stay consistent (total role revenue over total role booked hours, no per-day /
+center join). Still respects the location filter (schedule set and sales are
+scoped to the selected centers).
+
+We match on employee_name, NOT employee_id: the schedule's employee_id is
+sparsely populated, and keying booked hours on it silently collapsed the
+denominator to NULL whenever the id was missing. Revenue is attributed via
+sold_by (the seller of record on the sales-accrual line).
 """
 import logging
 from typing import Optional
@@ -23,15 +28,15 @@ log = logging.getLogger(__name__)
 
 
 def _role_rev_per_hour(s: str, e: str, locations: Optional[list[str]], role_lower: str) -> Optional[float]:
-    """Σ role sales ÷ Σ role booked hours (decoupled). None if no hours.
+    """Σ role sales (sold_by) ÷ Σ role booked hours. None if no hours.
 
-    Role membership is resolved by EMPLOYEE, not by per-row job_name: the schedule
-    table has many rows with a NULL job_name, so filtering booked hours on
-    job_name=<role> dropped ~20% of a role's hours (e.g. providers 1,938 vs 2,450
-    real). Instead we build the set of employee_ids that carry the role on ANY row,
-    then sum ALL booked hours for those employees (recovering the NULL-job rows).
-    Numerator = sales by those same employees (matched on serviced_by name).
-    role_lower is a fixed code constant, not user input."""
+    Role membership is the set of employee_names carrying <role> (schedule
+    job_name) on ANY row in the period. Numerator = sales_accrual rows whose
+    sold_by is in that set; denominator = ALL booked hours of those same names
+    (so NULL-job schedule rows for a role member are still counted). Matching on
+    employee_name (not employee_id) keeps numerator and denominator symmetric and
+    avoids the NULL-employee_id collapse. role_lower is a fixed code constant, not
+    user input."""
     try:
         sched_where, sched_p = build_date_filter(s, e, locations, date_col="date")
         sales_where, sales_p = build_date_filter(s, e, locations, date_col="sale_date")
@@ -42,15 +47,15 @@ def _role_rev_per_hour(s: str, e: str, locations: Optional[list[str]], role_lowe
             SELECT
                 (SELECT SUM(sales_exc_tax)
                    FROM {FULL_SALES} {sales_where}
-                   {sales_and} serviced_by IN (
+                   {sales_and} sold_by IN (
                        SELECT DISTINCT employee_name FROM {FULL_SCHEDULE} {sched_where}
                        {sched_and} LOWER(job_name) = '{role_lower}'
                    )) AS rev,
                 (SELECT SUM({hhmm_to_hours('booked_hours')})
                    FROM {FULL_SCHEDULE} {sched_where}
-                   {sched_and} employee_id IN (
-                       SELECT DISTINCT employee_id FROM {FULL_SCHEDULE} {sched_where}
-                       {sched_and} LOWER(job_name) = '{role_lower}' AND employee_id IS NOT NULL
+                   {sched_and} employee_name IN (
+                       SELECT DISTINCT employee_name FROM {FULL_SCHEDULE} {sched_where}
+                       {sched_and} LOWER(job_name) = '{role_lower}' AND employee_name IS NOT NULL
                    )) AS hrs
         """
         # param order by appearance: sales_where, numerator sched_where,
