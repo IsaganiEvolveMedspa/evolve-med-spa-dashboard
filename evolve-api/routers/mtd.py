@@ -504,10 +504,9 @@ def get_mtd_kpi_header(
         if tot_cust is not None and new_ct is not None:
             result["existing_client_count"] = max(int(tot_cust) - int(new_ct), 0)
         # ASP (Existing): numerator stays the accrual existing-guest sales; denominator
-        # is the Existing Customer count above (total distinct − New), so ASP Existing
-        # ties out with the displayed Existing Customer Visits.
+        # is the total distinct customer count (NOT total − New).
         exist_sales = result_visits.get("existing_sales") if result_visits else None
-        exist_ct    = result.get("existing_client_count")
+        exist_ct    = result.get("total_customer_count")
         if exist_sales is not None and exist_ct:
             result["asp_existing_clients"] = round(exist_sales / exist_ct, 2)
         # MTD Ad Spend (chain-level, from bundled Google/FB ad export) + CAC = ad spend / new visits.
