@@ -23,14 +23,17 @@ from utils.filters import build_date_filter
 _JSON = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                      "data", "operating_days.json")
 
-# Same cash payment-type filter the cash KPIs use (keep in sync with mtd.py).
+# Same cash payment-type filter the cash KPIs use (keep in sync with mtd.py):
+# include a row if it has any real financial tender (Cash, Card, Check, Custom - *),
+# even alongside a gift card / prepaid / package / membership / loyalty / cashback
+# tender; only redemption-only rows are dropped. Whole-tender matching via the
+# normalized ",tok1,tok2," string avoids '%card%' hitting "Gift Card".
+_PT_NORM = "(',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',')"
 _CASH_PAY_FILTER = (
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'gift card%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'prepaid card%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'package -%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'membership -%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'loyalty%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'cashback%'"
+    f" AND ({_PT_NORM} LIKE '%,card,%'"
+    f" OR {_PT_NORM} LIKE '%,cash,%'"
+    f" OR {_PT_NORM} LIKE '%,check,%'"
+    f" OR {_PT_NORM} LIKE '%,custom - %')"
 )
 
 

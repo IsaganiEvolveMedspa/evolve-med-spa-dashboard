@@ -26,22 +26,23 @@ router = APIRouter()
 #
 # The payment_type column stores a comma-separated string of ALL payment methods
 # used on a single invoice (e.g. " Card, Custom - Aspire, Gift Card(12345)").
-# The FIRST value in the list determines whether the row should be counted —
-# matching the UI filter which INCLUDES Cash, Card, Check, Custom-Financial,
-# Custom-Non-Financial and EXCLUDES rows that start with:
-#   Gift Cards, Prepaid Cards, Packages, Memberships, Loyalty Points, Cashback.
+# Cash sales INCLUDES a row if it contains AT LEAST ONE real financial tender —
+# Cash, Card, Check, or Custom - * (Alle, Aspire, Xperience, RepeatMD, refunds, …) —
+# anywhere in the list, EVEN when a redemption tender (Gift Card, Prepaid Card,
+# Package, Membership, Loyalty, Cashback) is also present. Only rows with NO
+# financial tender at all (redemption-only, e.g. a lone "Gift Card(123)") are dropped.
 #
-# NOTE: payment_type values have a leading space (e.g. " Card", " Gift Card(...)").
-# LTRIM() is required so the LIKE patterns match correctly against the actual data.
-# All valid rows start with: 'card', 'cash', 'check', or 'custom - *'.
-# Excluded rows start with:  'gift card', 'prepaid card', 'package - ', 'membership - '.
+# We must match WHOLE tenders, not substrings: a naive '%card%' would wrongly hit
+# "Gift Card"/"Prepaid Card" and '%cash%' would hit "Cashback", so a lone gift-card
+# row would leak in. Instead we normalize the value to ",tok1,tok2,,…" (lowercased,
+# trimmed, the ", " separators collapsed to ",") and match delimited tokens:
+# ',card,', ',cash,', ',check,', and the ',custom - ' prefix. See _PT_NORM below.
+_PT_NORM = "(',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',')"
 _CASH_PAY_FILTER = (
-    "AND LOWER(LTRIM(payment_type)) NOT LIKE 'gift card%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'prepaid card%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'package -%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'membership -%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'loyalty%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'cashback%'"
+    f" AND ({_PT_NORM} LIKE '%,card,%'"
+    f" OR {_PT_NORM} LIKE '%,cash,%'"
+    f" OR {_PT_NORM} LIKE '%,check,%'"
+    f" OR {_PT_NORM} LIKE '%,custom - %')"
 )
 
 # ── Shared sales-mix SELECT fragment ─────────────────────────────────────────

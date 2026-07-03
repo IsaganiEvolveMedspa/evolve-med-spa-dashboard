@@ -41,16 +41,19 @@ from utils.errors import log_and_raise_from_request
 
 router = APIRouter()
 
-# Mirror mtd.py's cash payment-type filter so "visits" exclude gift cards,
-# prepaid, packages, memberships, loyalty, cashback. Kept local to avoid a
-# cross-module import; keep in sync with mtd._CASH_PAY_FILTER if that changes.
+# Mirror mtd.py's cash payment-type filter so "visits" count a row when it contains
+# any real financial tender (Cash, Card, Check, Custom - *), even if a gift card /
+# prepaid / package / membership / loyalty / cashback tender is also present; only
+# redemption-only rows are dropped. Whole-tender matching via a normalized
+# ",tok1,tok2," string avoids '%card%' hitting "Gift Card" / '%cash%' hitting
+# "Cashback". Kept local to avoid a cross-module import; keep in sync with
+# mtd._CASH_PAY_FILTER (and mtd._PT_NORM) if that changes.
+_PT_NORM = "(',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',')"
 _CASH_PAY_FILTER = (
-    "AND LOWER(LTRIM(payment_type)) NOT LIKE 'gift card%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'prepaid card%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'package -%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'membership -%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'loyalty%'"
-    " AND LOWER(LTRIM(payment_type)) NOT LIKE 'cashback%'"
+    f" AND ({_PT_NORM} LIKE '%,card,%'"
+    f" OR {_PT_NORM} LIKE '%,cash,%'"
+    f" OR {_PT_NORM} LIKE '%,check,%'"
+    f" OR {_PT_NORM} LIKE '%,custom - %')"
 )
 
 

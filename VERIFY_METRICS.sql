@@ -27,12 +27,10 @@ DECLARE @accrual_sales FLOAT = (SELECT SUM(sales_exc_tax) FROM dbo.BRONZE_ZENOTI
 -- (@pye = one year before the latest current-data day), matching the fixed mtd.py.
 DECLARE @py_cash FLOAT = (SELECT SUM(sales_collected_exc_tax) FROM dbo.BRONZE_ZENOTI_CASH_COLLECTIONS
                           WHERE CAST(payment_date AS DATE) BETWEEN @pys AND @pye
-                            AND LOWER(LTRIM(payment_type)) NOT LIKE 'gift card%'
-                            AND LOWER(LTRIM(payment_type)) NOT LIKE 'prepaid card%'
-                            AND LOWER(LTRIM(payment_type)) NOT LIKE 'package -%'
-                            AND LOWER(LTRIM(payment_type)) NOT LIKE 'membership -%'
-                            AND LOWER(LTRIM(payment_type)) NOT LIKE 'loyalty%'
-                            AND LOWER(LTRIM(payment_type)) NOT LIKE 'cashback%');
+                            AND ((',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',') LIKE '%,card,%'
+                              OR  (',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',') LIKE '%,cash,%'
+                              OR  (',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',') LIKE '%,check,%'
+                              OR  (',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',') LIKE '%,custom - %'));
 
 PRINT 'Window: ' + CONVERT(VARCHAR, @s) + ' to ' + CONVERT(VARCHAR, @e);
 
@@ -41,12 +39,10 @@ PRINT 'Window: ' + CONVERT(VARCHAR, @s) + ' to ' + CONVERT(VARCHAR, @e);
     SELECT guest_name, MAX(CASE WHEN LOWER(first_visit)='yes' THEN 1 ELSE 0 END) AS is_new
     FROM dbo.BRONZE_ZENOTI_CASH_COLLECTIONS
     WHERE CAST(payment_date AS DATE) BETWEEN @s AND @e
-      AND LOWER(LTRIM(payment_type)) NOT LIKE 'gift card%'
-      AND LOWER(LTRIM(payment_type)) NOT LIKE 'prepaid card%'
-      AND LOWER(LTRIM(payment_type)) NOT LIKE 'package -%'
-      AND LOWER(LTRIM(payment_type)) NOT LIKE 'membership -%'
-      AND LOWER(LTRIM(payment_type)) NOT LIKE 'loyalty%'
-      AND LOWER(LTRIM(payment_type)) NOT LIKE 'cashback%'
+      AND ((',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',') LIKE '%,card,%'
+        OR  (',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',') LIKE '%,cash,%'
+        OR  (',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',') LIKE '%,check,%'
+        OR  (',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',') LIKE '%,custom - %')
     GROUP BY guest_name
 ),
 c AS (
@@ -54,12 +50,10 @@ c AS (
     FROM dbo.BRONZE_ZENOTI_CASH_COLLECTIONS c
     JOIN gc ON gc.guest_name = c.guest_name
     WHERE CAST(c.payment_date AS DATE) BETWEEN @s AND @e
-      AND LOWER(LTRIM(c.payment_type)) NOT LIKE 'gift card%'
-      AND LOWER(LTRIM(c.payment_type)) NOT LIKE 'prepaid card%'
-      AND LOWER(LTRIM(c.payment_type)) NOT LIKE 'package -%'
-      AND LOWER(LTRIM(c.payment_type)) NOT LIKE 'membership -%'
-      AND LOWER(LTRIM(c.payment_type)) NOT LIKE 'loyalty%'
-      AND LOWER(LTRIM(c.payment_type)) NOT LIKE 'cashback%'
+      AND ((',' + REPLACE(LOWER(LTRIM(RTRIM(c.payment_type))), ', ', ',') + ',') LIKE '%,card,%'
+        OR  (',' + REPLACE(LOWER(LTRIM(RTRIM(c.payment_type))), ', ', ',') + ',') LIKE '%,cash,%'
+        OR  (',' + REPLACE(LOWER(LTRIM(RTRIM(c.payment_type))), ', ', ',') + ',') LIKE '%,check,%'
+        OR  (',' + REPLACE(LOWER(LTRIM(RTRIM(c.payment_type))), ', ', ',') + ',') LIKE '%,custom - %')
 )
 SELECT 'Cash Sales (MTD)' AS metric,
        CAST(SUM(sales_collected_exc_tax) AS DECIMAL(18,2)) AS numerator,

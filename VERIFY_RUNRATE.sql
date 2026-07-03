@@ -340,12 +340,10 @@ cash AS (
     SELECT center_name, SUM(sales_collected_exc_tax) AS mtd_cash
     FROM dbo.BRONZE_ZENOTI_CASH_COLLECTIONS
     WHERE CAST(payment_date AS DATE) BETWEEN @s AND @e
-      AND LOWER(LTRIM(payment_type)) NOT LIKE 'gift card%'
-      AND LOWER(LTRIM(payment_type)) NOT LIKE 'prepaid card%'
-      AND LOWER(LTRIM(payment_type)) NOT LIKE 'package -%'
-      AND LOWER(LTRIM(payment_type)) NOT LIKE 'membership -%'
-      AND LOWER(LTRIM(payment_type)) NOT LIKE 'loyalty%'
-      AND LOWER(LTRIM(payment_type)) NOT LIKE 'cashback%'
+      AND ((',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',') LIKE '%,card,%'
+        OR  (',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',') LIKE '%,cash,%'
+        OR  (',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',') LIKE '%,check,%'
+        OR  (',' + REPLACE(LOWER(LTRIM(RTRIM(payment_type))), ', ', ',') + ',') LIKE '%,custom - %')
     GROUP BY center_name
 ),
 per_loc AS (
