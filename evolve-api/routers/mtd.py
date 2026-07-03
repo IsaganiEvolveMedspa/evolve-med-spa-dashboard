@@ -211,6 +211,9 @@ def get_mtd_kpi_header(
                     / NULLIF(COUNT(DISTINCT CAST(c.payment_date AS DATE)), 0)                                 AS avg_daily_revenue,
                 COUNT(DISTINCT CASE WHEN c.sales_collected_exc_tax > 0
                                      THEN CONCAT(c.guest_name, '|', CAST(c.payment_date AS DATE)) END)        AS total_customer_visits,
+                -- Distinct guests (not guest-days) transacting this month; the total that
+                -- New + Existing partition when Existing = total distinct − New.
+                COUNT(DISTINCT CASE WHEN c.sales_collected_exc_tax > 0 THEN c.guest_name END)                AS total_customer_count,
                 COUNT(DISTINCT CASE WHEN gc.is_new = 1 THEN c.guest_name END)                                 AS new_client_count,
                 COUNT(DISTINCT CASE WHEN gc.is_new = 0 THEN c.guest_name END)                                 AS existing_client_count,
                 COUNT(DISTINCT CASE WHEN LOWER(c.member) = 'yes'        THEN c.guest_name END)                AS member_count,
@@ -337,6 +340,7 @@ def get_mtd_kpi_header(
             m.mtd_revenue,
             m.avg_daily_revenue,
             m.total_customer_visits,
+            m.total_customer_count,
             m.new_client_count,
             m.existing_client_count,
             m.member_count,
@@ -483,15 +487,29 @@ def get_mtd_kpi_header(
         # Official New Guest Count (Zenoti daily "Business KPI" export) is the source
         # of truth for New Customer Visits and the ASP (New) *denominator*. It replaces
         # only the new-side COUNT; the new-guest SALES numerator stays on the accrual
-        # segmentation above (the CSV has no per-new-guest revenue), and Existing/ASP
-        # Existing are untouched. Falls back to the computed count for months with no
-        # export. CAC (below) then divides ad spend by this authoritative count.
+        # segmentation above (the CSV has no per-new-guest revenue). ASP Existing is
+        # untouched. Falls back to the computed count for months with no export. CAC
+        # (below) then divides ad spend by this authoritative count.
         csv_new = new_guest_count(s, e, locations)
         if csv_new is not None:
             result["new_visits"] = csv_new
             new_sales = result_visits.get("new_sales") if result_visits else None
             if new_sales is not None:
                 result["asp_new_clients"] = round(new_sales / csv_new, 2) if csv_new else None
+        # Existing Customers = Total distinct Customers − New Customers, so New and
+        # Existing partition the distinct-guest total exactly off the same New count set
+        # above (official CSV when available, else the computed fallback). Clamped at 0.
+        tot_cust = result.get("total_customer_count")
+        new_ct   = result.get("new_visits")
+        if tot_cust is not None and new_ct is not None:
+            result["existing_client_count"] = max(int(tot_cust) - int(new_ct), 0)
+        # ASP (Existing): numerator stays the accrual existing-guest sales; denominator
+        # is the Existing Customer count above (total distinct − New), so ASP Existing
+        # ties out with the displayed Existing Customer Visits.
+        exist_sales = result_visits.get("existing_sales") if result_visits else None
+        exist_ct    = result.get("existing_client_count")
+        if exist_sales is not None and exist_ct:
+            result["asp_existing_clients"] = round(exist_sales / exist_ct, 2)
         # MTD Ad Spend (chain-level, from bundled Google/FB ad export) + CAC = ad spend / new visits.
         result["mtd_ad_spend"] = mtd_ad_spend(s, e)
         result["client_acquisition_cost"] = client_acquisition_cost(
