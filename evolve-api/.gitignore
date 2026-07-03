@@ -12,3 +12,4 @@ bigquery_service_account.json
 !data/operating_days.json
 !data/store_dates.json
 !data/memberships.json
+!data/new_guests_daily.json

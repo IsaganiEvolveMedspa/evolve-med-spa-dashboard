@@ -137,6 +137,11 @@ def _compute(s: str, e: str, locations: Optional[list[str]]) -> dict:
     return {
         "new":          new_n,
         "existing":     exist_n,
+        # Non-membership MTD sales per segment. Exposed so callers can recompute ASP
+        # against an external denominator (e.g. the official CSV New Guest Count for
+        # ASP New) without re-scanning the sales table.
+        "new_sales":      new_s,
+        "existing_sales": exist_s,
         # ASP per customer (non-membership sales this month / customers in segment)
         "asp_new":      round(new_s / new_n, 2)     if new_n   else None,
         "asp_existing": round(exist_s / exist_n, 2) if exist_n else None,

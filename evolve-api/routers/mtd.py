@@ -15,6 +15,7 @@ from utils.payroll import compute_salary_by_center, salary_margin_pct
 from utils.operating_days import cash_run_rate, recognized_run_rate
 from utils.sss import sss_growth_yoy
 from utils.new_customers import new_existing_visits
+from utils.new_guests import new_guest_count
 from utils.memberships import new_memberships
 from utils.rev_hour import esthetician_rev_per_hour, provider_rev_per_hour
 from utils.errors import log_and_raise_from_request
@@ -479,6 +480,18 @@ def get_mtd_kpi_header(
                 result["asp_new_clients"] = result_visits.get("asp_new")
             if result_visits.get("asp_existing") is not None:
                 result["asp_existing_clients"] = result_visits.get("asp_existing")
+        # Official New Guest Count (Zenoti daily "Business KPI" export) is the source
+        # of truth for New Customer Visits and the ASP (New) *denominator*. It replaces
+        # only the new-side COUNT; the new-guest SALES numerator stays on the accrual
+        # segmentation above (the CSV has no per-new-guest revenue), and Existing/ASP
+        # Existing are untouched. Falls back to the computed count for months with no
+        # export. CAC (below) then divides ad spend by this authoritative count.
+        csv_new = new_guest_count(s, e, locations)
+        if csv_new is not None:
+            result["new_visits"] = csv_new
+            new_sales = result_visits.get("new_sales") if result_visits else None
+            if new_sales is not None:
+                result["asp_new_clients"] = round(new_sales / csv_new, 2) if csv_new else None
         # MTD Ad Spend (chain-level, from bundled Google/FB ad export) + CAC = ad spend / new visits.
         result["mtd_ad_spend"] = mtd_ad_spend(s, e)
         result["client_acquisition_cost"] = client_acquisition_cost(
