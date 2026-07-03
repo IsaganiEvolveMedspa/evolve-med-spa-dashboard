@@ -496,13 +496,12 @@ def get_mtd_kpi_header(
             new_sales = result_visits.get("new_sales") if result_visits else None
             if new_sales is not None:
                 result["asp_new_clients"] = round(new_sales / csv_new, 2) if csv_new else None
-        # Existing Customers = Total distinct Customers − New Customers, so New and
-        # Existing partition the distinct-guest total exactly off the same New count set
-        # above (official CSV when available, else the computed fallback). Clamped at 0.
+        # Existing Customers = Total distinct Customers transacting this month (New is
+        # NOT subtracted, so a new client also counts here). Same total used as the ASP
+        # (Existing) denominator below.
         tot_cust = result.get("total_customer_count")
-        new_ct   = result.get("new_visits")
-        if tot_cust is not None and new_ct is not None:
-            result["existing_client_count"] = max(int(tot_cust) - int(new_ct), 0)
+        if tot_cust is not None:
+            result["existing_client_count"] = int(tot_cust)
         # ASP (Existing): numerator stays the accrual existing-guest sales; denominator
         # is the total distinct customer count (NOT total − New).
         exist_sales = result_visits.get("existing_sales") if result_visits else None
