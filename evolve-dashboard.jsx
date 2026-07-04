@@ -908,10 +908,10 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
       {/* Sales to Budget + Budget Attainment */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 16, marginTop: 16 }}>
         <Card>
-          <CardTitle title="Sales to Budget — Month to Date" sub={`Daily net sales · cumulative vs budget & run rate · ${range}`}
+          <CardTitle title="Sales to Budget — Month to Date" sub={`Daily cash sales · cumulative vs budget & run rate · ${range}`}
             right={
               <div style={{ display: 'flex', gap: 16, alignItems: 'center', font: `500 11px ${FONT}`, color: C.ink2, flexWrap: 'wrap' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 11, height: 11, border: `1.4px solid #C9D6D2`, background: '#fff', borderRadius: 2 }} />Net Sales (daily)</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 11, height: 11, border: `1.4px solid #C9D6D2`, background: '#fff', borderRadius: 2 }} />Cash Sales (daily)</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, height: 3, background: C.navy, borderRadius: 2 }} />Net Sales (MTD)</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, height: 3, background: C.blue, borderRadius: 2 }} />Budget</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 16, height: 0, borderTop: `2px dashed #AAB7B3` }} />Run Rate</span>
