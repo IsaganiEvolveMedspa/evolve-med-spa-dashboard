@@ -920,12 +920,12 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
           <PacingChart daily={dailyArr} budget={budget} trending={projRunRate} daysInMonth={daysInMonth} />
           <div style={{ display: 'flex', gap: 26, marginTop: 6, paddingTop: 12, borderTop: `1px solid ${C.line2}`, flexWrap: 'wrap' }}>
             {[
-              ['Net Sales MTD', money(mtdActual, { compact: true }), C.ink],
-              ['Budget (MTD)', budgetMtd != null ? money(budgetMtd, { compact: true }) : '—', C.ink],
+              ['Cash Sales MTD', money(mtdActual, { decimals: 2 }), C.ink],
+              ['Budget (MTD)', budgetMtd != null ? money(budgetMtd, { decimals: 2 }) : '—', C.ink],
               ['Pace to Budget', paceToBudget != null ? `${paceToBudget.toFixed(0)}%` : '—', paceToBudget >= 100 ? C.ink : C.clay],
-              ['Projected (Run Rate)', money(projRunRate, { compact: true, floor: true }), C.ink],
+              ['Projected (Run Rate)', money(projRunRate, { decimals: 2, floor: true }), C.ink],
               ['Projected (Run Rate) %', budget ? `${((projRunRate / budget) * 100).toFixed(0)}%` : '—', budget && (projRunRate / budget) * 100 >= 100 ? C.ink : C.clay],
-              ['Full-Month Budget', money(budget, { compact: true }), C.ink],
+              ['Full-Month Budget', money(budget, { decimals: 2 }), C.ink],
             ].map(([l, v, col]) => (
               <div key={l} style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{l}</span>
