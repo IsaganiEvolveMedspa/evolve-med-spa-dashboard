@@ -167,24 +167,29 @@ def get_mtd_kpi_header(
             str(_ls[0]["d"]) if _ls and _ls[0].get("d") else yesterday
         )
 
-        # "Prior Day Sales" = CASH COLLECTED (payment_date basis) on the PREVIOUS
-        # month's last payment day — the latest cash payment day strictly BEFORE the
-        # FIRST of the selected month. Anchoring to the month's first day (not s itself)
-        # means ANY day within the month resolves to the previous month — e.g. any July
-        # date -> June's last payment day, whether s is Jul 1 or a mid-month day.
-        # Uses RAW cash collected (NO tender filter) — matches the reconciled value.
-        # Falls back to `yesterday` (latest cash day) if there is no earlier cash data.
-        sel_month_start = str(s_dt.replace(day=1))
-        prior_day_sql = f"""
-        SELECT MAX(CAST(payment_date AS DATE)) AS d
-        FROM {FULL_CASH}
-        WHERE CAST(payment_date AS DATE) < '{sel_month_start}'
-        {y_loc_pre}
-        """
-        _pd = run_query(prior_day_sql, y_loc_pre_p or None)
-        prior_day_sale = (
-            str(_pd[0]["d"]) if _pd and _pd[0].get("d") else yesterday
-        )
+        # "Prior Day Sales" date depends on whether the SELECTED month is complete:
+        #   • Fully-past (complete) month -> that month's LAST payment day
+        #       (e.g. June 2026 filter -> Jun 30).
+        #   • Current / incomplete month -> TODAY minus 2 days
+        #       (e.g. today Jul 6 -> Jul 4; absorbs the ~2-day cash-settlement lag).
+        # Value is RAW cash collected on that day (no tender filter), payment_date basis.
+        today_dt       = datetime.utcnow().date()
+        sel_month_last = s_dt.replace(day=calendar.monthrange(s_dt.year, s_dt.month)[1])
+        if sel_month_last < today_dt:
+            # complete past month -> last payment day at or before the month end
+            prior_day_sql = f"""
+            SELECT MAX(CAST(payment_date AS DATE)) AS d
+            FROM {FULL_CASH}
+            WHERE CAST(payment_date AS DATE) <= '{sel_month_last}'
+            {y_loc_pre}
+            """
+            _pd = run_query(prior_day_sql, y_loc_pre_p or None)
+            prior_day_sale = (
+                str(_pd[0]["d"]) if _pd and _pd[0].get("d") else str(sel_month_last)
+            )
+        else:
+            # current / incomplete month -> today minus 2 days
+            prior_day_sale = str(today_dt - timedelta(days=2))
 
         lm_end_dt   = e_dt.replace(day=1) - timedelta(days=1)
         lm_start_dt = lm_end_dt.replace(day=1)
@@ -282,8 +287,9 @@ def get_mtd_kpi_header(
             {_CASH_PAY_FILTER}
         ),
         yesterday_data AS (
-            -- Prior Day Sales = RAW CASH COLLECTED (payment_date, exc-tax) on the
-            -- PREVIOUS month's last payment day (prior_day_sale). NO tender filter.
+            -- Prior Day Sales = RAW CASH COLLECTED (payment_date, exc-tax) on
+            -- prior_day_sale (complete month -> its last payment day; current month ->
+            -- today minus 2 days; see resolution above). NO tender filter.
             SELECT
                 COALESCE(SUM(sales_collected_exc_tax), 0) AS yesterday_revenue,
                 COALESCE(COUNT(DISTINCT guest_name), 0)   AS yesterday_clients
