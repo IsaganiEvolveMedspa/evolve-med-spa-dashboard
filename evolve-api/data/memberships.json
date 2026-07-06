@@ -3718,5 +3718,45 @@
   "guest_code": "X2GNC54443457",
   "invoice": "Bel-13103",
   "status": "Active"
+ },
+ {
+  "center": "Bridgewater, NJ",
+  "sale_date": "2026-07-05",
+  "start_date": "2026-07-05",
+  "guest_code": "BRI-G1031",
+  "invoice": "3340",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-07-01",
+  "start_date": "2026-07-01",
+  "guest_code": "HOB-G1935",
+  "invoice": "Hob-28199",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-07-01",
+  "start_date": "2026-07-01",
+  "guest_code": "ShoGNC27000175",
+  "invoice": "Hob-29959",
+  "status": "Active"
+ },
+ {
+  "center": "Red Bank, NJ",
+  "sale_date": "2026-07-01",
+  "start_date": "2026-07-01",
+  "guest_code": "RedGNC92315993",
+  "invoice": "Red-14644",
+  "status": "Active"
+ },
+ {
+  "center": "Hoboken, NJ",
+  "sale_date": "2026-07-01",
+  "start_date": "2026-07-01",
+  "guest_code": "HobGNC78517274",
+  "invoice": "Hob-30170",
+  "status": "Active"
  }
 ]
