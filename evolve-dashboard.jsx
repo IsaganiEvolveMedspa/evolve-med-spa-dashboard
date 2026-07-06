@@ -106,13 +106,22 @@ const monthsBack = (anchor, count = 12) => {
   }
   return out;
 };
-// Previous-month range for the given start_date (used for MoM deltas).
-const prevMonthRange = (startDate) => {
+// Previous-month range for the given start_date (used for MoM deltas). The prior
+// window ends on the SAME elapsed day-of-month as the current period's end date
+// (clamped to the prior month's length) so MTD compares like-for-like — e.g. if
+// today is Jul 6 the prior window is Jun 1–6, not all of June. Falls back to the
+// full prior month when endDate is omitted.
+const prevMonthRange = (startDate, endDate) => {
   if (!startDate) return { start: undefined, end: undefined };
   const d = new Date(startDate);
   const y = d.getFullYear(), m = d.getMonth() - 1;
   const py = m < 0 ? y - 1 : y, pm = (m + 12) % 12;
-  return { start: firstOf(py, pm), end: lastOf(py, pm) };
+  if (!endDate) return { start: firstOf(py, pm), end: lastOf(py, pm) };
+  const endDay = Number(String(endDate).slice(8, 10));   // "YYYY-MM-DD" -> DD
+  const lastDayPrev = new Date(py, pm + 1, 0).getDate();  // clamp short months (e.g. Feb)
+  const day = Math.min(endDay || lastDayPrev, lastDayPrev);
+  const end = `${py}-${String(pm + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  return { start: firstOf(py, pm), end };
 };
 
 /* =================================================================
@@ -644,7 +653,7 @@ const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta }) => (
 const OverviewView = () => {
   const fl = useFilters();
   const params = { start_date: fl.start_date, end_date: fl.end_date, locations: fl.locations };
-  const prev = prevMonthRange(fl.start_date);
+  const prev = prevMonthRange(fl.start_date, fl.end_date);
   const prevParams = { start_date: prev.start, end_date: prev.end, locations: fl.locations };
   const { data, loading, error, reload } = useApiData({
     header: { path: '/api/mtd-kpi-header', params },
@@ -1265,7 +1274,7 @@ const InjectablesScatter = ({ points }) => {
 const FinanceView = () => {
   const fl = useFilters();
   const params = { start_date: fl.start_date, end_date: fl.end_date, locations: fl.locations };
-  const prev = prevMonthRange(fl.start_date);
+  const prev = prevMonthRange(fl.start_date, fl.end_date);
   const prevParams = { start_date: prev.start, end_date: prev.end, locations: fl.locations };
   const { data, loading, error, reload } = useApiData({
     header: { path: '/api/mtd-kpi-header', params },
@@ -1612,7 +1621,7 @@ const heatColor = (t) => {
 const OperationsView = () => {
   const fl = useFilters();
   const params = { start_date: fl.start_date, end_date: fl.end_date, locations: fl.locations };
-  const prev = prevMonthRange(fl.start_date);
+  const prev = prevMonthRange(fl.start_date, fl.end_date);
   const prevParams = { start_date: prev.start, end_date: prev.end, locations: fl.locations };
   const { data, loading, error, reload } = useApiData({
     header: { path: '/api/mtd-kpi-header', params },
@@ -2095,7 +2104,7 @@ const ComingSoon = ({ name }) => (
 const AcquisitionView = () => {
   const fl = useFilters();
   const params = { start_date: fl.start_date, end_date: fl.end_date, locations: fl.locations };
-  const prev = prevMonthRange(fl.start_date);
+  const prev = prevMonthRange(fl.start_date, fl.end_date);
   const prevParams = { start_date: prev.start, end_date: prev.end, locations: fl.locations };
   const { data, loading, error, reload } = useApiData({
     header: { path: '/api/mtd-kpi-header', params },
@@ -2298,7 +2307,7 @@ const CallCenterView = () => {
   const [tab, setTab] = useState('Overview');
   const fl = useFilters();
   const params = { start_date: fl.start_date, end_date: fl.end_date, locations: fl.locations };
-  const prev = prevMonthRange(fl.start_date);
+  const prev = prevMonthRange(fl.start_date, fl.end_date);
   const prevParams = { start_date: prev.start, end_date: prev.end, locations: fl.locations };
   // The reporting API has no call-center / CRM feed; we still pull the
   // appointment + client aggregates it does expose so any derivable cell
