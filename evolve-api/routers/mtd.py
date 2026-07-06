@@ -167,23 +167,23 @@ def get_mtd_kpi_header(
             str(_ls[0]["d"]) if _ls and _ls[0].get("d") else yesterday
         )
 
-        # "Prior Day Sales" = NET SALES on the PREVIOUS month's last sale day — the
-        # latest closed sale day strictly BEFORE the FIRST of the selected month.
-        # Anchoring to the month's first day (not s itself) means ANY day within the
-        # month resolves to the previous month — e.g. any July date -> June's last
-        # sale day, whether s is Jul 1 or a mid-month day.
-        # Falls back to last_sale_day if there is no earlier closed-sale data.
+        # "Prior Day Sales" = CASH COLLECTED (payment_date basis) on the PREVIOUS
+        # month's last payment day — the latest cash payment day strictly BEFORE the
+        # FIRST of the selected month. Anchoring to the month's first day (not s itself)
+        # means ANY day within the month resolves to the previous month — e.g. any July
+        # date -> June's last payment day, whether s is Jul 1 or a mid-month day.
+        # Uses RAW cash collected (NO tender filter) — matches the reconciled value.
+        # Falls back to `yesterday` (latest cash day) if there is no earlier cash data.
         sel_month_start = str(s_dt.replace(day=1))
         prior_day_sql = f"""
-        SELECT MAX(CAST(sale_date AS DATE)) AS d
-        FROM {FULL_SALES}
-        WHERE CAST(sale_date AS DATE) < '{sel_month_start}'
-          AND LOWER(status) = 'closed'
+        SELECT MAX(CAST(payment_date AS DATE)) AS d
+        FROM {FULL_CASH}
+        WHERE CAST(payment_date AS DATE) < '{sel_month_start}'
         {y_loc_pre}
         """
         _pd = run_query(prior_day_sql, y_loc_pre_p or None)
         prior_day_sale = (
-            str(_pd[0]["d"]) if _pd and _pd[0].get("d") else last_sale_day
+            str(_pd[0]["d"]) if _pd and _pd[0].get("d") else yesterday
         )
 
         lm_end_dt   = e_dt.replace(day=1) - timedelta(days=1)
@@ -282,13 +282,13 @@ def get_mtd_kpi_header(
             {_CASH_PAY_FILTER}
         ),
         yesterday_data AS (
-            -- Prior Day Sales = NET SALES (accrual, closed) on the PREVIOUS month's
-            -- last sale day (prior_day_sale = latest closed sale day before this month).
+            -- Prior Day Sales = RAW CASH COLLECTED (payment_date, exc-tax) on the
+            -- PREVIOUS month's last payment day (prior_day_sale). NO tender filter.
             SELECT
-                COALESCE(SUM(CASE WHEN LOWER(status) = 'closed' THEN sales_exc_tax ELSE 0 END), 0)  AS yesterday_revenue,
-                COALESCE(COUNT(DISTINCT CASE WHEN LOWER(status) = 'closed' THEN guest_name END), 0) AS yesterday_clients
-            FROM {FULL_SALES}
-            WHERE CAST(sale_date AS DATE) = '{prior_day_sale}'
+                COALESCE(SUM(sales_collected_exc_tax), 0) AS yesterday_revenue,
+                COALESCE(COUNT(DISTINCT guest_name), 0)   AS yesterday_clients
+            FROM {FULL_CASH}
+            WHERE CAST(payment_date AS DATE) = '{prior_day_sale}'
             {y_loc}
         ),
         last_month_data AS (

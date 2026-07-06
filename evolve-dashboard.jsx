@@ -688,10 +688,11 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
   // R49: PY Variance % = (MTD - PY) / PY * 100
   const yoy = h.same_store_yoy;
 
-  // Revenue MoM (current vs prior month) for the hero cards — preferred over
-  // YoY when prior-year data is absent (e.g. first year of a location).
+  // Revenue MoM (current vs prior month) — the hero-card delta is always
+  // month-over-month (vs the prior calendar month), never YoY. Null when the
+  // prior month has no revenue (momPctDelta guards prv === 0 / missing).
   const cashMom = momPctDelta(h.mtd_revenue, hPrev.mtd_revenue);
-  const heroDelta = (arrowDelta(yoy).text !== '—') ? arrowDelta(yoy) : (cashMom || arrowDelta(yoy));
+  const heroDelta = cashMom;
 
   // ---- FINANCIAL group ----
   // R37: % to Goal MTD = MTD Cash Sales ÷ Monthly Budget
@@ -1264,20 +1265,23 @@ const InjectablesScatter = ({ points }) => {
 const FinanceView = () => {
   const fl = useFilters();
   const params = { start_date: fl.start_date, end_date: fl.end_date, locations: fl.locations };
+  const prev = prevMonthRange(fl.start_date);
+  const prevParams = { start_date: prev.start, end_date: prev.end, locations: fl.locations };
   const { data, loading, error, reload } = useApiData({
     header: { path: '/api/mtd-kpi-header', params },
+    headerPrev: { path: '/api/mtd-kpi-header', params: prevParams },
     monthly: { path: '/api/monthly-trend', params },
     daily: { path: '/api/mtd-daily-trend', params },
     categories: { path: '/api/category-breakdown', params },
   }, [JSON.stringify(params)]);
   return (
     <DataState loading={loading || !fl.ready} error={error} onRetry={reload}>
-      <FinanceBody h={data.header || {}} monthly={data.monthly || []} daily={data.daily} categories={data.categories || []} range={fl.monthLabel} />
+      <FinanceBody h={data.header || {}} hPrev={data.headerPrev || {}} monthly={data.monthly || []} daily={data.daily} categories={data.categories || []} range={fl.monthLabel} />
     </DataState>
   );
 };
 
-const FinanceBody = ({ h, monthly, daily, categories, range }) => {
+const FinanceBody = ({ h, hPrev = {}, monthly, daily, categories, range }) => {
   // chain-level P&L aggregated from monthly-trend (per-location rows)
   const agg = monthly.reduce((a, r) => {
     a.revenue += n(r.recognized_revenue) || 0;
@@ -1294,9 +1298,10 @@ const FinanceBody = ({ h, monthly, daily, categories, range }) => {
   const ebitda = grossProfit - payroll;
   const rev = revenue || 1;
 
-  // KPI cards (deltas: only yoy is available from API; others show pt/label where present)
+  // KPI cards. Revenue delta is month-over-month (current vs prior calendar
+  // month) via the prior-month header; others show pt/label where present.
   const kpis = [
-    { label: 'Recognized Revenue', value: money(revenue, { compact: true }), ...spread(arrowDelta(h.same_store_yoy)) },
+    { label: 'Recognized Revenue', value: money(revenue, { compact: true }), ...spreadOrNull(momPctDelta(h.mtd_revenue, hPrev.mtd_revenue)) },
     { label: 'Gross Profit', value: money(grossProfit, { compact: true }), delta: null },
     { label: 'Gross Margin', value: pct(grossMargin), delta: null },
     { label: 'EBITDA', value: money(ebitda, { compact: true }), delta: null },
