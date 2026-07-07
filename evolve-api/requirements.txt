@@ -7,3 +7,6 @@ google-auth==2.35.0
 pymssql==2.3.13
 python-dotenv==1.0.1
 httpx
+# Added for the scheduled dashboard-snapshot email (scripts/send_dashboard_email.py):
+resend
+playwright
