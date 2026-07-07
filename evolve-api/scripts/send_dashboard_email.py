@@ -17,7 +17,8 @@ Intended to run as a Railway Cron service:
 Environment variables (set in Railway → Variables):
     RESEND_API_KEY   Resend API key
     DASHBOARD_URL    Live dashboard URL (used only inside this script — never emailed)
-    EMAIL_TO         Comma-separated recipient list
+    EMAIL_TO         Comma-separated primary recipient list (at least one)
+    EMAIL_CC         (optional) Comma-separated CC recipient list
     EMAIL_FROM       Verified sender, e.g. "Evolve Dashboard <reports@yourdomain.com>"
     EMAIL_SUBJECT    (optional) Subject line override
     RENDER_WAIT_MS   (optional) Extra settle time for charts to paint (default 2800)
@@ -175,6 +176,7 @@ def main() -> None:
     resend.api_key = _env("RESEND_API_KEY")
     dashboard_url = _env("DASHBOARD_URL")
     email_to = [e.strip() for e in _env("EMAIL_TO").split(",") if e.strip()]
+    email_cc = [e.strip() for e in _env("EMAIL_CC", required=False).split(",") if e.strip()]
     email_from = _env("EMAIL_FROM")
     render_wait_ms = int(_env("RENDER_WAIT_MS", required=False, default="2800"))
 
@@ -202,16 +204,19 @@ def main() -> None:
         },
     ]
 
-    resend.Emails.send(
-        {
-            "from": email_from,
-            "to": email_to,
-            "subject": subject,
-            "html": html,
-            "attachments": attachments,
-        }
-    )
-    print(f"[send_dashboard_email] Sent Overview (inline image + PDF) to {', '.join(email_to)}")
+    params = {
+        "from": email_from,
+        "to": email_to,
+        "subject": subject,
+        "html": html,
+        "attachments": attachments,
+    }
+    if email_cc:
+        params["cc"] = email_cc
+
+    resend.Emails.send(params)
+    recipients = ", ".join(email_to + email_cc)
+    print(f"[send_dashboard_email] Sent Overview (inline image + PDF) to {recipients}")
 
 
 if __name__ == "__main__":
