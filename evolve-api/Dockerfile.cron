@@ -1,0 +1,28 @@
+# Dockerfile for the SCHEDULED DASHBOARD-SNAPSHOT EMAIL cron service ONLY.
+#
+# The backend API service keeps using Nixpacks — it must NOT use this file.
+# This file is only picked up by the cron service via the Railway variable:
+#     RAILWAY_DOCKERFILE_PATH=Dockerfile.cron
+#
+# We use the official Playwright image because it ships Chromium + all of its
+# system libraries (libglib, libnss3, …) preinstalled and correctly linked —
+# which Nixpacks does not carry into its runtime image.
+#
+# The image tag is pinned to the same Playwright version as requirements.txt
+# (playwright==1.47.0) so the preinstalled browser matches the installed
+# Python package.
+
+FROM mcr.microsoft.com/playwright/python:v1.47.0-jammy
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Belt-and-suspenders: ensure the Chromium build matching the installed
+# playwright is present (no-op if already bundled in the base image).
+RUN playwright install chromium
+
+COPY . .
+
+CMD ["python3", "scripts/send_dashboard_email.py"]
