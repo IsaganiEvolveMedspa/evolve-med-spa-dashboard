@@ -1,17 +1,17 @@
 """
 Scheduled Dashboard Snapshot Email
 ==================================
-Opens the live Evolve dashboard in a headless browser, screenshots the key
-executive views, and emails them as INLINE images stacked in the email body.
+Opens the live Evolve dashboard in a headless browser, captures the OVERVIEW
+view, and emails it as:
+  • an INLINE image in the email body, and
+  • a PDF of the Overview attached to the same email.
 
   • No link to the dashboard is ever placed in the email (by design — the
     dashboard is public, so we ship pictures, not a live URL).
-  • Views captured: Overview, Finance, Operations, Marketing (Acquisition).
   • Delivered via Resend (HTTP API — Railway blocks outbound SMTP ports).
 
 Intended to run as a Railway Cron service:
-    Build:  pip install -r requirements.txt && playwright install --with-deps chromium
-    Start:  python scripts/send_dashboard_email.py
+    Start:  python scripts/send_dashboard_email.py   (via Dockerfile.cron CMD)
     Cron:   0 11 * * *   (11:00 UTC ~= 7:00 AM ET — cron runs in UTC)
 
 Environment variables (set in Railway → Variables):
@@ -20,7 +20,7 @@ Environment variables (set in Railway → Variables):
     EMAIL_TO         Comma-separated recipient list
     EMAIL_FROM       Verified sender, e.g. "Evolve Dashboard <reports@yourdomain.com>"
     EMAIL_SUBJECT    (optional) Subject line override
-    RENDER_WAIT_MS   (optional) Extra settle time per view for charts to paint (default 2800)
+    RENDER_WAIT_MS   (optional) Extra settle time for charts to paint (default 2800)
 """
 
 from __future__ import annotations
@@ -33,20 +33,15 @@ from datetime import date
 import resend
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
 
-# --- Views to capture, in email order ---
-# label   -> shown as the heading above the image in the email
-# nav_text -> substring of the sidebar link text used to click it
-VIEWS = [
-    {"key": "overview",   "label": "Overview",   "nav_text": "Overview"},
-    {"key": "finance",    "label": "Finance",    "nav_text": "Finance"},
-    {"key": "operations", "label": "Operations", "nav_text": "Operations"},
-    {"key": "marketing",  "label": "Marketing",  "nav_text": "Acquisition"},
-]
+# --- The single view we capture ---
+VIEW_KEY = "overview"
+VIEW_LABEL = "Overview"
+VIEW_NAV_TEXT = "Overview"
 
 VIEWPORT = {"width": 1600, "height": 1200}
 NAV_TIMEOUT_MS = 60_000
-# Each view fetches live data and shows "Loading live data…" until it's ready.
-# We wait for that indicator to clear (up to this long) before screenshotting,
+# The view fetches live data and shows "Loading live data…" until it's ready.
+# We wait for that indicator to clear (up to this long) before capturing,
 # rather than guessing with a fixed timer.
 DATA_LOAD_TIMEOUT_MS = 60_000
 # Text the dashboard shows while a view is still fetching (see DataState in the UI).
@@ -62,7 +57,7 @@ def _env(name: str, required: bool = True, default: str | None = None) -> str:
 
 
 # JS that removes the height:100vh / overflow:hidden constraints so a full-page
-# screenshot captures the ENTIRE view instead of just the visible viewport.
+# screenshot / PDF captures the ENTIRE view instead of just the visible viewport.
 _UNCLIP_JS = """
 () => {
   const shell = document.querySelector('#root > div');
@@ -76,90 +71,97 @@ _UNCLIP_JS = """
 }
 """
 
+# JS run just before the PDF: hide the sidebar so the PDF is just the content,
+# and report the <main> dimensions so we can size the PDF to one page.
+_MEASURE_FOR_PDF_JS = """
+() => {
+  const aside = document.querySelector('aside');
+  if (aside) aside.style.display = 'none';
+  const main = document.querySelector('main');
+  const r = main.getBoundingClientRect();
+  return {
+    w: Math.ceil(Math.max(main.scrollWidth, r.width)),
+    h: Math.ceil(Math.max(main.scrollHeight, r.height)),
+  };
+}
+"""
 
-def capture_views(dashboard_url: str, render_wait_ms: int) -> list[dict]:
-    """Return a list of {key, label, png_bytes} for every view we could capture."""
-    shots: list[dict] = []
+
+def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
+    """Open the dashboard, load the Overview, and return {png_bytes, pdf_bytes}."""
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--no-sandbox"])
         page = browser.new_page(viewport=VIEWPORT, device_scale_factor=2)
         page.goto(dashboard_url, wait_until="networkidle", timeout=NAV_TIMEOUT_MS)
 
-        # Sidebar only renders once the boot API calls resolve — this is our
-        # "the app is alive" signal.
+        # Sidebar only renders once the boot API calls resolve — "app is alive".
         page.wait_for_selector("aside", timeout=NAV_TIMEOUT_MS)
 
-        for view in VIEWS:
-            try:
-                link = page.locator("aside a.ev-nav", has_text=view["nav_text"]).first
-                link.click()
-                page.wait_for_load_state("networkidle", timeout=NAV_TIMEOUT_MS)
+        # Make sure we're on the Overview view.
+        page.locator("aside a.ev-nav", has_text=VIEW_NAV_TEXT).first.click()
+        page.wait_for_load_state("networkidle", timeout=NAV_TIMEOUT_MS)
 
-                # Give the newly-mounted view a beat to fire its data fetch and
-                # render the "Loading live data…" state, then wait for that state
-                # to clear. This is the real fix for blank Finance/Operations/
-                # Marketing captures — those views' API calls take longer than any
-                # fixed timer, so we wait on the actual loading indicator instead.
-                page.wait_for_timeout(1000)
-                try:
-                    page.wait_for_function(
-                        "(t) => !document.body.innerText.includes(t)",
-                        arg=LOADING_TEXT,
-                        timeout=DATA_LOAD_TIMEOUT_MS,
-                    )
-                except PlaywrightTimeoutError:
-                    print(
-                        f"[send_dashboard_email] WARN: '{view['label']}' still loading "
-                        f"after {DATA_LOAD_TIMEOUT_MS}ms; capturing anyway",
-                        file=sys.stderr,
-                    )
+        # Wait for the "Loading live data…" indicator to clear so we never
+        # capture the loading skeleton.
+        page.wait_for_timeout(1000)
+        try:
+            page.wait_for_function(
+                "(t) => !document.body.innerText.includes(t)",
+                arg=LOADING_TEXT,
+                timeout=DATA_LOAD_TIMEOUT_MS,
+            )
+        except PlaywrightTimeoutError:
+            print(
+                f"[send_dashboard_email] WARN: '{VIEW_LABEL}' still loading after "
+                f"{DATA_LOAD_TIMEOUT_MS}ms; capturing anyway",
+                file=sys.stderr,
+            )
 
-                # Recharts animates via JS (not CSS), so we can't disable it —
-                # give each view a final settle window to finish painting.
-                page.wait_for_timeout(render_wait_ms)
+        # Recharts animates via JS (not CSS), so give it a final settle window.
+        page.wait_for_timeout(render_wait_ms)
 
-                page.evaluate(_UNCLIP_JS)
-                page.wait_for_timeout(300)  # let layout reflow after unclipping
+        page.evaluate(_UNCLIP_JS)
+        page.wait_for_timeout(300)  # let layout reflow after unclipping
 
-                # Screenshot <main> only → topbar (with the view title) + full
-                # content, without repeating the sidebar in every image.
-                png = page.locator("main").screenshot(type="png")
-                shots.append({"key": view["key"], "label": view["label"], "png_bytes": png})
-                print(f"[send_dashboard_email] Captured '{view['label']}' ({len(png)} bytes)")
-            except Exception as exc:  # keep going so one bad view doesn't kill the email
-                print(f"[send_dashboard_email] FAILED to capture '{view['label']}': {exc}", file=sys.stderr)
+        # 1) Inline image: screenshot <main> only (topbar + content, no sidebar).
+        png_bytes = page.locator("main").screenshot(type="png")
+        print(f"[send_dashboard_email] Captured '{VIEW_LABEL}' PNG ({len(png_bytes)} bytes)")
+
+        # 2) PDF: hide the sidebar, size the page to the content, one-page PDF.
+        dims = page.evaluate(_MEASURE_FOR_PDF_JS)
+        page.wait_for_timeout(200)  # reflow after hiding the sidebar
+        pdf_bytes = page.pdf(
+            width=f"{dims['w']}px",
+            height=f"{dims['h']}px",
+            print_background=True,
+            margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
+        )
+        print(f"[send_dashboard_email] Captured '{VIEW_LABEL}' PDF ({len(pdf_bytes)} bytes)")
 
         browser.close()
-    return shots
+    return {"png_bytes": png_bytes, "pdf_bytes": pdf_bytes}
 
 
-def build_html(shots: list[dict], report_date: str) -> str:
-    """Build an HTML body with each screenshot inline via cid: references."""
-    sections = []
-    for shot in shots:
-        sections.append(
-            f"""
-      <tr><td style="padding:28px 0 8px 0;font:600 16px Arial,Helvetica,sans-serif;color:#1a2b28;">
-        {shot['label']}
-      </td></tr>
-      <tr><td style="padding:0 0 8px 0;">
-        <img src="cid:{shot['key']}" alt="{shot['label']}"
-             style="display:block;width:100%;max-width:900px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
-      </td></tr>"""
-        )
-    body = "".join(sections)
+def build_html(report_date: str) -> str:
+    """Build an HTML body with the Overview image inline via a cid: reference."""
     return f"""<!DOCTYPE html>
 <html><body style="margin:0;padding:0;background:#f6f8f7;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8f7;">
     <tr><td align="center" style="padding:28px 16px;">
       <table role="presentation" width="900" cellpadding="0" cellspacing="0" style="max-width:900px;width:100%;">
         <tr><td style="font:700 22px Arial,Helvetica,sans-serif;color:#1a2b28;padding-bottom:2px;">
-          Evolve Med Spa — Dashboard Snapshot
+          Evolve Med Spa — Overview
         </td></tr>
-        <tr><td style="font:400 13px Arial,Helvetica,sans-serif;color:#68807a;padding-bottom:8px;">
+        <tr><td style="font:400 13px Arial,Helvetica,sans-serif;color:#68807a;padding-bottom:14px;">
           {report_date}
         </td></tr>
-        {body}
+        <tr><td style="padding:0 0 8px 0;">
+          <img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}"
+               style="display:block;width:100%;max-width:900px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
+        </td></tr>
+        <tr><td style="padding:10px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">
+          A PDF of the Overview is attached.
+        </td></tr>
         <tr><td style="padding:26px 0 0 0;font:400 11px Arial,Helvetica,sans-serif;color:#9aaaa5;border-top:1px solid #e2e8e5;">
           Automated snapshot. Confidential — internal use only.
         </td></tr>
@@ -176,22 +178,28 @@ def main() -> None:
     email_from = _env("EMAIL_FROM")
     render_wait_ms = int(_env("RENDER_WAIT_MS", required=False, default="2800"))
 
-    report_date = date.today().strftime("%A, %B %-d, %Y") if os.name != "nt" else date.today().strftime("%A, %B %d, %Y")
-    subject = _env("EMAIL_SUBJECT", required=False, default=f"Evolve Dashboard Snapshot — {report_date}")
+    report_date = (
+        date.today().strftime("%A, %B %-d, %Y")
+        if os.name != "nt"
+        else date.today().strftime("%A, %B %d, %Y")
+    )
+    subject = _env("EMAIL_SUBJECT", required=False, default=f"Evolve Dashboard Overview — {report_date}")
 
-    shots = capture_views(dashboard_url, render_wait_ms)
-    if not shots:
-        print("[send_dashboard_email] No views captured — aborting, no email sent.", file=sys.stderr)
-        sys.exit(1)
+    capture = capture_overview(dashboard_url, render_wait_ms)
 
-    html = build_html(shots, report_date)
+    html = build_html(report_date)
     attachments = [
         {
-            "filename": f"{shot['key']}.png",
-            "content": base64.b64encode(shot["png_bytes"]).decode("ascii"),
-            "content_id": shot["key"],  # matches cid: in the HTML → renders inline
-        }
-        for shot in shots
+            # Inline image referenced by cid: in the HTML body.
+            "filename": f"{VIEW_KEY}.png",
+            "content": base64.b64encode(capture["png_bytes"]).decode("ascii"),
+            "content_id": VIEW_KEY,
+        },
+        {
+            # PDF attachment (no content_id → shows as a downloadable file).
+            "filename": f"evolve-overview-{date.today().isoformat()}.pdf",
+            "content": base64.b64encode(capture["pdf_bytes"]).decode("ascii"),
+        },
     ]
 
     resend.Emails.send(
@@ -203,7 +211,7 @@ def main() -> None:
             "attachments": attachments,
         }
     )
-    print(f"[send_dashboard_email] Sent {len(shots)} inline images to {', '.join(email_to)}")
+    print(f"[send_dashboard_email] Sent Overview (inline image + PDF) to {', '.join(email_to)}")
 
 
 if __name__ == "__main__":
