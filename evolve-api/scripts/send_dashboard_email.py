@@ -31,7 +31,7 @@ import sys
 from datetime import date
 
 import resend
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
 
 # --- Views to capture, in email order ---
 # label   -> shown as the heading above the image in the email
@@ -45,6 +45,12 @@ VIEWS = [
 
 VIEWPORT = {"width": 1600, "height": 1200}
 NAV_TIMEOUT_MS = 60_000
+# Each view fetches live data and shows "Loading live data…" until it's ready.
+# We wait for that indicator to clear (up to this long) before screenshotting,
+# rather than guessing with a fixed timer.
+DATA_LOAD_TIMEOUT_MS = 60_000
+# Text the dashboard shows while a view is still fetching (see DataState in the UI).
+LOADING_TEXT = "Loading live data"
 
 
 def _env(name: str, required: bool = True, default: str | None = None) -> str:
@@ -88,8 +94,28 @@ def capture_views(dashboard_url: str, render_wait_ms: int) -> list[dict]:
                 link = page.locator("aside a.ev-nav", has_text=view["nav_text"]).first
                 link.click()
                 page.wait_for_load_state("networkidle", timeout=NAV_TIMEOUT_MS)
+
+                # Give the newly-mounted view a beat to fire its data fetch and
+                # render the "Loading live data…" state, then wait for that state
+                # to clear. This is the real fix for blank Finance/Operations/
+                # Marketing captures — those views' API calls take longer than any
+                # fixed timer, so we wait on the actual loading indicator instead.
+                page.wait_for_timeout(1000)
+                try:
+                    page.wait_for_function(
+                        "(t) => !document.body.innerText.includes(t)",
+                        arg=LOADING_TEXT,
+                        timeout=DATA_LOAD_TIMEOUT_MS,
+                    )
+                except PlaywrightTimeoutError:
+                    print(
+                        f"[send_dashboard_email] WARN: '{view['label']}' still loading "
+                        f"after {DATA_LOAD_TIMEOUT_MS}ms; capturing anyway",
+                        file=sys.stderr,
+                    )
+
                 # Recharts animates via JS (not CSS), so we can't disable it —
-                # give each view a fixed settle window to finish painting.
+                # give each view a final settle window to finish painting.
                 page.wait_for_timeout(render_wait_ms)
 
                 page.evaluate(_UNCLIP_JS)
