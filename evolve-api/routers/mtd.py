@@ -16,6 +16,7 @@ from utils.operating_days import cash_run_rate, recognized_run_rate
 from utils.sss import sss_growth_yoy
 from utils.new_customers import new_existing_visits
 from utils.new_guests import new_guest_count
+from utils.rebooking_kpi import rebooking_rate_kpi
 from utils.memberships import new_memberships
 from utils.rev_hour import esthetician_rev_per_hour, provider_rev_per_hour
 from utils.errors import log_and_raise_from_request
@@ -535,6 +536,13 @@ def get_mtd_kpi_header(
         result["mtd_ad_spend"] = mtd_ad_spend(s, e)
         result["client_acquisition_cost"] = client_acquisition_cost(
             result.get("mtd_ad_spend"), result.get("new_visits") or result.get("new_client_count"))
+        # Rebook Rate % — override the appointments-based SQL rate with the official
+        # Business KPI export: AVERAGE of per-center daily "Rebooking Source %",
+        # EXCLUDING zeros; a location filter with all-zero shows 0. Falls back to the
+        # SQL rate (rb.rebooking_rate) for ranges with no export.
+        rb_kpi = rebooking_rate_kpi(s, e, locations)
+        if rb_kpi is not None:
+            result["rebooking_rate"] = rb_kpi
         if debug:
             result["_timings"] = timings
         return result
