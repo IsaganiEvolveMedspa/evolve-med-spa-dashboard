@@ -39,7 +39,14 @@ VIEW_KEY = "overview"
 VIEW_LABEL = "Overview"
 VIEW_NAV_TEXT = "Overview"
 
-VIEWPORT = {"width": 1600, "height": 1200}
+# iPhone 6 logical viewport — the emailed snapshot is opened on a phone, so we
+# render at phone dimensions (375×667 @2x) instead of a desktop window.
+VIEWPORT = {"width": 375, "height": 667}
+DEVICE_SCALE_FACTOR = 2
+IPHONE6_UA = (
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 10_3_1 like Mac OS X) "
+    "AppleWebKit/603.1.30 (KHTML, like Gecko) Version/10.0 Mobile/14E304 Safari/602.1"
+)
 NAV_TIMEOUT_MS = 60_000
 # The view fetches live data and shows "Loading live data…" until it's ready.
 # We wait for that indicator to clear (up to this long) before capturing,
@@ -88,11 +95,30 @@ _MEASURE_FOR_PDF_JS = """
 """
 
 
+# The dashboard has no responsive CSS, so at a phone width the desktop KPI
+# grids (repeat(N,1fr)) collapse into unreadable slivers and the sidebar eats
+# most of the width. Applied for the capture only: drop the sidebar so the
+# content gets full phone width, stack the KPI grids into 2 columns, and stack
+# the wide "chart + attainment" row (1.55fr 1fr) so each gets full width.
+_MOBILE_LAYOUT_CSS = """
+aside { display: none !important; }
+main { width: 100% !important; }
+main [style*="repeat("] { grid-template-columns: repeat(2, 1fr) !important; }
+main [style*="1.55fr"] { grid-template-columns: 1fr !important; }
+"""
+
+
 def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
     """Open the dashboard, load the Overview, and return {png_bytes, pdf_bytes}."""
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--no-sandbox"])
-        page = browser.new_page(viewport=VIEWPORT, device_scale_factor=2)
+        page = browser.new_page(
+            viewport=VIEWPORT,
+            device_scale_factor=DEVICE_SCALE_FACTOR,
+            is_mobile=True,
+            has_touch=True,
+            user_agent=IPHONE6_UA,
+        )
         page.goto(dashboard_url, wait_until="networkidle", timeout=NAV_TIMEOUT_MS)
 
         # Sidebar only renders once the boot API calls resolve — "app is alive".
@@ -122,7 +148,10 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
         page.wait_for_timeout(render_wait_ms)
 
         page.evaluate(_UNCLIP_JS)
-        page.wait_for_timeout(300)  # let layout reflow after unclipping
+        # Phone layout: drop the sidebar and reflow the desktop KPI grids so
+        # they're legible at 375px instead of squished into slivers.
+        page.add_style_tag(content=_MOBILE_LAYOUT_CSS)
+        page.wait_for_timeout(400)  # let layout reflow after unclip + mobile CSS
 
         # 1) Inline image: screenshot <main> only (topbar + content, no sidebar).
         png_bytes = page.locator("main").screenshot(type="png")
@@ -149,7 +178,7 @@ def build_html(report_date: str) -> str:
 <html><body style="margin:0;padding:0;background:#f6f8f7;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8f7;">
     <tr><td align="center" style="padding:28px 16px;">
-      <table role="presentation" width="900" cellpadding="0" cellspacing="0" style="max-width:900px;width:100%;">
+      <table role="presentation" width="420" cellpadding="0" cellspacing="0" style="max-width:420px;width:100%;">
         <tr><td style="font:700 22px Arial,Helvetica,sans-serif;color:#1a2b28;padding-bottom:2px;">
           Evolve Med Spa — Overview
         </td></tr>
@@ -158,7 +187,7 @@ def build_html(report_date: str) -> str:
         </td></tr>
         <tr><td style="padding:0 0 8px 0;">
           <img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}"
-               style="display:block;width:100%;max-width:900px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
+               style="display:block;width:100%;max-width:375px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
         </td></tr>
         <tr><td style="padding:10px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">
           A PDF of the Overview is attached.
