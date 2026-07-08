@@ -149,15 +149,29 @@ const Eyebrow = ({ children }) => (
   </div>
 );
 
-// Small KPI card used across grids. When a goal prop is present, a "Goal
-// <target>" line renders beneath the value (merged into the metric card, no
-// separate goal card).
-const KpiCard = ({ label, value, delta, deltaColor, accent, goal }) => (
+// Small KPI card used across grids. When a goal prop is present, the card splits
+// into two columns — the metric value (with its MoM delta below) beside the goal
+// target (with "% to goal" below) — all in the one card.
+const KpiCard = ({ label, value, delta, deltaColor, accent, goal, goalDelta, goalDeltaColor }) => (
   <div style={{ background: C.panel, border: `1px solid ${accent ? C.teal : C.line}`, borderRadius: 12, padding: '13px 15px', minWidth: 0 }}>
     <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.25, minHeight: 26 }}>{label}</div>
-    <div style={{ font: `600 21px ${FONT}`, color: C.ink, marginTop: 7, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-    {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: 3 }}>{delta}</div>}
-    {goal != null && <div style={{ font: `600 10.5px ${FONT}`, color: C.teal, marginTop: 3 }}>Goal {goal}</div>}
+    {goal != null ? (
+      <div style={{ display: 'flex', gap: 10, marginTop: 7 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ font: `600 21px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+          {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: 3 }}>{delta}</div>}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ font: `600 21px ${FONT}`, color: C.teal, fontVariantNumeric: 'tabular-nums' }}>{goal}</div>
+          {goalDelta != null && <div style={{ font: `600 10.5px ${FONT}`, color: goalDeltaColor || C.gray, marginTop: 3 }}>{goalDelta}</div>}
+        </div>
+      </div>
+    ) : (
+      <>
+        <div style={{ font: `600 21px ${FONT}`, color: C.ink, marginTop: 7, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+        {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: 3 }}>{delta}</div>}
+      </>
+    )}
   </div>
 );
 
@@ -634,7 +648,7 @@ const BarList = ({ rows, max, color = C.teal, labelW = 140, valueW = 70, fmt = (
    ================================================================= */
 
 // Hero trend card: label, MTD value+delta, Projected value+delta.
-const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta }) => (
+const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta, extraLabel, extra }) => (
   <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
     <div style={{ font: `600 10px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{label}</div>
     <div style={{ display: 'flex', gap: 14, marginTop: 14 }}>
@@ -644,6 +658,15 @@ const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta }) => (
         {mtdDelta && <div style={{ font: `600 10.5px ${FONT}`, color: mtdDelta.color, marginTop: 3 }}>{mtdDelta.text}</div>}
       </div>
       <div style={{ width: 1, background: C.line2 }} />
+      {extra != null && (
+        <>
+          <div style={{ flex: 1 }}>
+            <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>{extraLabel}</div>
+            <div style={{ font: `600 26px ${FONT}`, color: C.ink, marginTop: 5, fontVariantNumeric: 'tabular-nums' }}>{extra}</div>
+          </div>
+          <div style={{ width: 1, background: C.line2 }} />
+        </>
+      )}
       <div style={{ flex: 1 }}>
         <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>Projected · Run Rate</div>
         <div style={{ font: `600 26px ${FONT}`, color: C.ink, marginTop: 5, fontVariantNumeric: 'tabular-nums' }}>{proj}</div>
@@ -706,14 +729,21 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
   const cashMom = momPctDelta(h.mtd_revenue, hPrev.mtd_revenue);
   const heroDelta = cashMom;
 
-  // Goal props merged INTO a metric card: adds a "Goal <target>" line beneath
-  // the metric's own value. Returns null when no goal is defined (chain view, or
-  // a month with no goals), so the caller keeps the card's month-over-month
-  // delta. A 0 goal (a filtered location with no goal) still renders as "Goal 0".
+  // Goal props merged INTO a metric card: the target renders beside the metric's
+  // value, with "% to goal" beneath it (and the MoM delta beneath the value).
+  // Returns null when no goal is defined (chain view, or a month with no goals),
+  // so the caller keeps the plain single-column card. A 0 goal (a filtered
+  // location with no goal) still renders as "0" with no % to measure against.
   const goalProps = (actual, goalVal, fmt) => {
     const g = n(goalVal);
     if (g == null) return null;
-    return { goal: fmt(g) };
+    const a = n(actual);
+    const pct = (a != null && g !== 0) ? (a / g) * 100 : null;
+    return {
+      goal: fmt(g),
+      goalDelta: pct != null ? `${pct >= 100 ? '▲' : '▼'} ${pct.toFixed(0)}% to goal` : null,
+      goalDeltaColor: pct != null ? (pct >= 100 ? C.green : C.clay) : null,
+    };
   };
 
   // ---- FINANCIAL group ----
@@ -915,7 +945,8 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
       {/* hero trend cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <HeroCard label="Cash Sales" mtd={money(cashMtd, { compact: true, floor: true })} mtdDelta={heroDelta}
-          proj={money(projRunRate, { compact: true, floor: true })} projDelta={heroDelta} />
+          proj={money(projRunRate, { compact: true, floor: true })} projDelta={heroDelta}
+          extraLabel="Full-Month Budget" extra={budget ? money(budget, { compact: true }) : '—'} />
         <HeroCard label="Recognized Revenue" mtd={money(recRev, { compact: true })} mtdDelta={heroDelta}
           proj={money(h.recognized_run_rate ?? projRunRate, { compact: true, floor: true })} projDelta={heroDelta} />
       </div>
