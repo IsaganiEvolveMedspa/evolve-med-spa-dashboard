@@ -143,6 +143,74 @@ def _budget_values_sql(e: str) -> str:
     return f"(VALUES\n    {rows}\n) AS budget_lookup(location, monthly_budget)"
 
 
+# ── Monthly goals, per month → per location ──────────────────────────────────
+# Source: Evolve Marketing Dashboard (Power BI | Daily Revenue). New/Existing
+# Customers are counts; ASP (New)/(Existing) are dollar targets per customer.
+# Keyed by "YYYY-MM"; resolved with the same _budget_month_key() logic so goals
+# and budget always track the same month.
+_GOALS_BY_MONTH: dict[str, dict[str, dict[str, float]]] = {
+    "2026-06": {
+        'Hoboken, NJ': { 'new_customers': 46, 'existing_customers': 615, 'asp_new': 337, 'asp_existing': 343 },
+        'Jersey City, NJ': { 'new_customers': 87, 'existing_customers': 405, 'asp_new': 516, 'asp_existing': 380 },
+        'Montclair, NJ': { 'new_customers': 61, 'existing_customers': 479, 'asp_new': 333, 'asp_existing': 291 },
+        'Short Hills, NJ': { 'new_customers': 51, 'existing_customers': 364, 'asp_new': 400, 'asp_existing': 341 },
+        'Denville, NJ': { 'new_customers': 54, 'existing_customers': 349, 'asp_new': 580, 'asp_existing': 337 },
+        'Red Bank, NJ': { 'new_customers': 48, 'existing_customers': 346, 'asp_new': 432, 'asp_existing': 330 },
+        'Tribeca, NY': { 'new_customers': 59, 'existing_customers': 113, 'asp_new': 245, 'asp_existing': 248 },
+        'Bel Air, MD': { 'new_customers': 68, 'existing_customers': 315, 'asp_new': 322, 'asp_existing': 329 },
+        'Frederick, MD': { 'new_customers': 43, 'existing_customers': 278, 'asp_new': 394, 'asp_existing': 363 },
+        'Ridgewood, NJ': { 'new_customers': 62, 'existing_customers': 310, 'asp_new': 421, 'asp_existing': 300 },
+        'Waldorf, MD': { 'new_customers': 11, 'existing_customers': 58, 'asp_new': 245, 'asp_existing': 258 },
+        'Old Bridge, NJ': { 'new_customers': 48, 'existing_customers': 152, 'asp_new': 442, 'asp_existing': 380 },
+        'Bridgewater, NJ': { 'new_customers': 27, 'existing_customers': 43, 'asp_new': 376, 'asp_existing': 492 },
+        'Lancaster, PA': { 'new_customers': 26, 'existing_customers': 29, 'asp_new': 170, 'asp_existing': 566 },
+    },
+    "2026-07": {
+        'Hoboken, NJ': { 'new_customers': 22, 'existing_customers': 530, 'asp_new': 345, 'asp_existing': 297 },
+        'Jersey City, NJ': { 'new_customers': 77, 'existing_customers': 358, 'asp_new': 648, 'asp_existing': 356 },
+        'Montclair, NJ': { 'new_customers': 43, 'existing_customers': 519, 'asp_new': 363, 'asp_existing': 270 },
+        'Short Hills, NJ': { 'new_customers': 44, 'existing_customers': 304, 'asp_new': 393, 'asp_existing': 294 },
+        'Denville, NJ': { 'new_customers': 37, 'existing_customers': 353, 'asp_new': 436, 'asp_existing': 331 },
+        'Red Bank, NJ': { 'new_customers': 43, 'existing_customers': 304, 'asp_new': 290, 'asp_existing': 326 },
+        'Tribeca, NY': { 'new_customers': 52, 'existing_customers': 101, 'asp_new': 207, 'asp_existing': 218 },
+        'Bel Air, MD': { 'new_customers': 56, 'existing_customers': 255, 'asp_new': 351, 'asp_existing': 247 },
+        'Frederick, MD': { 'new_customers': 43, 'existing_customers': 265, 'asp_new': 358, 'asp_existing': 278 },
+        'Ridgewood, NJ': { 'new_customers': 57, 'existing_customers': 290, 'asp_new': 345, 'asp_existing': 257 },
+        'Waldorf, MD': { 'new_customers': 9, 'existing_customers': 42, 'asp_new': 242, 'asp_existing': 270 },
+        'Old Bridge, NJ': { 'new_customers': 46, 'existing_customers': 144, 'asp_new': 277, 'asp_existing': 313 },
+        'Bridgewater, NJ': { 'new_customers': 25, 'existing_customers': 40, 'asp_new': 563, 'asp_existing': 425 },
+        'Lancaster, PA': { 'new_customers': 24, 'existing_customers': 26, 'asp_new': 349, 'asp_existing': 805 },
+    },
+}
+
+
+def _goals_for(e: str, locations: Optional[List[str]]) -> dict[str, Optional[float]]:
+    """Aggregate monthly goals for the report month + selected locations.
+
+    Customer goals are summed. ASP goals are customer-count-weighted averages
+    (ASP-new weighted by new-customer goal, ASP-existing by existing-customer
+    goal) so the chain/filtered figure is a true blended target, not a naive
+    mean. Returns None for a metric when there is no goal basis.
+    """
+    month = _GOALS_BY_MONTH.get(_budget_month_key(e), {})
+    locs = locations if locations else list(month.keys())
+    new_c = exist_c = asp_new_num = asp_exist_num = 0.0
+    for loc in locs:
+        g = month.get(loc)
+        if not g:
+            continue
+        new_c        += g['new_customers']
+        exist_c      += g['existing_customers']
+        asp_new_num  += g['asp_new'] * g['new_customers']
+        asp_exist_num += g['asp_existing'] * g['existing_customers']
+    return {
+        "new_customers_goal":      new_c or None,
+        "existing_customers_goal": exist_c or None,
+        "asp_new_goal":            (asp_new_num / new_c) if new_c else None,
+        "asp_existing_goal":       (asp_exist_num / exist_c) if exist_c else None,
+    }
+
+
 
 @router.get("/api/mtd-kpi-header")
 def get_mtd_kpi_header(
@@ -253,6 +321,13 @@ def get_mtd_kpi_header(
             monthly_budget_val = float(sum(budget_by_loc.get(l, 0.0) for l in locations))
         else:
             monthly_budget_val = float(sum(budget_by_loc.values()))
+
+        # Month + location-aware goals (New/Existing Customers, ASP New/Existing),
+        # injected as SQL literals like monthly_budget. NULL renders as SQL NULL so
+        # the client shows "—" when a month has no goal defined. See _goals_for().
+        goals = _goals_for(e, locations)
+        def _goal_lit(v: Optional[float]) -> str:
+            return "NULL" if v is None else f"{v:.4f}"
 
         sql = f"""
         WITH guest_classification AS (
@@ -431,6 +506,10 @@ def get_mtd_kpi_header(
             pv.rev_per_esthetician_hr AS rev_per_esthetician,
             ROUND((1 - 0.20 - 0.22 * 1.12) * 100, 1)                                          AS gross_margin_pct,
             {monthly_budget_val}                                                                  AS monthly_budget,
+            {_goal_lit(goals["new_customers_goal"])}                                              AS new_customers_goal,
+            {_goal_lit(goals["existing_customers_goal"])}                                         AS existing_customers_goal,
+            {_goal_lit(goals["asp_new_goal"])}                                                    AS asp_new_goal,
+            {_goal_lit(goals["asp_existing_goal"])}                                               AS asp_existing_goal,
             rb.rebooking_rate
         FROM mtd m
         CROSS JOIN yesterday_data  y

@@ -150,9 +150,9 @@ const Eyebrow = ({ children }) => (
 );
 
 // Small KPI card used across grids.
-const KpiCard = ({ label, value, delta, deltaColor }) => (
-  <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '13px 15px', minWidth: 0 }}>
-    <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: C.gray, lineHeight: 1.25, minHeight: 26 }}>{label}</div>
+const KpiCard = ({ label, value, delta, deltaColor, accent }) => (
+  <div style={{ background: C.panel, border: `1px solid ${accent ? C.teal : C.line}`, borderRadius: 12, padding: '13px 15px', minWidth: 0 }}>
+    <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.25, minHeight: 26 }}>{label}</div>
     <div style={{ font: `600 21px ${FONT}`, color: C.ink, marginTop: 7, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
     {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: 3 }}>{delta}</div>}
   </div>
@@ -703,6 +703,22 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
   const cashMom = momPctDelta(h.mtd_revenue, hPrev.mtd_revenue);
   const heroDelta = cashMom;
 
+  // Builds a standalone "Goal" card placed beside its matching KPI card. Value
+  // is the target (fmt = money/num); the delta shows attainment vs goal, colored
+  // green ≥100% / clay below. Returns null when the month has no goal for the
+  // metric so it can be filtered out of the card row.
+  const goalCard = (label, actual, goalVal, fmt) => {
+    const g = n(goalVal);
+    if (g == null || g === 0) return null;
+    const a = n(actual);
+    const pct = a != null ? (a / g) * 100 : null;
+    return {
+      label, value: fmt(g), accent: true,
+      delta: pct != null ? `${pct >= 100 ? '▲' : '▼'} ${pct.toFixed(0)}% to goal` : null,
+      deltaColor: pct != null ? (pct >= 100 ? C.green : C.clay) : null,
+    };
+  };
+
   // ---- FINANCIAL group ----
   // R37: % to Goal MTD = MTD Cash Sales ÷ Monthly Budget
   const budgetPaceVal = (() => {
@@ -724,13 +740,15 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
     { label: 'Prior Day Sales', value: money(h.yesterday_revenue, { compact: true }), ...spreadOrNull(momPctDelta(h.yesterday_revenue, hPrev.yesterday_revenue)) },
     // R18: ASP (New) = Cash Sales (New) less Recurring ÷ New Customers
     { label: 'ASP (New)', value: money(h.asp_new_clients), ...spreadOrNull(momPctDelta(h.asp_new_clients, hPrev.asp_new_clients)) },
+    goalCard('ASP (New) · Goal', h.asp_new_clients, h.asp_new_goal, (v) => money(v)),
     // R19: ASP (Existing) = Cash Sales (Existing) less Recurring ÷ Existing Customers
     { label: 'ASP (Existing)', value: money(h.asp_existing_clients), ...spreadOrNull(momPctDelta(h.asp_existing_clients, hPrev.asp_existing_clients)) },
+    goalCard('ASP (Existing) · Goal', h.asp_existing_clients, h.asp_existing_goal, (v) => money(v)),
     // R59: COGS Margin = COGS ÷ Revenue (est. — lower is better, so invert delta color)
     { label: 'COGS Margin %', value: pct(cogsMargin), ...spreadOrNull(momPtDelta(cogsMargin, cogsMarginPrev, { invert: true })) },
     // R60: Payroll Margin = Salary ÷ Sales Accrual (real salary model; lower is better)
     { label: 'Payroll Margin %', value: h.payroll_margin_pct != null ? pct(h.payroll_margin_pct) : '—', ...spreadOrNull(momPtDelta(h.payroll_margin_pct, hPrev.payroll_margin_pct, { invert: true })) },
-  ];
+  ].filter(Boolean);
 
   // ---- OPERATIONAL group ----
   // No-show / cancellation rates from appointments/summary (chain aggregate).
@@ -781,15 +799,17 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
 
   const marketing = [
     { label: 'New Customer Visits', value: num(newVisits), ...spreadOrNull(momPctDelta(newVisits, newVisitsPrev)) },
+    goalCard('New Customer · Goal', newVisits, h.new_customers_goal, (v) => num(v)),
     // R12/R65: Existing Customers = guests with prior purchase + payment >$0
     { label: 'Existing Customer Visits', value: num(h.existing_client_count), ...spreadOrNull(momPctDelta(h.existing_client_count, hPrev.existing_client_count)) },
+    goalCard('Existing Customer · Goal', h.existing_client_count, h.existing_customers_goal, (v) => num(v)),
     // R: MTD Ad Spend = SUM(Google + FB ad spend) for the month (chain-level, bundled export)
     { label: 'MTD Ad Spend', value: h.mtd_ad_spend != null ? money(h.mtd_ad_spend, { compact: true }) : '—', ...spreadOrNull(momPctDelta(h.mtd_ad_spend, hPrev.mtd_ad_spend)) },
     // R: Client Acquisition Cost = MTD Ad Spend / New Customers
     { label: 'CAC', value: h.client_acquisition_cost != null ? money(h.client_acquisition_cost) : '—', ...spreadOrNull(momPctDelta(h.client_acquisition_cost, hPrev.client_acquisition_cost, { invert: true })) },
     // 90-day return rate: matured cohort, wired to /api/new-guest-return-rate
     { label: 'New Guest Return Rate · 90 Day', value: returnRate != null ? pct(returnRate) : '—', ...spreadOrNull(momPtDelta(returnRate, returnRatePrev)) },
-  ];
+  ].filter(Boolean);
 
   // ---- Sales to Budget chart ----
   const dailyArr = Array.isArray(daily?.daily) ? daily.daily : [];
@@ -901,7 +921,7 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
 
       {/* KPI groups */}
       <Eyebrow>Financial</Eyebrow>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 12, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${financial.length},1fr)`, gap: 12, marginBottom: 18 }}>
         {financial.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
@@ -911,7 +931,7 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
       </div>
 
       <Eyebrow>Marketing</Eyebrow>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 4 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${marketing.length},1fr)`, gap: 12, marginBottom: 4 }}>
         {marketing.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
