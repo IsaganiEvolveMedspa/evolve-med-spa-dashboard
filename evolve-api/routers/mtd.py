@@ -73,42 +73,74 @@ _MIX_COLS = """
     SUM(sales_exc_tax)                                                                      AS total
 """
 
-# Budget lookup as a SQL Server VALUES table
-_BUDGET_VALUES = """(VALUES
-    ('Bel Air, MD',      167500.0),
-    ('Bridgewater, NJ',   50000.0),
-    ('Denville, NJ',     165000.0),
-    ('Frederick, MD',    147500.0),
-    ('Hoboken, NJ',      267500.0),
-    ('Jersey City, NJ',  250000.0),
-    ('Lancaster, PA',     50000.0),
-    ('Montclair, NJ',    192500.0),
-    ('Old Bridge, NJ',    97500.0),
-    ('Red Bank, NJ',     160000.0),
-    ('Ridgewood, NJ',    150000.0),
-    ('Short Hills, NJ',  167500.0),
-    ('Tribeca, NY',       50000.0),
-    ('Waldorf, MD',       35000.0)
-) AS budget_lookup(location, monthly_budget)"""
-
-# Same budget figures as a Python dict, so the header can compute a
-# location-aware budget without a parameterized SQL round-trip.
-_BUDGET_BY_LOCATION = {
-    'Bel Air, MD':     167500.0,
-    'Bridgewater, NJ':  50000.0,
-    'Denville, NJ':    165000.0,
-    'Frederick, MD':   147500.0,
-    'Hoboken, NJ':     267500.0,
-    'Jersey City, NJ': 250000.0,
-    'Lancaster, PA':    50000.0,
-    'Montclair, NJ':   192500.0,
-    'Old Bridge, NJ':   97500.0,
-    'Red Bank, NJ':    160000.0,
-    'Ridgewood, NJ':   150000.0,
-    'Short Hills, NJ': 167500.0,
-    'Tribeca, NY':      50000.0,
-    'Waldorf, MD':      35000.0,
+# ── Full Month Budget, per month → per location ──────────────────────────────
+# Source: Evolve Marketing Dashboard (Power BI | Daily Revenue), "Sales Targets
+# ($)" column. Keyed by "YYYY-MM". Each month's values sum to that month's Full
+# Month Budget (Jun-26 = 1,950,000; Jul-26 = 1,700,000). Add new months here as
+# they are set; _budget_month_key() resolves a report date to the right month.
+_BUDGET_BY_MONTH: dict[str, dict[str, float]] = {
+    "2026-06": {
+        'Bel Air, MD':     167500.0,
+        'Bridgewater, NJ':  50000.0,
+        'Denville, NJ':    165000.0,
+        'Frederick, MD':   147500.0,
+        'Hoboken, NJ':     267500.0,
+        'Jersey City, NJ': 250000.0,
+        'Lancaster, PA':    50000.0,
+        'Montclair, NJ':   192500.0,
+        'Old Bridge, NJ':   97500.0,
+        'Red Bank, NJ':    160000.0,
+        'Ridgewood, NJ':   150000.0,
+        'Short Hills, NJ': 167500.0,
+        'Tribeca, NY':      50000.0,
+        'Waldorf, MD':      35000.0,
+    },
+    "2026-07": {
+        'Bel Air, MD':     125000.0,
+        'Bridgewater, NJ':  42500.0,
+        'Denville, NJ':    165000.0,
+        'Frederick, MD':   120000.0,
+        'Hoboken, NJ':     242500.0,
+        'Jersey City, NJ': 237500.0,
+        'Lancaster, PA':    40000.0,
+        'Montclair, NJ':   167500.0,
+        'Old Bridge, NJ':   70000.0,
+        'Red Bank, NJ':    145000.0,
+        'Ridgewood, NJ':   130000.0,
+        'Short Hills, NJ': 140000.0,
+        'Tribeca, NY':      42500.0,
+        'Waldorf, MD':      32500.0,
+    },
 }
+
+
+def _budget_month_key(e: str) -> str:
+    """Resolve a report end-date ('YYYY-MM-DD') to a defined budget month key.
+
+    Uses the report's own month when it has budgets; otherwise the latest
+    defined month that is not after it; otherwise the earliest defined month.
+    Keeps behaviour sane for dates outside the configured range.
+    """
+    keys = sorted(_BUDGET_BY_MONTH)
+    want = e[:7]
+    if want in _BUDGET_BY_MONTH:
+        return want
+    earlier = [k for k in keys if k <= want]
+    return earlier[-1] if earlier else keys[0]
+
+
+def _budget_dict(e: str) -> dict[str, float]:
+    """Per-location Full Month Budget for the report month of end-date `e`."""
+    return _BUDGET_BY_MONTH[_budget_month_key(e)]
+
+
+def _budget_values_sql(e: str) -> str:
+    """The month's budget as a SQL Server VALUES table (same shape as before)."""
+    rows = ",\n    ".join(
+        f"('{loc.replace(chr(39), chr(39) * 2)}', {amt})"
+        for loc, amt in _budget_dict(e).items()
+    )
+    return f"(VALUES\n    {rows}\n) AS budget_lookup(location, monthly_budget)"
 
 
 
@@ -211,13 +243,16 @@ def get_mtd_kpi_header(
         appt_loc, appt_loc_p = loc_in(locations)
         y_loc,    y_loc_p    = loc_in(locations)
 
-        # Location-aware monthly budget (was hardcoded 1,950,000 — wrong under any
-        # location filter). Sum the per-location budget dict for selected centers.
-        # Computed in Python (no SQL placeholders) to avoid any param-binding risk.
+        # Location-aware, month-aware monthly budget (was hardcoded 1,950,000 —
+        # wrong under any location filter, and wrong once budgets change month to
+        # month). Sum the per-location budget for the report month + selected
+        # centers. Computed in Python (no SQL placeholders) to avoid param-binding
+        # risk. See _BUDGET_BY_MONTH.
+        budget_by_loc = _budget_dict(e)
         if locations:
-            monthly_budget_val = float(sum(_BUDGET_BY_LOCATION.get(l, 0.0) for l in locations))
+            monthly_budget_val = float(sum(budget_by_loc.get(l, 0.0) for l in locations))
         else:
-            monthly_budget_val = float(sum(_BUDGET_BY_LOCATION.values()))
+            monthly_budget_val = float(sum(budget_by_loc.values()))
 
         sql = f"""
         WITH guest_classification AS (
@@ -594,7 +629,7 @@ def get_mtd_summary(
 
         sql = f"""
         WITH budget_lookup AS (
-            SELECT location, monthly_budget FROM {_BUDGET_VALUES}
+            SELECT location, monthly_budget FROM {_budget_values_sql(e)}
         ),
         current_period AS (
             SELECT
@@ -734,14 +769,14 @@ def get_mtd_daily_trend(
         if locations:
             bw_ph     = ",".join(["%s"] * len(locations))
             budget_sql = f"""
-            WITH b AS (SELECT location, monthly_budget FROM {_BUDGET_VALUES})
+            WITH b AS (SELECT location, monthly_budget FROM {_budget_values_sql(e)})
             SELECT COALESCE(SUM(monthly_budget), 0) AS total_budget
             FROM b WHERE location IN ({bw_ph})
             """
             budget_rows = run_query(budget_sql, list(locations))
         else:
             budget_sql = f"""
-            WITH b AS (SELECT location, monthly_budget FROM {_BUDGET_VALUES})
+            WITH b AS (SELECT location, monthly_budget FROM {_budget_values_sql(e)})
             SELECT COALESCE(SUM(monthly_budget), 0) AS total_budget FROM b
             """
             budget_rows = run_query(budget_sql)
