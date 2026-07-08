@@ -190,9 +190,18 @@ def _goals_for(e: str, locations: Optional[List[str]]) -> dict[str, Optional[flo
     Customer goals are summed. ASP goals are customer-count-weighted averages
     (ASP-new weighted by new-customer goal, ASP-existing by existing-customer
     goal) so the chain/filtered figure is a true blended target, not a naive
-    mean. Returns None for a metric when there is no goal basis.
+    mean.
+
+    A location missing from the month's goal table is simply skipped — the total
+    still reflects the locations that do have goals. The zero-basis fallback then
+    depends on the view:
+    • Filtered to specific location(s) → return 0.0 so the client shows "0"
+      (a filtered location with no goal is a real zero, not "no data").
+    • Chain / all locations → return None so the card is hidden when the month
+      has no goals defined at all.
     """
     month = _GOALS_BY_MONTH.get(_budget_month_key(e), {})
+    filtered = bool(locations)
     locs = locations if locations else list(month.keys())
     new_c = exist_c = asp_new_num = asp_exist_num = 0.0
     for loc in locs:
@@ -203,11 +212,12 @@ def _goals_for(e: str, locations: Optional[List[str]]) -> dict[str, Optional[flo
         exist_c      += g['existing_customers']
         asp_new_num  += g['asp_new'] * g['new_customers']
         asp_exist_num += g['asp_existing'] * g['existing_customers']
+    zero: Optional[float] = 0.0 if filtered else None
     return {
-        "new_customers_goal":      new_c or None,
-        "existing_customers_goal": exist_c or None,
-        "asp_new_goal":            (asp_new_num / new_c) if new_c else None,
-        "asp_existing_goal":       (asp_exist_num / exist_c) if exist_c else None,
+        "new_customers_goal":      new_c or zero,
+        "existing_customers_goal": exist_c or zero,
+        "asp_new_goal":            (asp_new_num / new_c) if new_c else zero,
+        "asp_existing_goal":       (asp_exist_num / exist_c) if exist_c else zero,
     }
 
 

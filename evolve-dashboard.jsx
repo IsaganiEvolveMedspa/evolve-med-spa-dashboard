@@ -705,13 +705,15 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
 
   // Builds a standalone "Goal" card placed beside its matching KPI card. Value
   // is the target (fmt = money/num); the delta shows attainment vs goal, colored
-  // green ≥100% / clay below. Returns null when the month has no goal for the
-  // metric so it can be filtered out of the card row.
+  // green ≥100% / clay below. Returns null only when the goal is absent (null) —
+  // e.g. the chain view for a month with no goals defined. A 0 goal (a location
+  // filter with no goal for that location) still renders, showing "0"; the % to
+  // goal delta is dropped there since there's no non-zero target to measure.
   const goalCard = (label, actual, goalVal, fmt) => {
     const g = n(goalVal);
-    if (g == null || g === 0) return null;
+    if (g == null) return null;
     const a = n(actual);
-    const pct = a != null ? (a / g) * 100 : null;
+    const pct = (a != null && g !== 0) ? (a / g) * 100 : null;
     return {
       label, value: fmt(g), accent: true,
       delta: pct != null ? `${pct >= 100 ? '▲' : '▼'} ${pct.toFixed(0)}% to goal` : null,
