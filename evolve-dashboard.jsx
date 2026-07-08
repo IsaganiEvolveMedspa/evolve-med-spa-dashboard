@@ -149,16 +149,15 @@ const Eyebrow = ({ children }) => (
   </div>
 );
 
-// Small KPI card used across grids. When goal props are present, the target and
-// "% to goal" render beneath the value (merged into the metric card, no separate
-// goal card).
-const KpiCard = ({ label, value, delta, deltaColor, accent, goal, goalDelta, goalDeltaColor }) => (
+// Small KPI card used across grids. When a goal prop is present, a "Goal
+// <target>" line renders beneath the value (merged into the metric card, no
+// separate goal card).
+const KpiCard = ({ label, value, delta, deltaColor, accent, goal }) => (
   <div style={{ background: C.panel, border: `1px solid ${accent ? C.teal : C.line}`, borderRadius: 12, padding: '13px 15px', minWidth: 0 }}>
     <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.25, minHeight: 26 }}>{label}</div>
     <div style={{ font: `600 21px ${FONT}`, color: C.ink, marginTop: 7, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
     {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: 3 }}>{delta}</div>}
     {goal != null && <div style={{ font: `600 10.5px ${FONT}`, color: C.teal, marginTop: 3 }}>Goal {goal}</div>}
-    {goalDelta != null && <div style={{ font: `600 10.5px ${FONT}`, color: goalDeltaColor || C.gray, marginTop: 2 }}>{goalDelta}</div>}
   </div>
 );
 
@@ -707,21 +706,14 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
   const cashMom = momPctDelta(h.mtd_revenue, hPrev.mtd_revenue);
   const heroDelta = cashMom;
 
-  // Goal props merged INTO a metric card: adds "Goal <target>" and a "% to goal"
-  // line beneath the metric's own value. Returns null when no goal is defined
-  // (chain view, or a month with no goals), so the caller keeps the card's
-  // month-over-month delta instead. A 0 goal (a filtered location with no goal)
-  // still renders as "Goal 0" with no % — there's no non-zero target to measure.
+  // Goal props merged INTO a metric card: adds a "Goal <target>" line beneath
+  // the metric's own value. Returns null when no goal is defined (chain view, or
+  // a month with no goals), so the caller keeps the card's month-over-month
+  // delta. A 0 goal (a filtered location with no goal) still renders as "Goal 0".
   const goalProps = (actual, goalVal, fmt) => {
     const g = n(goalVal);
     if (g == null) return null;
-    const a = n(actual);
-    const pct = (a != null && g !== 0) ? (a / g) * 100 : null;
-    return {
-      goal: fmt(g),
-      goalDelta: pct != null ? `${pct >= 100 ? '▲' : '▼'} ${pct.toFixed(0)}% to goal` : null,
-      goalDeltaColor: pct != null ? (pct >= 100 ? C.green : C.clay) : null,
-    };
+    return { goal: fmt(g) };
   };
 
   // ---- FINANCIAL group ----
@@ -745,10 +737,12 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
     { label: 'Prior Day Sales', value: money(h.yesterday_revenue, { compact: true }), ...spreadOrNull(momPctDelta(h.yesterday_revenue, hPrev.yesterday_revenue)) },
     // R18: ASP (New) = Cash Sales (New) less Recurring ÷ New Customers
     { label: 'ASP (New)', value: money(h.asp_new_clients),
-      ...(goalProps(h.asp_new_clients, h.asp_new_goal, (v) => money(v)) ?? spreadOrNull(momPctDelta(h.asp_new_clients, hPrev.asp_new_clients))) },
+      ...spreadOrNull(momPctDelta(h.asp_new_clients, hPrev.asp_new_clients)),
+      ...goalProps(h.asp_new_clients, h.asp_new_goal, (v) => money(v)) },
     // R19: ASP (Existing) = Cash Sales (Existing) less Recurring ÷ Existing Customers
     { label: 'ASP (Existing)', value: money(h.asp_existing_clients),
-      ...(goalProps(h.asp_existing_clients, h.asp_existing_goal, (v) => money(v)) ?? spreadOrNull(momPctDelta(h.asp_existing_clients, hPrev.asp_existing_clients))) },
+      ...spreadOrNull(momPctDelta(h.asp_existing_clients, hPrev.asp_existing_clients)),
+      ...goalProps(h.asp_existing_clients, h.asp_existing_goal, (v) => money(v)) },
     // R59: COGS Margin = COGS ÷ Revenue (est. — lower is better, so invert delta color)
     { label: 'COGS Margin %', value: pct(cogsMargin), ...spreadOrNull(momPtDelta(cogsMargin, cogsMarginPrev, { invert: true })) },
     // R60: Payroll Margin = Salary ÷ Sales Accrual (real salary model; lower is better)
@@ -804,10 +798,12 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
 
   const marketing = [
     { label: 'New Customer Visits', value: num(newVisits),
-      ...(goalProps(newVisits, h.new_customers_goal, (v) => num(v)) ?? spreadOrNull(momPctDelta(newVisits, newVisitsPrev))) },
+      ...spreadOrNull(momPctDelta(newVisits, newVisitsPrev)),
+      ...goalProps(newVisits, h.new_customers_goal, (v) => num(v)) },
     // R12/R65: Existing Customers = guests with prior purchase + payment >$0
     { label: 'Existing Customer Visits', value: num(h.existing_client_count),
-      ...(goalProps(h.existing_client_count, h.existing_customers_goal, (v) => num(v)) ?? spreadOrNull(momPctDelta(h.existing_client_count, hPrev.existing_client_count))) },
+      ...spreadOrNull(momPctDelta(h.existing_client_count, hPrev.existing_client_count)),
+      ...goalProps(h.existing_client_count, h.existing_customers_goal, (v) => num(v)) },
     // R: MTD Ad Spend = SUM(Google + FB ad spend) for the month (chain-level, bundled export)
     { label: 'MTD Ad Spend', value: h.mtd_ad_spend != null ? money(h.mtd_ad_spend, { compact: true }) : '—', ...spreadOrNull(momPctDelta(h.mtd_ad_spend, hPrev.mtd_ad_spend)) },
     // R: Client Acquisition Cost = MTD Ad Spend / New Customers
