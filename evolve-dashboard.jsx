@@ -693,24 +693,24 @@ const BarList = ({ rows, max, color = C.teal, labelW = 140, valueW = 70, fmt = (
 const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta, extraLabel, extra, labelDef, projDef, extraDef }) => (
   <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
     <div style={{ display: 'flex', alignItems: 'center', font: `600 12px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{label}<InfoDot def={labelDef} /></div>
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'stretch', marginTop: 16 }}>
-      <div>
+    <div style={{ display: 'flex', alignItems: 'stretch', marginTop: 16 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>MTD</div>
         <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{mtd}</div>
         {mtdDelta && <div style={{ font: `600 12.5px ${FONT}`, color: mtdDelta.color, marginTop: 4 }}>{mtdDelta.text}</div>}
       </div>
       {extra != null && (
         <>
-          <div style={{ width: 2, background: C.line2, margin: '2px 24px', borderRadius: 1 }} />
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>{extraLabel}<InfoDot def={extraDef} /></div>
+          <div style={{ width: 3, background: C.line2, margin: '4px 20px', borderRadius: 2, flex: 'none' }} />
+          <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>{extraLabel}<InfoDot def={extraDef} /></div>
             <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{extra}</div>
           </div>
         </>
       )}
-      <div style={{ width: 2, background: C.line2, margin: '2px 24px', borderRadius: 1 }} />
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>Projected · Run Rate<InfoDot def={projDef} /></div>
+      <div style={{ width: 3, background: C.line2, margin: '4px 20px', borderRadius: 2, flex: 'none' }} />
+      <div style={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>Projected · Run Rate<InfoDot def={projDef} /></div>
         <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{proj}</div>
         {projDelta && <div style={{ font: `600 12.5px ${FONT}`, color: projDelta.color, marginTop: 4 }}>{projDelta.text}</div>}
       </div>
