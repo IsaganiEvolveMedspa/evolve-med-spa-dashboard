@@ -297,7 +297,7 @@ const DEFS = {
   projRunRate: 'Proj. Run Rate: the cash run rate — MTD cash ÷ working days elapsed × total working days in the month.',
   fullMonthBudget: 'Full-Month Budget: the monthly budget target for the selected month (chain, or the selected locations).',
   budgetPct: '% to Budget: MTD cash sales ÷ full-month budget × 100.',
-  priorDay: 'Prior Day Sales: net (accrual) sales on the latest closed sale day.',
+  priorDay: 'Prior Day Sales: raw cash collected (excl. tax, all tenders) on the most recent day that has cash data — a completed month uses its last collection day; the current month uses the latest loaded day (self-adjusts to the cash-settlement lag).',
   sss: 'SSS Growth YoY %: (current-year MTD cash − prior-year same-period cash) ÷ prior-year × 100, over same-store locations only.',
   aspNew: 'ASP (New): non-membership MTD sales of new customers ÷ New Customer Visits (sales accrual, per customer).',
   aspExisting: 'ASP (Existing): non-membership MTD sales of existing customers ÷ Existing Customer Visits (sales accrual, per customer).',

@@ -3,61 +3,59 @@ New-membership count for Membership Adoption Rate.
 
 Numerator = memberships CREATED this month AND STARTING the same month.
 
-Source: bundled Zenoti "Memberships" report exports (data/memberships.json, built
-from data/memberships_*.csv via scripts/build_memberships_json.py). The warehouse
-table Bi_DimMembershipUser_s3 is stale (no current-month rows), so we use the
-report export instead. Only NEW sign-ups are kept (Sale Type = 'Sale'); recurring
-auto-bills are excluded by the generator.
+Source: dbo.BRONZE_ZENOTI_MEMBERSHIPS_SALES (live warehouse). Only NEW sign-ups
+are counted (sale_type = 'Sale'); recurring auto-bills (other sale types) are
+excluded. Previously this read a bundled CSV/JSON export because the older
+warehouse table was stale; the BRONZE_ZENOTI_MEMBERSHIPS_SALES table is live, so
+we query it directly and no rebuild step is needed.
 
 Denominator (non-member unique guests) comes from the cash report's `member` flag
 and is computed in the main KPI query, not here.
 """
-import json
+import calendar
 import logging
-import os
 from datetime import datetime
-from functools import lru_cache
 from typing import Optional
 
+from config import FULL_MEMBERSHIP_SALES
+from db import run_query
+from utils.filters import loc_in
+
 log = logging.getLogger(__name__)
-
-_JSON = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                     "data", "memberships.json")
-
-
-@lru_cache(maxsize=1)
-def _rows() -> list[dict]:
-    try:
-        with open(_JSON, encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return []
 
 
 def new_memberships(s: str, e: str, locations: Optional[list[str]]) -> int:
     """Count new memberships created in [s, e] AND starting the same calendar month
-    (optionally scoped to selected centers). 0 if the bundled file is missing/empty."""
+    (optionally scoped to selected centers). Returns 0 on any error so it never
+    takes down the KPI header.
+
+    Rules (unchanged from the previous export-based implementation):
+      • sale_type = 'Sale'                    → new sign-ups only, no auto-bills
+      • sale_date  within [s, e]              → created in the MTD window
+      • start_date within the calendar month of `e` → starts the same month
+    """
     try:
         e_dt        = datetime.strptime(e, "%Y-%m-%d").date()
         month_start = e_dt.replace(day=1).isoformat()
-        if e_dt.month == 12:
-            next_month = e_dt.replace(year=e_dt.year + 1, month=1, day=1).isoformat()
-        else:
-            next_month = e_dt.replace(month=e_dt.month + 1, day=1).isoformat()
+        month_end   = e_dt.replace(
+            day=calendar.monthrange(e_dt.year, e_dt.month)[1]
+        ).isoformat()
 
-        loc_set = set(locations) if locations else None
-        cnt = 0
-        for r in _rows():
-            sd = r.get("sale_date")
-            st = r.get("start_date")
-            if not sd or not (s <= sd <= e):                 # created this month (MTD window)
-                continue
-            if not st or not (month_start <= st < next_month):  # starts the same calendar month
-                continue
-            if loc_set and r.get("center") not in loc_set:
-                continue
-            cnt += 1
-        return cnt
+        # Location filter targets this table's center column (sale_center), not the
+        # cash table's center_name. Dates are inlined (validated router params);
+        # location values stay parameterised via loc_in().
+        loc_and, loc_p = loc_in(locations, col="sale_center")
+        sql = f"""
+            SELECT COUNT(*) AS new_members
+            FROM {FULL_MEMBERSHIP_SALES}
+            WHERE LOWER(LTRIM(RTRIM(sale_type))) = 'sale'
+              AND CAST(sale_date  AS DATE) BETWEEN '{s}' AND '{e}'
+              AND CAST(start_date AS DATE) BETWEEN '{month_start}' AND '{month_end}'
+              {loc_and}
+        """
+        rows = run_query(sql, loc_p or None)
+        val = rows[0].get("new_members") if rows else None
+        return int(val) if val is not None else 0
     except Exception as exc:                                 # never take down the KPI header
         log.warning("new_memberships failed; returning 0: %s", exc)
         return 0

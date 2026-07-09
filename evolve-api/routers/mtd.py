@@ -281,8 +281,10 @@ def get_mtd_kpi_header(
         # "Prior Day Sales" date depends on whether the SELECTED month is complete:
         #   • Fully-past (complete) month -> that month's LAST payment day
         #       (e.g. June 2026 filter -> Jun 30).
-        #   • Current / incomplete month -> TODAY minus 2 days
-        #       (e.g. today Jul 6 -> Jul 4; absorbs the ~2-day cash-settlement lag).
+        #   • Current / incomplete month -> the latest day that actually has cash
+        #       data (`yesterday`, resolved above via MAX(payment_date) <= end_date).
+        #       This self-adjusts to the cash-settlement lag instead of assuming a
+        #       fixed offset, so it never lands on an empty (not-yet-loaded) day.
         # Value is RAW cash collected on that day (no tender filter), payment_date basis.
         today_dt       = datetime.utcnow().date()
         sel_month_last = s_dt.replace(day=calendar.monthrange(s_dt.year, s_dt.month)[1])
@@ -299,8 +301,9 @@ def get_mtd_kpi_header(
                 str(_pd[0]["d"]) if _pd and _pd[0].get("d") else str(sel_month_last)
             )
         else:
-            # current / incomplete month -> today minus 2 days
-            prior_day_sale = str(today_dt - timedelta(days=2))
+            # current / incomplete month -> latest day that actually has cash data
+            # (self-adjusts to the settlement lag; never lands on an empty day)
+            prior_day_sale = yesterday
 
         lm_end_dt   = e_dt.replace(day=1) - timedelta(days=1)
         lm_start_dt = lm_end_dt.replace(day=1)
@@ -609,9 +612,9 @@ def get_mtd_kpi_header(
         result["gross_margin_pct"] = (100 - (cogs_m or 0) - (payroll_m or 0)) if tot_sales else None
         # Membership Adoption = New Memberships / Non-Member unique guests * 100.
         #   New Memberships = memberships CREATED this month AND STARTING this month, from
-        #     Bi_DimMembershipUser_s3 (COUNT DISTINCT UserMembershipId, IsDeleted=0).
+        #     BRONZE_ZENOTI_MEMBERSHIPS_SALES (sale_type='Sale'; see utils/memberships.py).
         #   Non-Members     = distinct cash guests with the `member` flag = 'no'.
-        # Reads 0 if Bi_DimMembershipUser_s3 has no current-month rows (data-freshness gap).
+        # Reads 0 if the memberships-sales table has no matching rows for the window.
         non_member = result.get("non_member_count") or 0
         result["new_members"] = new_memb
         result["membership_adoption_rate"] = (new_memb / non_member * 100) if non_member else None
