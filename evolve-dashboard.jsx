@@ -153,8 +153,8 @@ const Eyebrow = ({ children }) => (
 // into two columns — the metric value (with its MoM delta below) beside the goal
 // target (with "% to goal" below) — all in the one card.
 const KpiCard = ({ label, value, delta, deltaColor, accent, goal, goalDelta, goalDeltaColor, def }) => (
-  <div style={{ background: C.panel, border: `1px solid ${accent ? C.teal : C.line}`, borderRadius: 12, padding: '14px 15px', minWidth: 0 }}>
-    <div style={{ display: 'flex', alignItems: 'flex-start', font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.25, minHeight: 26 }}>
+  <div style={{ background: C.panel, border: `1px solid ${accent ? C.teal : C.line}`, borderRadius: 12, padding: '16px 16px', minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.3, minHeight: 24 }}>
       <span>{label}</span><InfoDot def={def} />
     </div>
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: 7 }}>
@@ -996,17 +996,17 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
 
       {/* KPI groups */}
       <Eyebrow>Financial</Eyebrow>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${financial.length},1fr)`, gap: 12, marginBottom: 18, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${financial.length},1fr)`, gap: 12, marginBottom: 18, alignItems: 'stretch' }}>
         {financial.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
       <Eyebrow>Operational</Eyebrow>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 12, marginBottom: 18, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 12, marginBottom: 18, alignItems: 'stretch' }}>
         {operational.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
       <Eyebrow>Marketing</Eyebrow>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${marketing.length},1fr)`, gap: 12, marginBottom: 4, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${marketing.length},1fr)`, gap: 12, marginBottom: 4, alignItems: 'stretch' }}>
         {marketing.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
