@@ -114,9 +114,11 @@ main [style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
 /* Stack each hero card's columns vertically; hide the vertical dividers. */
 .ev-hero-cols { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
 .ev-hero-cols > div[style*="width: 3px"] { display: none !important; }
-/* Shrink the location tables so all columns fit at phone width. */
-main table { font-size: 8.5px !important; }
-main th, main td { padding: 3px 5px !important; }
+/* Shrink the location tables so every column fits at phone width. */
+main table, main th, main td { font-size: 7px !important; }
+main th, main td { padding: 2px 3px !important; letter-spacing: 0 !important; }
+/* Drop the non-functional "?" icons in table headers to reclaim column width. */
+main th .ev-info { display: none !important; }
 """
 
 
@@ -162,8 +164,11 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
         # sidebar, size the page to the content, one-page PDF.
         dims = page.evaluate(_MEASURE_FOR_PDF_JS)
         page.wait_for_timeout(200)  # reflow after hiding the sidebar
+        # Pin the PDF page to the desktop viewport width so it always renders the
+        # full desktop layout (hero side-by-side, chart beside attainment, tables
+        # full-width); height follows the measured content.
         pdf_bytes = page.pdf(
-            width=f"{dims['w']}px",
+            width=f"{PDF_VIEWPORT['width']}px",
             height=f"{dims['h']}px",
             print_background=True,
             margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
