@@ -153,7 +153,7 @@ const Eyebrow = ({ children }) => (
 // into two columns — the metric value (with its MoM delta below) beside the goal
 // target (with "% to goal" below) — all in the one card.
 const KpiCard = ({ label, value, delta, deltaColor, accent, goal, goalDelta, goalDeltaColor, def }) => (
-  <div style={{ background: C.panel, border: `1px solid ${accent ? C.teal : C.line}`, borderRadius: 12, padding: '14px 15px', minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
+  <div style={{ background: C.panel, border: `1px solid ${accent ? C.teal : C.line}`, borderRadius: 12, padding: '14px 15px', minWidth: 0 }}>
     <div style={{ display: 'flex', alignItems: 'flex-start', font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.25, minHeight: 26 }}>
       <span>{label}</span><InfoDot def={def} />
     </div>
@@ -161,12 +161,8 @@ const KpiCard = ({ label, value, delta, deltaColor, accent, goal, goalDelta, goa
       <span style={{ font: `600 21px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
       {goal != null && <span style={{ font: `500 11px ${FONT}`, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>vs. goal {goal}</span>}
     </div>
-    {(delta != null || goalDelta != null) && (
-      <div style={{ marginTop: 'auto', paddingTop: 10 }}>
-        {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green }}>{delta}</div>}
-        {goalDelta != null && <div style={{ font: `600 10.5px ${FONT}`, color: goalDeltaColor || C.gray, marginTop: 2 }}>{goalDelta}</div>}
-      </div>
-    )}
+    {goalDelta != null && <div style={{ font: `600 10.5px ${FONT}`, color: goalDeltaColor || C.gray, marginTop: 4 }}>{goalDelta}</div>}
+    {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: goalDelta != null ? 2 : 4 }}>{delta}</div>}
   </div>
 );
 
@@ -452,8 +448,8 @@ const Dashboard = () => {
         .ev-scroll::-webkit-scrollbar-track{background:transparent;}
         .ev-info{position:relative;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;margin-left:4px;border-radius:50%;border:1px solid #B7C6C1;color:#7C8F8A;font:700 9px ${FONT};line-height:1;cursor:help;vertical-align:middle;letter-spacing:0;text-transform:none;flex:none;}
         .ev-info:hover{border-color:${C.teal};color:${C.teal};}
-        .ev-info .ev-tip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:238px;max-width:238px;background:#12332E;color:#EAF3F0;font:500 11px ${FONT};line-height:1.45;letter-spacing:0;text-transform:none;text-align:left;padding:9px 11px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.22);z-index:60;white-space:normal;}
-        .ev-info .ev-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#12332E;}
+        .ev-info .ev-tip{display:none;position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);width:238px;max-width:238px;background:#12332E;color:#EAF3F0;font:500 11px ${FONT};line-height:1.45;letter-spacing:0;text-transform:none;text-align:left;padding:9px 11px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.22);z-index:60;white-space:normal;}
+        .ev-info .ev-tip::after{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-bottom-color:#12332E;}
         .ev-info:hover .ev-tip{display:block;}
       `}</style>
       <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden', fontFamily: FONT, background: C.bg, color: C.ink }}
@@ -994,17 +990,17 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
 
       {/* KPI groups */}
       <Eyebrow>Financial</Eyebrow>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${financial.length},1fr)`, gap: 12, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${financial.length},1fr)`, gap: 12, marginBottom: 18, alignItems: 'start' }}>
         {financial.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
       <Eyebrow>Operational</Eyebrow>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 12, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 12, marginBottom: 18, alignItems: 'start' }}>
         {operational.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
       <Eyebrow>Marketing</Eyebrow>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${marketing.length},1fr)`, gap: 12, marginBottom: 4 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${marketing.length},1fr)`, gap: 12, marginBottom: 4, alignItems: 'start' }}>
         {marketing.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
