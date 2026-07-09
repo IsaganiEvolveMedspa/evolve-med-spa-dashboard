@@ -39,16 +39,13 @@ VIEW_KEY = "overview"
 VIEW_LABEL = "Overview"
 VIEW_NAV_TEXT = "Overview"
 
-# Large-phone logical viewport — the emailed snapshot is opened on a phone. We
-# use a modern large-phone width (430×932 @2x, ~iPhone Pro Max) rather than the
-# older 375px so the dense location tables and chart have enough room while the
-# layout still stacks like a phone (see _MOBILE_LAYOUT_CSS).
-VIEWPORT = {"width": 430, "height": 932}
+# Desktop-width capture (@2x for crispness). The Overview is a dense desktop
+# layout; at this width every card and all table columns render at normal size
+# in the familiar layout. The emailed image is wider than a phone screen, so it
+# opens scaled-to-fit and the reader pinch-zooms to read detail — this keeps all
+# columns of the three location tables visible instead of squeezing them.
+VIEWPORT = {"width": 1000, "height": 1400}
 DEVICE_SCALE_FACTOR = 2
-IPHONE6_UA = (
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 10_3_1 like Mac OS X) "
-    "AppleWebKit/603.1.30 (KHTML, like Gecko) Version/10.0 Mobile/14E304 Safari/602.1"
-)
 NAV_TIMEOUT_MS = 60_000
 # The view fetches live data and shows "Loading live data…" until it's ready.
 # We wait for that indicator to clear (up to this long) before capturing,
@@ -97,23 +94,12 @@ _MEASURE_FOR_PDF_JS = """
 """
 
 
-# The dashboard has no responsive CSS, so at a phone width the desktop KPI
-# grids (repeat(N,1fr)) collapse into unreadable slivers and the sidebar eats
-# most of the width. Applied for the capture only: drop the sidebar so the
-# content gets full phone width, stack the KPI grids into 2 columns, and stack
-# the wide "chart + attainment" row (1.55fr 1fr) so each gets full width.
+# Applied for the capture only: drop the sidebar so the content gets the full
+# width. At the desktop capture width the Overview renders in its normal layout,
+# so no responsive stacking is needed.
 _MOBILE_LAYOUT_CSS = """
 aside { display: none !important; }
 main { width: 100% !important; }
-main [style*="repeat("] { grid-template-columns: repeat(2, 1fr) !important; }
-main [style*="1.55fr"] { grid-template-columns: 1fr !important; }
-/* Stack the side-by-side rows (hero cards, service/product mix) into one column. */
-main [style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
-/* Stack each hero card's columns vertically so all three (MTD / Full-Month
-   Budget / Projected) fit and stay legible at phone width; hide the now-vertical
-   dividers. */
-.ev-hero-cols { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
-.ev-hero-cols > div[style*="width: 3px"] { display: none !important; }
 """
 
 
@@ -124,9 +110,6 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
         page = browser.new_page(
             viewport=VIEWPORT,
             device_scale_factor=DEVICE_SCALE_FACTOR,
-            is_mobile=True,
-            has_touch=True,
-            user_agent=IPHONE6_UA,
         )
         page.goto(dashboard_url, wait_until="networkidle", timeout=NAV_TIMEOUT_MS)
 
@@ -187,7 +170,7 @@ def build_html(report_date: str) -> str:
 <html><body style="margin:0;padding:0;background:#f6f8f7;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8f7;">
     <tr><td align="center" style="padding:28px 16px;">
-      <table role="presentation" width="470" cellpadding="0" cellspacing="0" style="max-width:470px;width:100%;">
+      <table role="presentation" width="1000" cellpadding="0" cellspacing="0" style="max-width:1000px;width:100%;">
         <tr><td style="font:700 22px Arial,Helvetica,sans-serif;color:#1a2b28;padding-bottom:2px;">
           Evolve Med Spa — Overview
         </td></tr>
@@ -196,7 +179,7 @@ def build_html(report_date: str) -> str:
         </td></tr>
         <tr><td style="padding:0 0 8px 0;">
           <img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}"
-               style="display:block;width:100%;max-width:430px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
+               style="display:block;width:100%;max-width:1000px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
         </td></tr>
         <tr><td style="padding:10px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">
           A PDF of the Overview is attached.
