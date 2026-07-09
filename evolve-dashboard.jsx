@@ -693,18 +693,22 @@ const BarList = ({ rows, max, color = C.teal, labelW = 140, valueW = 70, fmt = (
 const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta, extraLabel, extra, labelDef, projDef, extraDef }) => (
   <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
     <div style={{ display: 'flex', alignItems: 'center', font: `600 12px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{label}<InfoDot def={labelDef} /></div>
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, marginTop: 16 }}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'stretch', marginTop: 16 }}>
       <div>
         <div style={{ font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>MTD</div>
         <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{mtd}</div>
         {mtdDelta && <div style={{ font: `600 12.5px ${FONT}`, color: mtdDelta.color, marginTop: 4 }}>{mtdDelta.text}</div>}
       </div>
       {extra != null && (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>{extraLabel}<InfoDot def={extraDef} /></div>
-          <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{extra}</div>
-        </div>
+        <>
+          <div style={{ width: 2, background: C.line2, margin: '2px 24px', borderRadius: 1 }} />
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>{extraLabel}<InfoDot def={extraDef} /></div>
+            <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{extra}</div>
+          </div>
+        </>
       )}
+      <div style={{ width: 2, background: C.line2, margin: '2px 24px', borderRadius: 1 }} />
       <div>
         <div style={{ display: 'flex', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>Projected · Run Rate<InfoDot def={projDef} /></div>
         <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{proj}</div>
@@ -1003,7 +1007,7 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
       </div>
 
       <Eyebrow>Marketing</Eyebrow>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${marketing.length},1fr)`, gap: 12, marginBottom: 4, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${marketing.length}, minmax(0, 190px))`, gap: 14, marginBottom: 4, alignItems: 'start', justifyContent: 'center' }}>
         {marketing.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
