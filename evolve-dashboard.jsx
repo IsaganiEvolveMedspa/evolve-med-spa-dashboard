@@ -153,20 +153,21 @@ const Eyebrow = ({ children }) => (
 // into two columns — the metric value (with its MoM delta below) beside the goal
 // target (with "% to goal" below) — all in the one card.
 const KpiCard = ({ label, value, delta, deltaColor, accent, goal, goalDelta, goalDeltaColor, def }) => (
-  <div style={{ background: C.panel, border: `1px solid ${accent ? C.teal : C.line}`, borderRadius: 12, padding: '16px 16px', minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
-    <div style={{ display: 'flex', alignItems: 'flex-start', font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.3, minHeight: 24 }}>
+  <div style={{ background: C.panel, border: `1px solid ${accent ? C.teal : C.line}`, borderRadius: 12, padding: '12px 13px', minWidth: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.3, minHeight: 15 }}>
       <span>{label}</span><InfoDot def={def} />
     </div>
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: 7 }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ font: `600 21px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-        {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: 4 }}>{delta}</div>}
-      </div>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginTop: 6 }}>
+      {/* value + delta, delta centered under the (usually wider) value */}
+      <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+        <span style={{ font: `600 21px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+        {delta != null && <span style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>{delta}</span>}
+      </span>
       {goal != null && (
-        <div style={{ minWidth: 0 }}>
-          <div style={{ font: `500 11px ${FONT}`, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>vs. goal {goal}</div>
-          {goalDelta != null && <div style={{ font: `600 10px ${FONT}`, color: goalDeltaColor || C.gray, fontVariantNumeric: 'tabular-nums', marginTop: 4 }}>{goalDelta}</div>}
-        </div>
+        <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+          <span style={{ font: `500 11px ${FONT}`, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>vs. goal {goal}</span>
+          {goalDelta != null && <span style={{ font: `600 10px ${FONT}`, color: goalDeltaColor || C.gray, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>{goalDelta}</span>}
+        </span>
       )}
     </div>
   </div>
@@ -996,17 +997,17 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
 
       {/* KPI groups */}
       <Eyebrow>Financial</Eyebrow>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${financial.length},1fr)`, gap: 12, marginBottom: 18, alignItems: 'stretch' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${financial.length},1fr)`, gap: 12, marginBottom: 18, alignItems: 'start' }}>
         {financial.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
       <Eyebrow>Operational</Eyebrow>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 12, marginBottom: 18, alignItems: 'stretch' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 12, marginBottom: 18, alignItems: 'start' }}>
         {operational.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
       <Eyebrow>Marketing</Eyebrow>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${marketing.length},1fr)`, gap: 12, marginBottom: 4, alignItems: 'stretch' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${marketing.length},1fr)`, gap: 12, marginBottom: 4, alignItems: 'start' }}>
         {marketing.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
