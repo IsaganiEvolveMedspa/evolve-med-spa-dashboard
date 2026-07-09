@@ -39,9 +39,11 @@ VIEW_KEY = "overview"
 VIEW_LABEL = "Overview"
 VIEW_NAV_TEXT = "Overview"
 
-# iPhone 6 logical viewport — the emailed snapshot is opened on a phone, so we
-# render at phone dimensions (375×667 @2x) instead of a desktop window.
-VIEWPORT = {"width": 375, "height": 667}
+# Large-phone logical viewport — the emailed snapshot is opened on a phone. We
+# use a modern large-phone width (430×932 @2x, ~iPhone Pro Max) rather than the
+# older 375px so the dense location tables and chart have enough room while the
+# layout still stacks like a phone (see _MOBILE_LAYOUT_CSS).
+VIEWPORT = {"width": 430, "height": 932}
 DEVICE_SCALE_FACTOR = 2
 IPHONE6_UA = (
     "Mozilla/5.0 (iPhone; CPU iPhone OS 10_3_1 like Mac OS X) "
@@ -105,6 +107,16 @@ aside { display: none !important; }
 main { width: 100% !important; }
 main [style*="repeat("] { grid-template-columns: repeat(2, 1fr) !important; }
 main [style*="1.55fr"] { grid-template-columns: 1fr !important; }
+/* Stack the side-by-side rows (hero cards, service/product mix) into one column. */
+main [style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
+/* Stack each hero card's columns vertically so all three (MTD / Full-Month
+   Budget / Projected) fit and stay legible at phone width; hide the now-vertical
+   dividers. */
+.ev-hero-cols { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
+.ev-hero-cols > div[style*="width: 3px"] { display: none !important; }
+/* Keep location-table cells on one line so the grid columns stay aligned row to
+   row (long location names would otherwise wrap and stagger the rows). */
+.ev-lrow > span { white-space: nowrap !important; }
 """
 
 
@@ -178,7 +190,7 @@ def build_html(report_date: str) -> str:
 <html><body style="margin:0;padding:0;background:#f6f8f7;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8f7;">
     <tr><td align="center" style="padding:28px 16px;">
-      <table role="presentation" width="420" cellpadding="0" cellspacing="0" style="max-width:420px;width:100%;">
+      <table role="presentation" width="470" cellpadding="0" cellspacing="0" style="max-width:470px;width:100%;">
         <tr><td style="font:700 22px Arial,Helvetica,sans-serif;color:#1a2b28;padding-bottom:2px;">
           Evolve Med Spa — Overview
         </td></tr>
@@ -187,7 +199,7 @@ def build_html(report_date: str) -> str:
         </td></tr>
         <tr><td style="padding:0 0 8px 0;">
           <img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}"
-               style="display:block;width:100%;max-width:375px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
+               style="display:block;width:100%;max-width:430px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
         </td></tr>
         <tr><td style="padding:10px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">
           A PDF of the Overview is attached.

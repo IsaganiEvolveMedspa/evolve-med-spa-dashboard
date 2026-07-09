@@ -633,7 +633,7 @@ const PacingChart = ({ daily, budget, trending, daysInMonth }) => {
   const rightLabels = [1, 0.75, 0.5, 0.25, 0].map((t) => money(maxCum * t, { compact: true }));
 
   return (
-    <svg viewBox={`0 -10 ${W} ${H}`} style={{ width: '100%', height: 340, display: 'block', marginTop: 8 }}>
+    <svg viewBox={`0 -10 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 340, display: 'block', marginTop: 8 }}>
       {elapsed < totalDays && <rect x={lastX} y={padT} width={W - padR - lastX} height={innerH} fill="#F5F9F8" />}
       {gridYs.map((y, i) => <line key={i} x1={padL} y1={y} x2={W - padR} y2={y} stroke={i === gridYs.length - 1 ? '#D8E2DF' : C.line2} strokeWidth="1" />)}
       <g style={{ font: `600 9.5px ${FONT}`, fill: C.gray2 }} textAnchor="end">
@@ -723,7 +723,7 @@ const BarList = ({ rows, max, color = C.teal, labelW = 140, valueW = 70, fmt = (
 const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta, extraLabel, extra, labelDef, projDef, extraDef }) => (
   <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
     <div style={{ display: 'flex', alignItems: 'center', font: `600 12px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{label}<InfoDot def={labelDef} right /></div>
-    <div style={{ display: 'flex', alignItems: 'stretch', marginTop: 16 }}>
+    <div className="ev-hero-cols" style={{ display: 'flex', alignItems: 'stretch', marginTop: 16 }}>
       <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
         <div style={{ font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>MTD</div>
         <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{mtd}</div>
