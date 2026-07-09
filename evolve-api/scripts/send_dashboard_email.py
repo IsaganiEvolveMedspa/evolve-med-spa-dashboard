@@ -114,9 +114,6 @@ main [style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
    dividers. */
 .ev-hero-cols { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
 .ev-hero-cols > div[style*="width: 3px"] { display: none !important; }
-/* Keep location-table cells on one line so the grid columns stay aligned row to
-   row (long location names would otherwise wrap and stagger the rows). */
-.ev-lrow > span { white-space: nowrap !important; }
 """
 
 

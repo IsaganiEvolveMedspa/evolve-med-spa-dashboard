@@ -633,7 +633,7 @@ const PacingChart = ({ daily, budget, trending, daysInMonth }) => {
   const rightLabels = [1, 0.75, 0.5, 0.25, 0].map((t) => money(maxCum * t, { compact: true }));
 
   return (
-    <svg viewBox={`0 -10 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 340, display: 'block', marginTop: 8 }}>
+    <svg viewBox={`0 -10 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', marginTop: 8 }}>
       {elapsed < totalDays && <rect x={lastX} y={padT} width={W - padR - lastX} height={innerH} fill="#F5F9F8" />}
       {gridYs.map((y, i) => <line key={i} x1={padL} y1={y} x2={W - padR} y2={y} stroke={i === gridYs.length - 1 ? '#D8E2DF' : C.line2} strokeWidth="1" />)}
       <g style={{ font: `600 9.5px ${FONT}`, fill: C.gray2 }} textAnchor="end">
@@ -1238,8 +1238,9 @@ function spreadOrNull(d) { return d ? { delta: d.text, deltaColor: d.color } : {
 // Config-driven by-location table. `columns` is [{ label, def, render(l, o) }];
 // `total` is an array of pre-formatted chain-total cells aligned to `columns`.
 const LocationMetricTable = ({ title, sub, rows, columns, total, legend }) => {
-  const gridCols = `1.35fr ${columns.map(() => '1fr').join(' ')}`;
-  const cell = { textAlign: 'right', fontVariantNumeric: 'tabular-nums' };
+  const th = { border: `1px solid ${C.line2}`, padding: '7px 9px', font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: C.gray2, background: '#F5F8F7', whiteSpace: 'nowrap' };
+  const td = { border: `1px solid ${C.line3}`, padding: '7px 9px', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' };
+  const totCell = { ...td, background: '#F5F8F7', fontWeight: 700, color: C.ink };
   return (
     <Card style={{ marginTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: legend ? 10 : 12 }}>
@@ -1259,29 +1260,42 @@ const LocationMetricTable = ({ title, sub, rows, columns, total, legend }) => {
           <LegendPill bg="#DDF0E6" color={C.teal}>Prov ≥$550 / Esth ≥$175</LegendPill>
         </div>
       )}
-      {/* column header */}
-      <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 6, padding: '0 6px 9px', borderBottom: `1px solid ${C.line2}`, font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: C.gray2 }}>
-        <span>Location</span>
-        {columns.map((c) => (
-          <span key={c.label} style={{ ...cell, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>{c.label}<InfoDot def={c.def} /></span>
-        ))}
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', font: `500 11.5px ${FONT}`, color: C.ink2 }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, textAlign: 'left' }}>Location</th>
+              {columns.map((c) => (
+                <th key={c.label} style={{ ...th, textAlign: 'right' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>{c.label}<InfoDot def={c.def} /></span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((l) => {
+              const o = l._ops || {};
+              return (
+                <tr key={l.location} className="ev-lrow">
+                  <td style={{ ...td, textAlign: 'left', fontWeight: 600, color: C.ink }}>{l.location}</td>
+                  {columns.map((c) => <td key={c.label} style={{ ...td, textAlign: 'right' }}>{c.render(l, o)}</td>)}
+                </tr>
+              );
+            })}
+            {rows.length === 0 && (
+              <tr><td colSpan={columns.length + 1} style={{ ...td, textAlign: 'center', color: C.gray, padding: '20px 9px' }}>No location data for this range.</td></tr>
+            )}
+          </tbody>
+          {rows.length > 0 && total && (
+            <tfoot>
+              <tr>
+                <td style={{ ...totCell, textAlign: 'left', font: `700 10px ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: C.teal }}>Total · {rows.length} Loc</td>
+                {total.map((v, i) => <td key={i} style={{ ...totCell, textAlign: 'right' }}>{v}</td>)}
+              </tr>
+            </tfoot>
+          )}
+        </table>
       </div>
-      {rows.map((l) => {
-        const o = l._ops || {};
-        return (
-          <div key={l.location} className="ev-lrow" style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 6, padding: '8px 6px', borderBottom: `1px solid ${C.line3}`, alignItems: 'center', font: `500 11.5px ${FONT}`, color: C.ink2 }}>
-            <span style={{ fontWeight: 600, color: C.ink }}>{l.location}</span>
-            {columns.map((c) => <span key={c.label} style={cell}>{c.render(l, o)}</span>)}
-          </div>
-        );
-      })}
-      {rows.length === 0 && <div style={{ padding: '24px 6px', textAlign: 'center', font: `500 12px ${FONT}`, color: C.gray }}>No location data for this range.</div>}
-      {rows.length > 0 && total && (
-        <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 6, padding: '11px 6px 2px', borderTop: `2px solid #D8E2DF`, alignItems: 'center', font: `700 11.5px ${FONT}`, color: C.ink }}>
-          <span style={{ font: `700 10px ${FONT}`, letterSpacing: '.1em', textTransform: 'uppercase', color: C.teal }}>Total · {rows.length} Loc</span>
-          {total.map((v, i) => <span key={i} style={cell}>{v}</span>)}
-        </div>
-      )}
     </Card>
   );
 };
