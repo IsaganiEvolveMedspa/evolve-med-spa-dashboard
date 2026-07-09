@@ -153,7 +153,7 @@ const Eyebrow = ({ children }) => (
 // into two columns — the metric value (with its MoM delta below) beside the goal
 // target (with "% to goal" below) — all in the one card.
 const KpiCard = ({ label, value, delta, deltaColor, accent, goal, goalDelta, goalDeltaColor, def }) => (
-  <div style={{ background: C.panel, border: `1px solid ${accent ? C.teal : C.line}`, borderRadius: 12, padding: '13px 15px', minWidth: 0 }}>
+  <div style={{ background: C.panel, border: `1px solid ${accent ? C.teal : C.line}`, borderRadius: 12, padding: '14px 15px', minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
     <div style={{ display: 'flex', alignItems: 'flex-start', font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.25, minHeight: 26 }}>
       <span>{label}</span><InfoDot def={def} />
     </div>
@@ -161,8 +161,12 @@ const KpiCard = ({ label, value, delta, deltaColor, accent, goal, goalDelta, goa
       <span style={{ font: `600 21px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
       {goal != null && <span style={{ font: `500 11px ${FONT}`, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>vs. goal {goal}</span>}
     </div>
-    {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: 3 }}>{delta}</div>}
-    {goalDelta != null && <div style={{ font: `600 10.5px ${FONT}`, color: goalDeltaColor || C.gray, marginTop: 2 }}>{goalDelta}</div>}
+    {(delta != null || goalDelta != null) && (
+      <div style={{ marginTop: 'auto', paddingTop: 10 }}>
+        {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green }}>{delta}</div>}
+        {goalDelta != null && <div style={{ font: `600 10.5px ${FONT}`, color: goalDeltaColor || C.gray, marginTop: 2 }}>{goalDelta}</div>}
+      </div>
+    )}
   </div>
 );
 
