@@ -154,19 +154,19 @@ const Eyebrow = ({ children }) => (
 // target (with "% to goal" below) — all in the one card.
 const KpiCard = ({ label, value, delta, deltaColor, accent, goal, goalDelta, goalDeltaColor, def }) => (
   <div style={{ background: C.panel, border: `1px solid ${accent ? C.teal : C.line}`, borderRadius: 12, padding: '12px 13px', minWidth: 0 }}>
-    <div style={{ display: 'flex', alignItems: 'flex-start', font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.3, minHeight: 15 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', textAlign: 'center', font: `600 10.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.3, minHeight: 16 }}>
       <span>{label}</span><InfoDot def={def} />
     </div>
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginTop: 6 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 16, marginTop: 8 }}>
       {/* value + delta, delta centered under the (usually wider) value */}
       <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
-        <span style={{ font: `600 21px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
-        {delta != null && <span style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>{delta}</span>}
+        <span style={{ font: `600 27px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+        {delta != null && <span style={{ font: `600 12px ${FONT}`, color: deltaColor || C.green, marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{delta}</span>}
       </span>
       {goal != null && (
         <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
-          <span style={{ font: `500 11px ${FONT}`, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>vs. goal {goal}</span>
-          {goalDelta != null && <span style={{ font: `600 10px ${FONT}`, color: goalDeltaColor || C.gray, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>{goalDelta}</span>}
+          <span style={{ font: `500 13px ${FONT}`, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>vs. goal {goal}</span>
+          {goalDelta != null && <span style={{ font: `600 12px ${FONT}`, color: goalDeltaColor || C.gray, marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{goalDelta}</span>}
         </span>
       )}
     </div>
@@ -691,28 +691,24 @@ const BarList = ({ rows, max, color = C.teal, labelW = 140, valueW = 70, fmt = (
 
 // Hero trend card: label, MTD value+delta, Projected value+delta.
 const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta, extraLabel, extra, labelDef, projDef, extraDef }) => (
-  <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
-    <div style={{ display: 'flex', alignItems: 'center', font: `600 10px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{label}<InfoDot def={labelDef} /></div>
-    <div style={{ display: 'flex', gap: 14, marginTop: 14 }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>MTD</div>
-        <div style={{ font: `600 26px ${FONT}`, color: C.ink, marginTop: 5, fontVariantNumeric: 'tabular-nums' }}>{mtd}</div>
-        {mtdDelta && <div style={{ font: `600 10.5px ${FONT}`, color: mtdDelta.color, marginTop: 3 }}>{mtdDelta.text}</div>}
+  <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'flex', alignItems: 'center', font: `600 12px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{label}<InfoDot def={labelDef} /></div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, marginTop: 16 }}>
+      <div>
+        <div style={{ font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>MTD</div>
+        <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{mtd}</div>
+        {mtdDelta && <div style={{ font: `600 12.5px ${FONT}`, color: mtdDelta.color, marginTop: 4 }}>{mtdDelta.text}</div>}
       </div>
-      <div style={{ width: 1, background: C.line2 }} />
       {extra != null && (
-        <>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>{extraLabel}<InfoDot def={extraDef} /></div>
-            <div style={{ font: `600 26px ${FONT}`, color: C.ink, marginTop: 5, fontVariantNumeric: 'tabular-nums' }}>{extra}</div>
-          </div>
-          <div style={{ width: 1, background: C.line2 }} />
-        </>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>{extraLabel}<InfoDot def={extraDef} /></div>
+          <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{extra}</div>
+        </div>
       )}
-      <div style={{ flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>Projected · Run Rate<InfoDot def={projDef} /></div>
-        <div style={{ font: `600 26px ${FONT}`, color: C.ink, marginTop: 5, fontVariantNumeric: 'tabular-nums' }}>{proj}</div>
-        {projDelta && <div style={{ font: `600 10.5px ${FONT}`, color: projDelta.color, marginTop: 3 }}>{projDelta.text}</div>}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>Projected · Run Rate<InfoDot def={projDef} /></div>
+        <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{proj}</div>
+        {projDelta && <div style={{ font: `600 12.5px ${FONT}`, color: projDelta.color, marginTop: 4 }}>{projDelta.text}</div>}
       </div>
     </div>
   </div>
