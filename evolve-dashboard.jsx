@@ -554,7 +554,7 @@ const Dashboard = () => {
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               {/* location dropdown */}
-              <div style={{ position: 'relative' }}>
+              <div className="ev-filter" style={{ position: 'relative' }}>
                 <div style={dropStyle} onClick={(e) => { e.stopPropagation(); setLocOpen((o) => !o); setMonthOpen(false); }}>{locSummary} ▾</div>
                 {locOpen && (
                   <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', right: 0, marginTop: 6, width: 240, maxHeight: 320, overflowY: 'auto', background: '#fff', border: `1px solid ${C.line}`, borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.10)', zIndex: 50, padding: 6 }}>
@@ -583,7 +583,7 @@ const Dashboard = () => {
                   </div>
                 )}
               </div>
-              <div style={{ borderRadius: 8, padding: '9px 16px', font: `600 12.5px ${FONT}`, color: '#fff', background: C.teal, cursor: 'pointer' }}>Export</div>
+              <div className="ev-filter" style={{ borderRadius: 8, padding: '9px 16px', font: `600 12.5px ${FONT}`, color: '#fff', background: C.teal, cursor: 'pointer' }}>Export</div>
             </div>
           </div>
 

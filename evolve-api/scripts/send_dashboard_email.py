@@ -39,13 +39,16 @@ VIEW_KEY = "overview"
 VIEW_LABEL = "Overview"
 VIEW_NAV_TEXT = "Overview"
 
-# Full desktop-width capture (@2x for crispness). Captured at the dashboard's
-# true desktop width so every KPI card is wide enough that its value/label/delta
-# render fully inside the card (a narrower capture crams the 7-8 KPI columns and
-# the enlarged fonts spill outside their cards), and all columns of the three
-# location tables show at normal size. The emailed image is wider than a phone
-# screen, so it opens scaled-to-fit and the reader pinch-zooms to read detail.
-VIEWPORT = {"width": 1600, "height": 1200}
+# Two separate renders (both @2x for crispness):
+#   • PDF attachment  → full desktop layout: larger cards, chart beside Budget
+#     Attainment, all tables full-width, filters shown. Captured at desktop width.
+#   • Inline PNG      → compact phone layout: stacked cards, chart stacked,
+#     filters hidden, tables shrunk to fit. Captured at phone width with
+#     _COMPACT_PNG_CSS injected.
+# The dashboard components themselves stay large, so the live dashboard and the
+# PDF read large; only the PNG is compacted (via CSS at capture time).
+PDF_VIEWPORT = {"width": 960, "height": 1200}
+PNG_VIEWPORT = {"width": 430, "height": 1200}
 DEVICE_SCALE_FACTOR = 2
 NAV_TIMEOUT_MS = 60_000
 # The view fetches live data and shows "Loading live data…" until it's ready.
@@ -95,13 +98,25 @@ _MEASURE_FOR_PDF_JS = """
 """
 
 
-# Applied for the capture only: drop the sidebar so the content gets the full
-# width. At the desktop capture width the Overview renders in its normal layout
-# with every card content fully inside its card, so no responsive stacking or
-# width constraint is needed.
-_MOBILE_LAYOUT_CSS = """
+# Injected for the INLINE PNG only (phone width): compact phone layout. The
+# dashboard components stay large; this CSS reflows/shrinks them just for the
+# emailed image. The PDF is captured before this is applied, so it stays large.
+_COMPACT_PNG_CSS = """
 aside { display: none !important; }
 main { width: 100% !important; }
+/* Picture, not an interactive page: drop the location filter + Export button
+   (the month selector stays, showing the current month). */
+.ev-filter { display: none !important; }
+/* Stack the desktop multi-column rows into a phone layout. */
+main [style*="repeat("] { grid-template-columns: repeat(2, 1fr) !important; }
+main [style*="1.55fr"] { grid-template-columns: 1fr !important; }
+main [style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
+/* Stack each hero card's columns vertically; hide the vertical dividers. */
+.ev-hero-cols { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
+.ev-hero-cols > div[style*="width: 3px"] { display: none !important; }
+/* Shrink the location tables so all columns fit at phone width. */
+main table { font-size: 8.5px !important; }
+main th, main td { padding: 3px 5px !important; }
 """
 
 
@@ -110,7 +125,7 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--no-sandbox"])
         page = browser.new_page(
-            viewport=VIEWPORT,
+            viewport=PDF_VIEWPORT,
             device_scale_factor=DEVICE_SCALE_FACTOR,
         )
         page.goto(dashboard_url, wait_until="networkidle", timeout=NAV_TIMEOUT_MS)
@@ -142,16 +157,9 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
         page.wait_for_timeout(render_wait_ms)
 
         page.evaluate(_UNCLIP_JS)
-        # Phone layout: drop the sidebar and reflow the desktop KPI grids so
-        # they're legible at 375px instead of squished into slivers.
-        page.add_style_tag(content=_MOBILE_LAYOUT_CSS)
-        page.wait_for_timeout(400)  # let layout reflow after unclip + mobile CSS
 
-        # 1) Inline image: screenshot <main> only (topbar + content, no sidebar).
-        png_bytes = page.locator("main").screenshot(type="png")
-        print(f"[send_dashboard_email] Captured '{VIEW_LABEL}' PNG ({len(png_bytes)} bytes)")
-
-        # 2) PDF: hide the sidebar, size the page to the content, one-page PDF.
+        # 1) PDF FIRST — full desktop layout (no compacting CSS yet). Hide the
+        # sidebar, size the page to the content, one-page PDF.
         dims = page.evaluate(_MEASURE_FOR_PDF_JS)
         page.wait_for_timeout(200)  # reflow after hiding the sidebar
         pdf_bytes = page.pdf(
@@ -161,6 +169,14 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
             margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
         )
         print(f"[send_dashboard_email] Captured '{VIEW_LABEL}' PDF ({len(pdf_bytes)} bytes)")
+
+        # 2) Inline PNG — compact phone layout: shrink the viewport to phone
+        # width and inject the compacting CSS, then screenshot <main>.
+        page.set_viewport_size(PNG_VIEWPORT)
+        page.add_style_tag(content=_COMPACT_PNG_CSS)
+        page.wait_for_timeout(500)  # let the layout reflow at phone width
+        png_bytes = page.locator("main").screenshot(type="png")
+        print(f"[send_dashboard_email] Captured '{VIEW_LABEL}' PNG ({len(png_bytes)} bytes)")
 
         browser.close()
     return {"png_bytes": png_bytes, "pdf_bytes": pdf_bytes}
@@ -172,7 +188,7 @@ def build_html(report_date: str) -> str:
 <html><body style="margin:0;padding:0;background:#f6f8f7;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8f7;">
     <tr><td align="center" style="padding:28px 16px;">
-      <table role="presentation" width="1600" cellpadding="0" cellspacing="0" style="max-width:1600px;width:100%;">
+      <table role="presentation" width="470" cellpadding="0" cellspacing="0" style="max-width:470px;width:100%;">
         <tr><td style="font:700 22px Arial,Helvetica,sans-serif;color:#1a2b28;padding-bottom:2px;">
           Evolve Med Spa — Overview
         </td></tr>
@@ -181,7 +197,7 @@ def build_html(report_date: str) -> str:
         </td></tr>
         <tr><td style="padding:0 0 8px 0;">
           <img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}"
-               style="display:block;width:100%;max-width:1600px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
+               style="display:block;width:100%;max-width:430px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
         </td></tr>
         <tr><td style="padding:10px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">
           A PDF of the Overview is attached.
