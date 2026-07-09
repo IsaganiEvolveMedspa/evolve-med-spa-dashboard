@@ -47,7 +47,7 @@ VIEW_NAV_TEXT = "Overview"
 #     _COMPACT_PNG_CSS injected.
 # The dashboard components themselves stay large, so the live dashboard and the
 # PDF read large; only the PNG is compacted (via CSS at capture time).
-PDF_VIEWPORT = {"width": 960, "height": 1200}
+PDF_VIEWPORT = {"width": 1600, "height": 1200}
 PNG_VIEWPORT = {"width": 430, "height": 1200}
 DEVICE_SCALE_FACTOR = 2
 NAV_TIMEOUT_MS = 60_000
@@ -114,11 +114,13 @@ main [style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
 /* Stack each hero card's columns vertically; hide the vertical dividers. */
 .ev-hero-cols { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
 .ev-hero-cols > div[style*="width: 3px"] { display: none !important; }
-/* Shrink the location tables so every column fits at phone width. */
-main table, main th, main td { font-size: 7px !important; }
-main th, main td { padding: 2px 3px !important; letter-spacing: 0 !important; }
+/* Shrink the location tables so every column fully fits at phone width. */
+main table, main th, main td { font-size: 6px !important; }
+main th, main td { padding: 1px 2px !important; letter-spacing: 0 !important; }
 /* Drop the non-functional "?" icons in table headers to reclaim column width. */
 main th .ev-info { display: none !important; }
+/* Reclaim side padding so the tables have the full phone width to work with. */
+.ev-scroll { padding-left: 12px !important; padding-right: 12px !important; }
 """
 
 
