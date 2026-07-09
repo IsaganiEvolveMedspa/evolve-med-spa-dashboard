@@ -157,7 +157,7 @@ const KpiCard = ({ label, value, delta, deltaColor, accent, goal, goalDelta, goa
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', textAlign: 'center', font: `600 10.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.3, minHeight: 28 }}>
       <span>{label}</span><InfoDot def={def} />
     </div>
-    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 16, marginTop: 8 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
       {/* value + delta, delta centered under the (usually wider) value */}
       <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
         <span style={{ font: `600 27px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{value}</span>

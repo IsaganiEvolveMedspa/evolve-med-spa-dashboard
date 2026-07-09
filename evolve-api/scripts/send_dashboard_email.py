@@ -39,12 +39,13 @@ VIEW_KEY = "overview"
 VIEW_LABEL = "Overview"
 VIEW_NAV_TEXT = "Overview"
 
-# Desktop-width capture (@2x for crispness). The Overview is a dense desktop
-# layout; at this width every card and all table columns render at normal size
-# in the familiar layout. The emailed image is wider than a phone screen, so it
-# opens scaled-to-fit and the reader pinch-zooms to read detail — this keeps all
-# columns of the three location tables visible instead of squeezing them.
-VIEWPORT = {"width": 1000, "height": 1400}
+# Full desktop-width capture (@2x for crispness). Captured at the dashboard's
+# true desktop width so every KPI card is wide enough that its value/label/delta
+# render fully inside the card (a narrower capture crams the 7-8 KPI columns and
+# the enlarged fonts spill outside their cards), and all columns of the three
+# location tables show at normal size. The emailed image is wider than a phone
+# screen, so it opens scaled-to-fit and the reader pinch-zooms to read detail.
+VIEWPORT = {"width": 1600, "height": 1200}
 DEVICE_SCALE_FACTOR = 2
 NAV_TIMEOUT_MS = 60_000
 # The view fetches live data and shows "Loading live data…" until it's ready.
@@ -94,19 +95,13 @@ _MEASURE_FOR_PDF_JS = """
 """
 
 
-# Hybrid capture: the page is captured wide (so the location tables can show
-# every column at full size), but the hero / KPI / chart / mix sections are
-# constrained to a phone width and stacked so they read like a phone layout.
-# The location tables are plain Cards (not matched by these selectors), so they
-# span the full capture width.
+# Applied for the capture only: drop the sidebar so the content gets the full
+# width. At the desktop capture width the Overview renders in its normal layout
+# with every card content fully inside its card, so no responsive stacking or
+# width constraint is needed.
 _MOBILE_LAYOUT_CSS = """
 aside { display: none !important; }
 main { width: 100% !important; }
-main [style*="repeat("] { grid-template-columns: repeat(2, 1fr) !important; max-width: 470px !important; }
-main [style*="1.55fr"] { grid-template-columns: 1fr !important; max-width: 470px !important; }
-main [style*="1fr 1fr"] { grid-template-columns: 1fr !important; max-width: 470px !important; }
-.ev-hero-cols { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
-.ev-hero-cols > div[style*="width: 3px"] { display: none !important; }
 """
 
 
@@ -177,7 +172,7 @@ def build_html(report_date: str) -> str:
 <html><body style="margin:0;padding:0;background:#f6f8f7;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8f7;">
     <tr><td align="center" style="padding:28px 16px;">
-      <table role="presentation" width="1000" cellpadding="0" cellspacing="0" style="max-width:1000px;width:100%;">
+      <table role="presentation" width="1600" cellpadding="0" cellspacing="0" style="max-width:1600px;width:100%;">
         <tr><td style="font:700 22px Arial,Helvetica,sans-serif;color:#1a2b28;padding-bottom:2px;">
           Evolve Med Spa — Overview
         </td></tr>
@@ -186,7 +181,7 @@ def build_html(report_date: str) -> str:
         </td></tr>
         <tr><td style="padding:0 0 8px 0;">
           <img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}"
-               style="display:block;width:100%;max-width:1000px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
+               style="display:block;width:100%;max-width:1600px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
         </td></tr>
         <tr><td style="padding:10px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">
           A PDF of the Overview is attached.
