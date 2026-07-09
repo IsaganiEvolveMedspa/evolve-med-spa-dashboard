@@ -152,26 +152,17 @@ const Eyebrow = ({ children }) => (
 // Small KPI card used across grids. When a goal prop is present, the card splits
 // into two columns — the metric value (with its MoM delta below) beside the goal
 // target (with "% to goal" below) — all in the one card.
-const KpiCard = ({ label, value, delta, deltaColor, accent, goal, goalDelta, goalDeltaColor }) => (
+const KpiCard = ({ label, value, delta, deltaColor, accent, goal, goalDelta, goalDeltaColor, def }) => (
   <div style={{ background: C.panel, border: `1px solid ${accent ? C.teal : C.line}`, borderRadius: 12, padding: '13px 15px', minWidth: 0 }}>
-    <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.25, minHeight: 26 }}>{label}</div>
-    {goal != null ? (
-      <div style={{ display: 'flex', gap: 10, marginTop: 7 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ font: `600 21px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-          {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: 3 }}>{delta}</div>}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ font: `600 21px ${FONT}`, color: C.teal, fontVariantNumeric: 'tabular-nums' }}>{goal}</div>
-          {goalDelta != null && <div style={{ font: `600 10.5px ${FONT}`, color: goalDeltaColor || C.gray, marginTop: 3 }}>{goalDelta}</div>}
-        </div>
-      </div>
-    ) : (
-      <>
-        <div style={{ font: `600 21px ${FONT}`, color: C.ink, marginTop: 7, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-        {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: 3 }}>{delta}</div>}
-      </>
-    )}
+    <div style={{ display: 'flex', alignItems: 'flex-start', font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.25, minHeight: 26 }}>
+      <span>{label}</span><InfoDot def={def} />
+    </div>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 7, flexWrap: 'wrap' }}>
+      <span style={{ font: `600 21px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      {goal != null && <span style={{ font: `500 11px ${FONT}`, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>vs. goal {goal}</span>}
+    </div>
+    {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: 3 }}>{delta}</div>}
+    {goalDelta != null && <div style={{ font: `600 10.5px ${FONT}`, color: goalDeltaColor || C.gray, marginTop: 2 }}>{goalDelta}</div>}
   </div>
 );
 
@@ -250,6 +241,45 @@ const PaceBar = ({ pace, color }) => {
       <span style={{ position: 'absolute', left: '83.33%', top: -2, bottom: -2, width: 1.5, background: C.sideText }} />
     </span>
   );
+};
+
+// Small "?" affordance with a styled hover popover. Renders nothing when no
+// definition is supplied. Tooltip CSS lives in the global <style> block (.ev-info).
+const InfoDot = ({ def }) => (def ? (
+  <span className="ev-info">?<span className="ev-tip">{def}</span></span>
+) : null);
+
+// KPI definitions (source: Evolve_Dashboard_Metric_Computations.docx). Shown in
+// the "?" hover popovers on the Overview so the whole team sees each calculation.
+const DEFS = {
+  cashSales: 'Cash Sales (MTD): sum of cash collected excluding tax, month-to-date (cash payment types only).',
+  cashRunRate: 'Cash Run Rate (Projected): per location, MTD cash ÷ working days elapsed × total working days in the month, summed across locations. Working days come from the Operating Schedule; elapsed counts through the latest data date.',
+  projRunRate: 'Proj. Run Rate: the cash run rate — MTD cash ÷ working days elapsed × total working days in the month.',
+  fullMonthBudget: 'Full-Month Budget: the monthly budget target for the selected month (chain, or the selected locations).',
+  budgetPct: '% to Budget: MTD cash sales ÷ full-month budget × 100.',
+  priorDay: 'Prior Day Sales: net (accrual) sales on the latest closed sale day.',
+  sss: 'SSS Growth YoY %: (current-year MTD cash − prior-year same-period cash) ÷ prior-year × 100, over same-store locations only.',
+  aspNew: 'ASP (New): non-membership MTD sales of new customers ÷ New Customer Visits (sales accrual, per customer).',
+  aspExisting: 'ASP (Existing): non-membership MTD sales of existing customers ÷ Existing Customer Visits (sales accrual, per customer).',
+  cogs: 'COGS Margin %: cost of goods ÷ net sales (sales excluding tax) × 100.',
+  payroll: 'Payroll Margin %: modeled salary (hourly wage × scheduled hours + FFS + 15% commission on commissionable sales + 12.5% benefits) ÷ net sales × 100.',
+  gm: 'Gross Margin %: 100 − COGS Margin % − Payroll Margin % (real salary model).',
+  newCust: 'New Customer Visits: distinct guests whose first-ever sale falls in the month and whose first purchase is non-membership (sales accrual).',
+  existingCust: 'Existing Customer Visits: distinct guests with a sale this month whose first-ever sale was before this month, non-membership first purchase.',
+  adSpend: 'MTD Ad Spend: Google + Facebook ad spend for the month (chain-level, bundled export).',
+  cac: 'CAC (Client Acquisition Cost): MTD ad spend ÷ new customers.',
+  returnRate: 'New Guest Return Rate · 90 Day: matured new guests who returned within 90 days ÷ matured new guests × 100.',
+  noShow: 'No-Show Rate: appointments where the client did not arrive and did not cancel ÷ total appointments.',
+  cancel: 'Cancellation Rate: visits cancelled by the client ÷ total appointments.',
+  membership: 'Membership Adoption: new memberships (Zenoti export, Sale Type = Sale) ÷ non-member unique guests × 100.',
+  utilProvider: 'Utilization · Provider: booked hours ÷ (scheduled − paid block-out hours) × 100, for Treatment Providers.',
+  utilEsth: 'Utilization · Esthetician: booked hours ÷ (scheduled − paid block-out hours) × 100, for Estheticians.',
+  revProvider: 'Rev / Hr · Provider: sales (excl. tax) by Treatment-Provider employees ÷ their booked hours.',
+  revEsth: 'Rev / Hr · Esthetician: sales (excl. tax) by Esthetician employees ÷ their booked hours.',
+  rebook: 'Rebook Rate: distinct closed invoices that rebooked before leaving ÷ distinct closed invoices × 100.',
+  recRev: 'Recognized Revenue (MTD): sum of net sales including tax (accrual basis).',
+  recRunRate: 'Run Rate · Recognized Revenue: recognized revenue projected to the full month on the same working-day run-rate basis as cash.',
+  recRunRateLoc: 'Run Rate Rec. Rev (per location): recognized revenue scaled by the location’s cash run-rate multiplier (Proj. Run Rate ÷ Cash MTD) — an approximation, since recognized run rate is computed chain-level.',
 };
 
 /* =================================================================
@@ -416,6 +446,11 @@ const Dashboard = () => {
         .ev-scroll::-webkit-scrollbar{width:10px;height:10px;}
         .ev-scroll::-webkit-scrollbar-thumb{background:#D4DEDB;border-radius:5px;border:2px solid #F6F8F7;}
         .ev-scroll::-webkit-scrollbar-track{background:transparent;}
+        .ev-info{position:relative;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;margin-left:4px;border-radius:50%;border:1px solid #B7C6C1;color:#7C8F8A;font:700 9px ${FONT};line-height:1;cursor:help;vertical-align:middle;letter-spacing:0;text-transform:none;flex:none;}
+        .ev-info:hover{border-color:${C.teal};color:${C.teal};}
+        .ev-info .ev-tip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:238px;max-width:238px;background:#12332E;color:#EAF3F0;font:500 11px ${FONT};line-height:1.45;letter-spacing:0;text-transform:none;text-align:left;padding:9px 11px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.22);z-index:60;white-space:normal;}
+        .ev-info .ev-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#12332E;}
+        .ev-info:hover .ev-tip{display:block;}
       `}</style>
       <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden', fontFamily: FONT, background: C.bg, color: C.ink }}
            onClick={() => { setLocOpen(false); setMonthOpen(false); }}>
@@ -648,9 +683,9 @@ const BarList = ({ rows, max, color = C.teal, labelW = 140, valueW = 70, fmt = (
    ================================================================= */
 
 // Hero trend card: label, MTD value+delta, Projected value+delta.
-const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta, extraLabel, extra }) => (
+const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta, extraLabel, extra, labelDef, projDef, extraDef }) => (
   <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
-    <div style={{ font: `600 10px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{label}</div>
+    <div style={{ display: 'flex', alignItems: 'center', font: `600 10px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{label}<InfoDot def={labelDef} /></div>
     <div style={{ display: 'flex', gap: 14, marginTop: 14 }}>
       <div style={{ flex: 1 }}>
         <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>MTD</div>
@@ -661,14 +696,14 @@ const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta, extraLabel, extra }) 
       {extra != null && (
         <>
           <div style={{ flex: 1 }}>
-            <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>{extraLabel}</div>
+            <div style={{ display: 'flex', alignItems: 'center', font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>{extraLabel}<InfoDot def={extraDef} /></div>
             <div style={{ font: `600 26px ${FONT}`, color: C.ink, marginTop: 5, fontVariantNumeric: 'tabular-nums' }}>{extra}</div>
           </div>
           <div style={{ width: 1, background: C.line2 }} />
         </>
       )}
       <div style={{ flex: 1 }}>
-        <div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>Projected · Run Rate</div>
+        <div style={{ display: 'flex', alignItems: 'center', font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>Projected · Run Rate<InfoDot def={projDef} /></div>
         <div style={{ font: `600 26px ${FONT}`, color: C.ink, marginTop: 5, fontVariantNumeric: 'tabular-nums' }}>{proj}</div>
         {projDelta && <div style={{ font: `600 10.5px ${FONT}`, color: projDelta.color, marginTop: 3 }}>{projDelta.text}</div>}
       </div>
@@ -757,26 +792,26 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
   const cogsMargin = h.cogs_margin_pct != null ? pctScale(h.cogs_margin_pct) : null;
   const cogsMarginPrev = hPrev.cogs_margin_pct != null ? pctScale(hPrev.cogs_margin_pct) : null;
   const financial = [
-    { label: '% to Budget · Variance to Goal', value: budgetPaceVal != null ? `${budgetPaceVal.toFixed(0)}%` : '—',
+    { label: '% to Budget · Variance to Goal', def: DEFS.budgetPct, value: budgetPaceVal != null ? `${budgetPaceVal.toFixed(0)}%` : '—',
       delta: budgetPaceVal != null ? `${budgetPaceVal >= 100 ? '▲' : '▼'} ${Math.abs(100 - budgetPaceVal).toFixed(0)}% to goal` : null,
       deltaColor: budgetPaceVal >= 100 ? C.green : C.clay },
     // R49: SSS Growth YoY %
-    { label: 'SSS Growth YoY %', value: pct(yoy), ...spread(arrowDelta(yoy)) },
+    { label: 'SSS Growth YoY %', def: DEFS.sss, value: pct(yoy), ...spread(arrowDelta(yoy)) },
     // R02: Prior Day Sales — MoM delta compares yesterday's cash sales against
     // the equivalent prior-day figure from the prior-month header window.
-    { label: 'Prior Day Sales', value: money(h.yesterday_revenue, { compact: true }), ...spreadOrNull(momPctDelta(h.yesterday_revenue, hPrev.yesterday_revenue)) },
+    { label: 'Prior Day Sales', def: DEFS.priorDay, value: money(h.yesterday_revenue, { compact: true }), ...spreadOrNull(momPctDelta(h.yesterday_revenue, hPrev.yesterday_revenue)) },
     // R18: ASP (New) = Cash Sales (New) less Recurring ÷ New Customers
-    { label: 'ASP (New)', value: money(h.asp_new_clients),
+    { label: 'ASP (New)', def: DEFS.aspNew, value: money(h.asp_new_clients),
       ...spreadOrNull(momPctDelta(h.asp_new_clients, hPrev.asp_new_clients)),
       ...goalProps(h.asp_new_clients, h.asp_new_goal, (v) => money(v)) },
     // R19: ASP (Existing) = Cash Sales (Existing) less Recurring ÷ Existing Customers
-    { label: 'ASP (Existing)', value: money(h.asp_existing_clients),
+    { label: 'ASP (Existing)', def: DEFS.aspExisting, value: money(h.asp_existing_clients),
       ...spreadOrNull(momPctDelta(h.asp_existing_clients, hPrev.asp_existing_clients)),
       ...goalProps(h.asp_existing_clients, h.asp_existing_goal, (v) => money(v)) },
     // R59: COGS Margin = COGS ÷ Revenue (est. — lower is better, so invert delta color)
-    { label: 'COGS Margin %', value: pct(cogsMargin), ...spreadOrNull(momPtDelta(cogsMargin, cogsMarginPrev, { invert: true })) },
+    { label: 'COGS Margin %', def: DEFS.cogs, value: pct(cogsMargin), ...spreadOrNull(momPtDelta(cogsMargin, cogsMarginPrev, { invert: true })) },
     // R60: Payroll Margin = Salary ÷ Sales Accrual (real salary model; lower is better)
-    { label: 'Payroll Margin %', value: h.payroll_margin_pct != null ? pct(h.payroll_margin_pct) : '—', ...spreadOrNull(momPtDelta(h.payroll_margin_pct, hPrev.payroll_margin_pct, { invert: true })) },
+    { label: 'Payroll Margin %', def: DEFS.payroll, value: h.payroll_margin_pct != null ? pct(h.payroll_margin_pct) : '—', ...spreadOrNull(momPtDelta(h.payroll_margin_pct, hPrev.payroll_margin_pct, { invert: true })) },
   ].filter(Boolean);
 
   // ---- OPERATIONAL group ----
@@ -792,22 +827,22 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
   const cancelRatePrev = totAPrev ? (sumA(apptsPrev, 'cancellations') / totAPrev) * 100 : null;
 
   const operational = [
-    { label: 'No-Show Rate', value: noShowRate != null ? `${noShowRate.toFixed(1)}%` : '—', ...spreadOrNull(momPtDelta(noShowRate, noShowRatePrev, { invert: true })) },
-    { label: 'Cancellation Rate', value: cancelRate != null ? `${cancelRate.toFixed(1)}%` : '—', ...spreadOrNull(momPtDelta(cancelRate, cancelRatePrev, { invert: true })) },
+    { label: 'No-Show Rate', def: DEFS.noShow, value: noShowRate != null ? `${noShowRate.toFixed(1)}%` : '—', ...spreadOrNull(momPtDelta(noShowRate, noShowRatePrev, { invert: true })) },
+    { label: 'Cancellation Rate', def: DEFS.cancel, value: cancelRate != null ? `${cancelRate.toFixed(1)}%` : '—', ...spreadOrNull(momPtDelta(cancelRate, cancelRatePrev, { invert: true })) },
     // R52: Membership Adoption = New Memberships ÷ Non-Member Visits.
     // Value uses the backend-computed rate (membership_adoption_rate); MoM delta
     // is a point change vs the prior-month rate (it's a percentage metric).
-    { label: 'Membership Adoption', value: pct(h.membership_adoption_rate), ...spreadOrNull(momPtDelta(h.membership_adoption_rate, hPrev.membership_adoption_rate)) },
+    { label: 'Membership Adoption', def: DEFS.membership, value: pct(h.membership_adoption_rate), ...spreadOrNull(momPtDelta(h.membership_adoption_rate, hPrev.membership_adoption_rate)) },
     // R66: Rev/Hr Provider = provider revenue ÷ provider utilized hours
-    { label: 'Rev / Hr · Provider', value: money(h.rev_per_provider, { compact: true }), ...spreadOrNull(momPctDelta(h.rev_per_provider, hPrev.rev_per_provider)) },
+    { label: 'Rev / Hr · Provider', def: DEFS.revProvider, value: money(h.rev_per_provider, { compact: true }), ...spreadOrNull(momPctDelta(h.rev_per_provider, hPrev.rev_per_provider)) },
     // R67: Rev/Hr Esthetician = esthetician revenue ÷ esthetician hours
-    { label: 'Rev / Hr · Esthetician', value: money(h.rev_per_esthetician, { compact: true }), ...spreadOrNull(momPctDelta(h.rev_per_esthetician, hPrev.rev_per_esthetician)) },
+    { label: 'Rev / Hr · Esthetician', def: DEFS.revEsth, value: money(h.rev_per_esthetician, { compact: true }), ...spreadOrNull(momPctDelta(h.rev_per_esthetician, hPrev.rev_per_esthetician)) },
     // R68: Provider Utilization = service hours ÷ scheduled hours
-    { label: 'Utilization · Provider', value: pct(h.provider_utilization), ...spreadOrNull(momPtDelta(h.provider_utilization, hPrev.provider_utilization)) },
+    { label: 'Utilization · Provider', def: DEFS.utilProvider, value: pct(h.provider_utilization), ...spreadOrNull(momPtDelta(h.provider_utilization, hPrev.provider_utilization)) },
     // R69: Esthetician Utilization = esthetician hours ÷ available hours
-    { label: 'Utilization · Esthetician', value: pct(h.esthetician_utilization), ...spreadOrNull(momPtDelta(h.esthetician_utilization, hPrev.esthetician_utilization)) },
+    { label: 'Utilization · Esthetician', def: DEFS.utilEsth, value: pct(h.esthetician_utilization), ...spreadOrNull(momPtDelta(h.esthetician_utilization, hPrev.esthetician_utilization)) },
     // R70: Rebooking Rate = % completed appts where client rebooked before leaving
-    { label: 'Rebook Rate %', value: pct(h.rebooking_rate), ...spreadOrNull(momPtDelta(h.rebooking_rate, hPrev.rebooking_rate)) },
+    { label: 'Rebook Rate %', def: DEFS.rebook, value: pct(h.rebooking_rate), ...spreadOrNull(momPtDelta(h.rebooking_rate, hPrev.rebooking_rate)) },
   ];
 
   // ---- MARKETING group ----
@@ -827,19 +862,19 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
   const returnRatePrev = retRate90(retentionPrev || []);
 
   const marketing = [
-    { label: 'New Customer Visits', value: num(newVisits),
+    { label: 'New Customer Visits', def: DEFS.newCust, value: num(newVisits),
       ...spreadOrNull(momPctDelta(newVisits, newVisitsPrev)),
       ...goalProps(newVisits, h.new_customers_goal, (v) => num(v)) },
     // R12/R65: Existing Customers = guests with prior purchase + payment >$0
-    { label: 'Existing Customer Visits', value: num(h.existing_client_count),
+    { label: 'Existing Customer Visits', def: DEFS.existingCust, value: num(h.existing_client_count),
       ...spreadOrNull(momPctDelta(h.existing_client_count, hPrev.existing_client_count)),
       ...goalProps(h.existing_client_count, h.existing_customers_goal, (v) => num(v)) },
     // R: MTD Ad Spend = SUM(Google + FB ad spend) for the month (chain-level, bundled export)
-    { label: 'MTD Ad Spend', value: h.mtd_ad_spend != null ? money(h.mtd_ad_spend, { compact: true }) : '—', ...spreadOrNull(momPctDelta(h.mtd_ad_spend, hPrev.mtd_ad_spend)) },
+    { label: 'MTD Ad Spend', def: DEFS.adSpend, value: h.mtd_ad_spend != null ? money(h.mtd_ad_spend, { compact: true }) : '—', ...spreadOrNull(momPctDelta(h.mtd_ad_spend, hPrev.mtd_ad_spend)) },
     // R: Client Acquisition Cost = MTD Ad Spend / New Customers
-    { label: 'CAC', value: h.client_acquisition_cost != null ? money(h.client_acquisition_cost) : '—', ...spreadOrNull(momPctDelta(h.client_acquisition_cost, hPrev.client_acquisition_cost, { invert: true })) },
+    { label: 'CAC', def: DEFS.cac, value: h.client_acquisition_cost != null ? money(h.client_acquisition_cost) : '—', ...spreadOrNull(momPctDelta(h.client_acquisition_cost, hPrev.client_acquisition_cost, { invert: true })) },
     // 90-day return rate: matured cohort, wired to /api/new-guest-return-rate
-    { label: 'New Guest Return Rate · 90 Day', value: returnRate != null ? pct(returnRate) : '—', ...spreadOrNull(momPtDelta(returnRate, returnRatePrev)) },
+    { label: 'New Guest Return Rate · 90 Day', def: DEFS.returnRate, value: returnRate != null ? pct(returnRate) : '—', ...spreadOrNull(momPtDelta(returnRate, returnRatePrev)) },
   ].filter(Boolean);
 
   // ---- Sales to Budget chart ----
@@ -946,9 +981,11 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <HeroCard label="Cash Sales" mtd={money(cashMtd, { compact: true, floor: true })} mtdDelta={heroDelta}
           proj={money(projRunRate, { compact: true, floor: true })} projDelta={heroDelta}
-          extraLabel="Full-Month Budget" extra={budget ? money(budget, { compact: true }) : '—'} />
+          extraLabel="Full-Month Budget" extra={budget ? money(budget, { compact: true }) : '—'}
+          labelDef={DEFS.cashSales} projDef={DEFS.projRunRate} extraDef={DEFS.fullMonthBudget} />
         <HeroCard label="Recognized Revenue" mtd={money(recRev, { compact: true })} mtdDelta={heroDelta}
-          proj={money(h.recognized_run_rate ?? projRunRate, { compact: true, floor: true })} projDelta={heroDelta} />
+          proj={money(h.recognized_run_rate ?? projRunRate, { compact: true, floor: true })} projDelta={heroDelta}
+          labelDef={DEFS.recRev} projDef={DEFS.recRunRate} />
       </div>
 
       {/* KPI groups */}
@@ -982,15 +1019,19 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
           <PacingChart daily={dailyArr} budget={budget} trending={projRunRate} daysInMonth={daysInMonth} />
           <div style={{ display: 'flex', gap: 26, marginTop: 6, paddingTop: 12, borderTop: `1px solid ${C.line2}`, flexWrap: 'wrap' }}>
             {[
-              ['Cash Sales MTD', money(mtdActual, { decimals: 2 }), C.ink],
-              ['Budget (MTD)', budgetMtd != null ? money(budgetMtd, { decimals: 2 }) : '—', C.ink],
-              ['Pace to Budget', paceToBudget != null ? `${paceToBudget.toFixed(0)}%` : '—', paceToBudget >= 100 ? C.ink : C.clay],
-              ['Projected (Run Rate)', money(projRunRate, { decimals: 2, floor: true }), C.ink],
-              ['Projected (Run Rate) %', budget ? `${((projRunRate / budget) * 100).toFixed(0)}%` : '—', budget && (projRunRate / budget) * 100 >= 100 ? C.ink : C.clay],
-              ['Full-Month Budget', money(budget, { decimals: 2 }), C.ink],
-            ].map(([l, v, col]) => (
+              ['Cash Sales MTD', money(mtdActual, { decimals: 2 }), C.ink, DEFS.cashSales],
+              ['Budget (MTD)', budgetMtd != null ? money(budgetMtd, { decimals: 2 }) : '—', C.ink, 'Budget (MTD): the full-month budget pro-rated to the elapsed portion of the month.'],
+              ['Pace to Budget', paceToBudget != null ? `${paceToBudget.toFixed(0)}%` : '—', paceToBudget >= 100 ? C.ink : C.clay, DEFS.budgetPct],
+              ['Projected (Run Rate)', money(projRunRate, { decimals: 2, floor: true }), C.ink, DEFS.projRunRate],
+              ['Projected (Run Rate) %', budget ? `${((projRunRate / budget) * 100).toFixed(0)}%` : '—', budget && (projRunRate / budget) * 100 >= 100 ? C.ink : C.clay, 'Projected Run Rate ÷ full-month budget × 100.'],
+              ['Full-Month Budget', money(budget, { decimals: 2 }), C.ink, DEFS.fullMonthBudget],
+              ['New Customer', num(newVisits), C.ink, DEFS.newCust],
+              ['Existing Customer', num(h.existing_client_count), C.ink, DEFS.existingCust],
+              ['ASP New', h.asp_new_clients != null ? money(h.asp_new_clients) : '—', C.ink, DEFS.aspNew],
+              ['ASP Existing', h.asp_existing_clients != null ? money(h.asp_existing_clients) : '—', C.ink, DEFS.aspExisting],
+            ].map(([l, v, col, d]) => (
               <div key={l} style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{l}</span>
+                <span style={{ display: 'flex', alignItems: 'center', font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{l}<InfoDot def={d} /></span>
                 <span style={{ font: `600 17px ${FONT}`, color: col, fontVariantNumeric: 'tabular-nums' }}>{v}</span>
               </div>
             ))}
@@ -1075,26 +1116,75 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
         </Card>
       </div>
 
-      {/* Location Performance table */}
-      <Card style={{ marginTop: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Location Performance</div>
-          <div style={{ font: `500 11.5px ${FONT}`, color: C.gray }}>Bars vs budget · line = 100% · {range}</div>
-        </div>
-        {/* threshold legend */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px 22px', alignItems: 'center', marginBottom: 14 }}>
-          <span style={{ font: `700 9px ${FONT}`, letterSpacing: '.09em', textTransform: 'uppercase', color: C.gray }}>Util%</span>
-          <LegendPill bg="#FBE3E1" color={C.red}>Under &lt;60%</LegendPill>
-          <LegendPill bg="#FBF1D6" color={C.gold}>Average 60–74.99%</LegendPill>
-          <LegendPill bg="#DDF0E6" color={C.teal}>High ≥75%</LegendPill>
-          <span style={{ width: 1, height: 14, background: C.line }} />
-          <span style={{ font: `700 9px ${FONT}`, letterSpacing: '.09em', textTransform: 'uppercase', color: C.gray }}>Rev/Hr</span>
-          <LegendPill bg="#FBE3E1" color={C.red}>Under · Prov &lt;$450 / Esth &lt;$125</LegendPill>
-          <LegendPill bg="#FBF1D6" color={C.gold}>Average · Prov $450–550 / Esth $125–175</LegendPill>
-          <LegendPill bg="#DDF0E6" color={C.teal}>High · Prov ≥$550 / Esth ≥$175</LegendPill>
-        </div>
-        <LocationTable rows={rows} totals={totals} h={h} />
-      </Card>
+      {/* Location performance — three by-location tables */}
+      {(() => {
+        const dash = '—';
+        const totCash = h.mtd_revenue != null ? h.mtd_revenue : totals.cash;
+        const totProj = h.cash_run_rate != null ? h.cash_run_rate : totals.trending;
+        // Per-location recognized-revenue run rate: no backend field, so scale
+        // recognized revenue by the location's cash run-rate multiplier
+        // (Proj. Run Rate ÷ Cash MTD). Approximate — see DEFS.recRunRateLoc.
+        const recRRLoc = (l, o) => {
+          const rev = n(o.recognized_revenue), cash = n(l.cash_sales), proj = n(l.trending);
+          if (rev == null || !cash || proj == null) return null;
+          return rev * (proj / cash);
+        };
+        return (
+          <>
+            <LocationMetricTable title="Location Performance · Sales & Customers" sub={range} rows={rows}
+              columns={[
+                { label: 'Cash MTD', def: DEFS.cashSales, render: (l) => money(l.cash_sales, { compact: true, floor: true }) },
+                { label: 'Proj. Run Rate', def: DEFS.projRunRate, render: (l) => money(l.trending, { compact: true }) },
+                { label: 'New Cust', def: DEFS.newCust, render: (l, o) => num(o.new_client_count) },
+                { label: 'Exist Cust', def: DEFS.existingCust, render: (l, o) => num(o.existing_client_count) },
+                { label: 'ASP New', def: DEFS.aspNew, render: (l, o) => money(o.asp) },
+                { label: 'ASP Exist', def: DEFS.aspExisting, render: (l, o) => money(o.asp_excl_memberships) },
+              ]}
+              total={[
+                money(totCash, { compact: true, floor: true }),
+                money(totProj, { compact: true }),
+                num(h.new_visits != null ? h.new_visits : totals.newCust),
+                num(h.existing_client_count != null ? h.existing_client_count : totals.existCust),
+                h.asp_new_clients != null ? money(h.asp_new_clients) : dash,
+                h.asp_existing_clients != null ? money(h.asp_existing_clients) : dash,
+              ]} />
+
+            <LocationMetricTable title="Location Performance · Operations" sub={range} rows={rows} legend
+              columns={[
+                { label: 'Prov Util', def: DEFS.utilProvider, render: (l, o) => o.provider_utilization != null ? <span style={{ color: utilPill(o.provider_utilization).color }}>{pct(o.provider_utilization, 0)}</span> : dash },
+                { label: 'Prov Rev/Hr', def: DEFS.revProvider, render: (l, o) => o.rev_per_provider != null ? <span style={{ color: revHrPill(o.rev_per_provider, 'prov').color }}>{money(o.rev_per_provider)}</span> : dash },
+                { label: 'Esth Util', def: DEFS.utilEsth, render: (l, o) => o.esthetician_utilization != null ? <span style={{ color: utilPill(o.esthetician_utilization).color }}>{pct(o.esthetician_utilization, 0)}</span> : dash },
+                { label: 'Esth Rev/Hr', def: DEFS.revEsth, render: (l, o) => o.rev_per_esthetician != null ? <span style={{ color: revHrPill(o.rev_per_esthetician, 'esth').color }}>{money(o.rev_per_esthetician)}</span> : dash },
+                { label: 'Rebook', def: DEFS.rebook, render: (l, o) => pct(o.rebooking_rate, 0) },
+                { label: 'Mbr Adopt', def: DEFS.membership, render: (l) => pct(l.membership_adoption, 1) },
+              ]}
+              total={[
+                h.provider_utilization != null ? pct(h.provider_utilization, 0) : dash,
+                h.rev_per_provider != null ? money(h.rev_per_provider) : dash,
+                h.esthetician_utilization != null ? pct(h.esthetician_utilization, 0) : dash,
+                h.rev_per_esthetician != null ? money(h.rev_per_esthetician) : dash,
+                h.rebooking_rate != null ? pct(h.rebooking_rate, 0) : dash,
+                h.membership_adoption_rate != null ? pct(h.membership_adoption_rate, 1) : dash,
+              ]} />
+
+            <LocationMetricTable title="Location Performance · Financials" sub={range} rows={rows}
+              columns={[
+                { label: 'Rec. Rev', def: DEFS.recRev, render: (l, o) => money(o.recognized_revenue, { compact: true }) },
+                { label: 'RR Rec. Rev', def: DEFS.recRunRateLoc, render: (l, o) => { const v = recRRLoc(l, o); return v != null ? money(v, { compact: true }) : dash; } },
+                { label: 'COGS %', def: DEFS.cogs, render: (l, o) => pct(o.cogs_pct, 1) },
+                { label: 'Payroll %', def: DEFS.payroll, render: (l, o) => pct(o.payroll_pct, 1) },
+                { label: 'GM %', def: DEFS.gm, render: (l, o) => pct(o.gross_margin_pct, 0) },
+              ]}
+              total={[
+                money(totals.recRev, { compact: true }),
+                h.recognized_run_rate != null ? money(h.recognized_run_rate, { compact: true }) : dash,
+                h.cogs_margin_pct != null ? pct(h.cogs_margin_pct, 1) : dash,
+                h.payroll_margin_pct != null ? pct(h.payroll_margin_pct, 1) : dash,
+                h.gross_margin_pct != null ? pct(h.gross_margin_pct, 0) : dash,
+              ]} />
+          </>
+        );
+      })()}
     </div>
   );
 };
@@ -1108,94 +1198,54 @@ function spread(d) { return { delta: d.text, deltaColor: d.color }; }
 // spread a MoM delta into KpiCard props, or render no subheader if unavailable
 function spreadOrNull(d) { return d ? { delta: d.text, deltaColor: d.color } : { delta: null }; }
 
-const GRID_COLS = '1.25fr 0.8fr 1.4fr 0.85fr 0.78fr 0.82fr 0.58fr 0.72fr 0.8fr 0.72fr 0.8fr 0.74fr 0.74fr 0.74fr 0.74fr 0.62fr';
-
-const LocationTable = ({ rows, totals, h }) => {
+// Config-driven by-location table. `columns` is [{ label, def, render(l, o) }];
+// `total` is an array of pre-formatted chain-total cells aligned to `columns`.
+const LocationMetricTable = ({ title, sub, rows, columns, total, legend }) => {
+  const gridCols = `1.35fr ${columns.map(() => '1fr').join(' ')}`;
   const cell = { textAlign: 'right', fontVariantNumeric: 'tabular-nums' };
-  const headStyle = { font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: C.gray2 };
-  const pillStyle = (col) => ({ display: 'inline-block', padding: '2px 7px', borderRadius: 5, font: `600 11px ${FONT}`, background: col === C.teal ? '#DDF0E6' : col === C.gold ? '#FBF1D6' : '#FBE3E1', color: col, fontVariantNumeric: 'tabular-nums' });
-  // Total row uses the header CARD values so the total matches the cards exactly
-  // (Cash Sales card = h.mtd_revenue; Proj. Run Rate card = h.cash_run_rate). Falls
-  // back to the per-location sums if the header value is missing.
-  const totCash = (h && h.mtd_revenue != null) ? h.mtd_revenue : totals.cash;
-  const totProj = (h && h.cash_run_rate != null) ? h.cash_run_rate : totals.trending;
-
   return (
-    <div style={{ margin: '0 -2px' }}>
-      {/* group header */}
-      <div style={{ display: 'grid', gridTemplateColumns: GRID_COLS, gap: 6, padding: '0 6px 5px', font: `700 9px ${FONT}`, letterSpacing: '.1em', textTransform: 'uppercase' }}>
-        <span style={{ gridColumn: '12 / span 2', textAlign: 'center', color: C.teal, borderBottom: `2px solid rgba(30,140,120,.3)`, paddingBottom: 4 }}>Provider</span>
-        <span style={{ gridColumn: '14 / span 2', textAlign: 'center', color: C.clay, borderBottom: `2px solid rgba(199,123,90,.4)`, paddingBottom: 4 }}>Esthetician</span>
+    <Card style={{ marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: legend ? 10 : 12 }}>
+        <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>{title}</div>
+        {sub && <div style={{ font: `500 11.5px ${FONT}`, color: C.gray }}>{sub}</div>}
       </div>
+      {legend && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px 20px', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ font: `700 9px ${FONT}`, letterSpacing: '.09em', textTransform: 'uppercase', color: C.gray }}>Util%</span>
+          <LegendPill bg="#FBE3E1" color={C.red}>&lt;60%</LegendPill>
+          <LegendPill bg="#FBF1D6" color={C.gold}>60–75%</LegendPill>
+          <LegendPill bg="#DDF0E6" color={C.teal}>≥75%</LegendPill>
+          <span style={{ width: 1, height: 14, background: C.line }} />
+          <span style={{ font: `700 9px ${FONT}`, letterSpacing: '.09em', textTransform: 'uppercase', color: C.gray }}>Rev/Hr</span>
+          <LegendPill bg="#FBE3E1" color={C.red}>Prov &lt;$450 / Esth &lt;$125</LegendPill>
+          <LegendPill bg="#FBF1D6" color={C.gold}>Prov 450–550 / Esth 125–175</LegendPill>
+          <LegendPill bg="#DDF0E6" color={C.teal}>Prov ≥$550 / Esth ≥$175</LegendPill>
+        </div>
+      )}
       {/* column header */}
-      <div style={{ display: 'grid', gridTemplateColumns: GRID_COLS, gap: 6, padding: '6px 6px 10px', borderBottom: `1px solid ${C.line2}`, ...headStyle }}>
-        <span>Location</span><span style={cell}>Cash MTD</span><span>Proj. Run Rate</span><span style={cell}>Rec. Rev</span>
-        <span style={cell}>COGS%</span><span style={cell}>Payroll%</span><span style={cell}>GM%</span>
-        <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>New Cust</span><span style={cell}>Exist Cust</span>
-        <span style={cell}>ASP New</span><span style={cell}>ASP Exist</span>
-        <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>Util%</span><span style={cell}>Rev/Hr</span>
-        <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>Util%</span><span style={cell}>Rev/Hr</span>
-        <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>Rebook</span>
+      <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 6, padding: '0 6px 9px', borderBottom: `1px solid ${C.line2}`, font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: C.gray2 }}>
+        <span>Location</span>
+        {columns.map((c) => (
+          <span key={c.label} style={{ ...cell, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>{c.label}<InfoDot def={c.def} /></span>
+        ))}
       </div>
       {rows.map((l) => {
         const o = l._ops || {};
-        const pace = pctScale(l.pct_to_goal_total) ?? pctScale(l.pct_to_goal_mtd);
-        const projColor = (pace ?? 0) >= 100 ? C.teal : C.clay;
-        const pu = utilPill(o.provider_utilization), eu = utilPill(o.esthetician_utilization);
-        const prh = revHrPill(o.rev_per_provider, 'prov'), erh = revHrPill(o.rev_per_esthetician, 'esth');
         return (
-          <div key={l.location} className="ev-lrow" style={{ display: 'grid', gridTemplateColumns: GRID_COLS, gap: 6, padding: '9px 6px', borderBottom: `1px solid ${C.line3}`, alignItems: 'center', font: `500 11.5px ${FONT}`, color: C.ink2 }}>
+          <div key={l.location} className="ev-lrow" style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 6, padding: '8px 6px', borderBottom: `1px solid ${C.line3}`, alignItems: 'center', font: `500 11.5px ${FONT}`, color: C.ink2 }}>
             <span style={{ fontWeight: 600, color: C.ink }}>{l.location}</span>
-            <span style={{ ...cell, fontWeight: 600, color: C.ink }}>{money(l.cash_sales, { compact: true, floor: true })}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-              <PaceBar pace={pace} color={(pace ?? 0) >= 100 ? C.teal : C.clayLite} />
-              <span style={{ width: 50, flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.2 }}>
-                <span style={{ fontWeight: 600, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{money(l.trending, { compact: true })}</span>
-                <span style={{ font: `600 9.5px ${FONT}`, color: projColor, fontVariantNumeric: 'tabular-nums' }}>{pace != null ? `${pace.toFixed(0)}%` : '—'}</span>
-              </span>
-            </span>
-            <span style={{ ...cell, fontWeight: 600, color: C.ink }}>{money(o.recognized_revenue, { compact: true })}</span>
-            <span style={cell}>{pct(o.cogs_pct, 1)}</span>
-            <span style={cell}>{pct(o.payroll_pct, 1)}</span>
-            <span style={cell}>{pct(o.gross_margin_pct, 0)}</span>
-            <span style={{ ...cell, borderLeft: `1px solid ${C.line3}`, paddingLeft: 6 }}>{num(o.new_client_count)}</span>
-            <span style={cell}>{num(o.existing_client_count)}</span>
-            <span style={cell}>{money(o.asp)}</span>
-            <span style={cell}>{money(o.asp_excl_memberships)}</span>
-            <span style={{ ...cell, borderLeft: `1px solid ${C.line3}`, paddingLeft: 6 }}>{o.provider_utilization != null ? <span style={pillStyle(pu.color)}>{pct(o.provider_utilization, 0)}</span> : '—'}</span>
-            <span style={cell}>{o.rev_per_provider != null ? <span style={pillStyle(prh.color)}>{money(o.rev_per_provider)}</span> : '—'}</span>
-            <span style={{ ...cell, borderLeft: `1px solid ${C.line3}`, paddingLeft: 6 }}>{o.esthetician_utilization != null ? <span style={pillStyle(eu.color)}>{pct(o.esthetician_utilization, 0)}</span> : '—'}</span>
-            <span style={cell}>{o.rev_per_esthetician != null ? <span style={pillStyle(erh.color)}>{money(o.rev_per_esthetician)}</span> : '—'}</span>
-            <span style={{ ...cell, borderLeft: `1px solid ${C.line3}`, paddingLeft: 6 }}>{pct(o.rebooking_rate, 0)}</span>
+            {columns.map((c) => <span key={c.label} style={cell}>{c.render(l, o)}</span>)}
           </div>
         );
       })}
       {rows.length === 0 && <div style={{ padding: '24px 6px', textAlign: 'center', font: `500 12px ${FONT}`, color: C.gray }}>No location data for this range.</div>}
-      {/* total row */}
-      {rows.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: GRID_COLS, gap: 6, padding: '11px 6px 4px', borderTop: `2px solid #D8E2DF`, alignItems: 'center', font: `700 11.5px ${FONT}`, color: C.ink }}>
+      {rows.length > 0 && total && (
+        <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 6, padding: '11px 6px 2px', borderTop: `2px solid #D8E2DF`, alignItems: 'center', font: `700 11.5px ${FONT}`, color: C.ink }}>
           <span style={{ font: `700 10px ${FONT}`, letterSpacing: '.1em', textTransform: 'uppercase', color: C.teal }}>Total · {rows.length} Loc</span>
-          <span style={cell}>{money(totCash, { compact: true, floor: true })}</span>
-          <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.2 }}>
-            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{money(totProj, { compact: true })}</span>
-            <span style={{ font: `700 9.5px ${FONT}`, color: totals.budget && totCash / totals.budget >= 1 ? C.teal : C.clay, fontVariantNumeric: 'tabular-nums' }}>{totals.budget ? `${((totCash / totals.budget) * 100).toFixed(0)}%` : '—'}</span>
-          </span>
-          <span style={{ ...cell, fontWeight: 700, color: C.ink }}>{money(totals.recRev, { compact: true })}</span>
-          <span style={cell}>{h.cogs_margin_pct != null ? pct(h.cogs_margin_pct, 1) : '—'}</span>
-          <span style={cell}>{h.payroll_margin_pct != null ? pct(h.payroll_margin_pct, 1) : '—'}</span>
-          <span style={cell}>{h.gross_margin_pct != null ? pct(h.gross_margin_pct, 0) : '—'}</span>
-          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{num(h.new_visits != null ? h.new_visits : totals.newCust)}</span>
-          <span style={cell}>{num(h.existing_client_count != null ? h.existing_client_count : totals.existCust)}</span>
-          <span style={cell}>{h.asp_new_clients != null ? money(h.asp_new_clients) : (totals.asp != null ? money(totals.asp) : '—')}</span>
-          <span style={cell}>{h.asp_existing_clients != null ? money(h.asp_existing_clients) : (totals.aspX != null ? money(totals.aspX) : '—')}</span>
-          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{h.provider_utilization != null ? pct(h.provider_utilization, 0) : '—'}</span>
-          <span style={cell}>{h.rev_per_provider != null ? money(h.rev_per_provider) : '—'}</span>
-          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{h.esthetician_utilization != null ? pct(h.esthetician_utilization, 0) : '—'}</span>
-          <span style={cell}>{h.rev_per_esthetician != null ? money(h.rev_per_esthetician) : '—'}</span>
-          <span style={{ ...cell, borderLeft: `1px solid ${C.line2}`, paddingLeft: 6 }}>{h.rebooking_rate != null ? pct(h.rebooking_rate, 0) : '—'}</span>
+          {total.map((v, i) => <span key={i} style={cell}>{v}</span>)}
         </div>
       )}
-    </div>
+    </Card>
   );
 };
 
