@@ -39,7 +39,7 @@ VIEW_KEY = "overview"
 VIEW_LABEL = "Overview"
 VIEW_NAV_TEXT = "Overview"
 
-# Two separate renders (both @2x for crispness):
+# Two separate renders:
 #   • PDF attachment  → full desktop layout: larger cards, chart beside Budget
 #     Attainment, all tables full-width, filters shown. Captured at desktop width.
 #   • Inline PNG      → compact phone layout: stacked cards, chart stacked,
@@ -49,7 +49,11 @@ VIEW_NAV_TEXT = "Overview"
 # PDF read large; only the PNG is compacted (via CSS at capture time).
 PDF_VIEWPORT = {"width": 1600, "height": 1200}
 PNG_VIEWPORT = {"width": 430, "height": 1200}
-DEVICE_SCALE_FACTOR = 2
+# The inline PNG is rendered at 3x so the dense tables stay legible in the email
+# body AND remain crisp if the recipient taps to zoom in their mail client.
+# NOTE: this affects screenshots only — page.pdf() renders at print resolution
+# and ignores device_scale_factor, so the attached PDF is unchanged.
+DEVICE_SCALE_FACTOR = 3
 NAV_TIMEOUT_MS = 60_000
 # The view fetches live data and shows "Loading live data…" until it's ready.
 # We wait for that indicator to clear (up to this long) before capturing,
