@@ -94,12 +94,19 @@ _MEASURE_FOR_PDF_JS = """
 """
 
 
-# Applied for the capture only: drop the sidebar so the content gets the full
-# width. At the desktop capture width the Overview renders in its normal layout,
-# so no responsive stacking is needed.
+# Hybrid capture: the page is captured wide (so the location tables can show
+# every column at full size), but the hero / KPI / chart / mix sections are
+# constrained to a phone width and stacked so they read like a phone layout.
+# The location tables are plain Cards (not matched by these selectors), so they
+# span the full capture width.
 _MOBILE_LAYOUT_CSS = """
 aside { display: none !important; }
 main { width: 100% !important; }
+main [style*="repeat("] { grid-template-columns: repeat(2, 1fr) !important; max-width: 470px !important; }
+main [style*="1.55fr"] { grid-template-columns: 1fr !important; max-width: 470px !important; }
+main [style*="1fr 1fr"] { grid-template-columns: 1fr !important; max-width: 470px !important; }
+.ev-hero-cols { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
+.ev-hero-cols > div[style*="width: 3px"] { display: none !important; }
 """
 
 
