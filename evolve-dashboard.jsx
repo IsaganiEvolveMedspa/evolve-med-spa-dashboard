@@ -252,8 +252,8 @@ const PaceBar = ({ pace, color }) => {
 
 // Small "?" affordance with a styled hover popover. Renders nothing when no
 // definition is supplied. Tooltip CSS lives in the global <style> block (.ev-info).
-const InfoDot = ({ def }) => (def ? (
-  <span className="ev-info">?<span className="ev-tip">{def}</span></span>
+const InfoDot = ({ def, down }) => (def ? (
+  <span className={down ? 'ev-info ev-info-down' : 'ev-info'}>?<span className="ev-tip">{def}</span></span>
 ) : null);
 
 // KPI definitions (source: Evolve_Dashboard_Metric_Computations.docx). Shown in
@@ -455,8 +455,10 @@ const Dashboard = () => {
         .ev-scroll::-webkit-scrollbar-track{background:transparent;}
         .ev-info{position:relative;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;margin-left:4px;border-radius:50%;border:1px solid #B7C6C1;color:#7C8F8A;font:700 9px ${FONT};line-height:1;cursor:help;vertical-align:middle;letter-spacing:0;text-transform:none;flex:none;}
         .ev-info:hover{border-color:${C.teal};color:${C.teal};}
-        .ev-info .ev-tip{display:none;position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);width:238px;max-width:238px;background:#12332E;color:#EAF3F0;font:500 11px ${FONT};line-height:1.45;letter-spacing:0;text-transform:none;text-align:left;padding:9px 11px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.22);z-index:60;white-space:normal;}
-        .ev-info .ev-tip::after{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-bottom-color:#12332E;}
+        .ev-info .ev-tip{display:none;position:absolute;bottom:calc(100% + 8px);top:auto;left:50%;transform:translateX(-50%);width:238px;max-width:238px;background:#12332E;color:#EAF3F0;font:500 11px ${FONT};line-height:1.45;letter-spacing:0;text-transform:none;text-align:left;padding:9px 11px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.22);z-index:200;white-space:normal;}
+        .ev-info .ev-tip::after{content:'';position:absolute;top:100%;bottom:auto;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#12332E;}
+        .ev-info-down .ev-tip{top:calc(100% + 8px);bottom:auto;}
+        .ev-info-down .ev-tip::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:#12332E;}
         .ev-info:hover .ev-tip{display:block;}
       `}</style>
       <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden', fontFamily: FONT, background: C.bg, color: C.ink }}
@@ -692,7 +694,7 @@ const BarList = ({ rows, max, color = C.teal, labelW = 140, valueW = 70, fmt = (
 // Hero trend card: label, MTD value+delta, Projected value+delta.
 const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta, extraLabel, extra, labelDef, projDef, extraDef }) => (
   <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
-    <div style={{ display: 'flex', alignItems: 'center', font: `600 12px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{label}<InfoDot def={labelDef} /></div>
+    <div style={{ display: 'flex', alignItems: 'center', font: `600 12px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>{label}<InfoDot def={labelDef} down /></div>
     <div style={{ display: 'flex', alignItems: 'stretch', marginTop: 16 }}>
       <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
         <div style={{ font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>MTD</div>
@@ -703,14 +705,14 @@ const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta, extraLabel, extra, la
         <>
           <div style={{ width: 3, background: C.line2, margin: '4px 20px', borderRadius: 2, flex: 'none' }} />
           <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>{extraLabel}<InfoDot def={extraDef} /></div>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>{extraLabel}<InfoDot def={extraDef} down /></div>
             <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{extra}</div>
           </div>
         </>
       )}
       <div style={{ width: 3, background: C.line2, margin: '4px 20px', borderRadius: 2, flex: 'none' }} />
       <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>Projected · Run Rate<InfoDot def={projDef} /></div>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>Projected · Run Rate<InfoDot def={projDef} down /></div>
         <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{proj}</div>
         {projDelta && <div style={{ font: `600 12.5px ${FONT}`, color: projDelta.color, marginTop: 4 }}>{projDelta.text}</div>}
       </div>
