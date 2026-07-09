@@ -157,12 +157,18 @@ const KpiCard = ({ label, value, delta, deltaColor, accent, goal, goalDelta, goa
     <div style={{ display: 'flex', alignItems: 'flex-start', font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.25, minHeight: 26 }}>
       <span>{label}</span><InfoDot def={def} />
     </div>
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 7, flexWrap: 'wrap' }}>
-      <span style={{ font: `600 21px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
-      {goal != null && <span style={{ font: `500 11px ${FONT}`, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>vs. goal {goal}</span>}
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: 7 }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ font: `600 21px ${FONT}`, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+        {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: 4 }}>{delta}</div>}
+      </div>
+      {goal != null && (
+        <div style={{ minWidth: 0 }}>
+          <div style={{ font: `500 11px ${FONT}`, color: C.gray, fontVariantNumeric: 'tabular-nums' }}>vs. goal {goal}</div>
+          {goalDelta != null && <div style={{ font: `600 10px ${FONT}`, color: goalDeltaColor || C.gray, fontVariantNumeric: 'tabular-nums', marginTop: 4 }}>{goalDelta}</div>}
+        </div>
+      )}
     </div>
-    {goalDelta != null && <div style={{ font: `600 10.5px ${FONT}`, color: goalDeltaColor || C.gray, marginTop: 4 }}>{goalDelta}</div>}
-    {delta != null && <div style={{ font: `600 10.5px ${FONT}`, color: deltaColor || C.green, marginTop: goalDelta != null ? 2 : 4 }}>{delta}</div>}
   </div>
 );
 
