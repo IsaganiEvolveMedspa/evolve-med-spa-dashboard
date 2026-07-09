@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, createContext, useContext } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext } from 'react';
 
 /* =================================================================
    EVOLVE MED SPA — MASTER DASHBOARD
@@ -252,9 +252,42 @@ const PaceBar = ({ pace, color }) => {
 
 // Small "?" affordance with a styled hover popover. Renders nothing when no
 // definition is supplied. Tooltip CSS lives in the global <style> block (.ev-info).
-const InfoDot = ({ def, down, right, left }) => (def ? (
-  <span className={`ev-info${down ? ' ev-info-down' : ''}${right ? ' ev-info-right' : ''}${left ? ' ev-info-left' : ''}`}>?<span className="ev-tip">{def}</span></span>
-) : null);
+// "?" affordance with a JS-positioned tooltip. The tooltip renders as a
+// position:fixed element (escapes the scroll container's overflow clipping) and
+// is clamped to the viewport, so it's never cut off. It prefers opening above;
+// when there isn't room above (e.g. the top hero row) it opens to the side so it
+// never covers the value beneath the label. `down`/`right`/`left` props are
+// accepted but ignored — placement is automatic.
+const InfoDot = ({ def }) => {
+  const ref = useRef(null);
+  const [tip, setTip] = useState(null);
+  if (!def) return null;
+  const W = 240;
+  const show = () => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const clampX = (x) => Math.max(8, Math.min(x, vw - W - 8));
+    if (r.top >= 84) {
+      setTip({ left: clampX(r.left + r.width / 2 - W / 2), top: r.top - 8, t: 'translateY(-100%)' });
+    } else if (r.right + 8 + W <= vw - 8) {
+      setTip({ left: r.right + 8, top: r.top + r.height / 2, t: 'translateY(-50%)' });
+    } else {
+      setTip({ left: Math.max(8, r.left - 8 - W), top: r.top + r.height / 2, t: 'translateY(-50%)' });
+    }
+  };
+  return (
+    <span ref={ref} className="ev-info" onMouseEnter={show} onMouseLeave={() => setTip(null)}>?
+      {tip && (
+        <span style={{ position: 'fixed', left: tip.left, top: tip.top, width: W, transform: tip.t,
+          background: '#12332E', color: '#EAF3F0', font: `500 11px ${FONT}`, lineHeight: 1.45, textAlign: 'left',
+          padding: '9px 11px', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.22)', zIndex: 2000,
+          whiteSpace: 'normal', pointerEvents: 'none' }}>{def}</span>
+      )}
+    </span>
+  );
+};
 
 // KPI definitions (source: Evolve_Dashboard_Metric_Computations.docx). Shown in
 // the "?" hover popovers on the Overview so the whole team sees each calculation.
@@ -455,15 +488,6 @@ const Dashboard = () => {
         .ev-scroll::-webkit-scrollbar-track{background:transparent;}
         .ev-info{position:relative;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;margin-left:4px;border-radius:50%;border:1px solid #B7C6C1;color:#7C8F8A;font:700 9px ${FONT};line-height:1;cursor:help;vertical-align:middle;letter-spacing:0;text-transform:none;flex:none;}
         .ev-info:hover{border-color:${C.teal};color:${C.teal};}
-        .ev-info .ev-tip{display:none;position:absolute;bottom:calc(100% + 8px);top:auto;left:50%;transform:translateX(-50%);width:238px;max-width:238px;background:#12332E;color:#EAF3F0;font:500 11px ${FONT};line-height:1.45;letter-spacing:0;text-transform:none;text-align:left;padding:9px 11px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.22);z-index:200;white-space:normal;}
-        .ev-info .ev-tip::after{content:'';position:absolute;top:100%;bottom:auto;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#12332E;}
-        .ev-info-down .ev-tip{top:calc(100% + 8px);bottom:auto;}
-        .ev-info-down .ev-tip::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:#12332E;}
-        .ev-info-right .ev-tip{top:50%;bottom:auto;left:calc(100% + 8px);transform:translateY(-50%);}
-        .ev-info-right .ev-tip::after{top:50%;bottom:auto;left:auto;right:100%;transform:translateY(-50%);border-top-color:transparent;border-right-color:#12332E;}
-        .ev-info-left .ev-tip{top:50%;bottom:auto;left:auto;right:calc(100% + 8px);transform:translateY(-50%);}
-        .ev-info-left .ev-tip::after{top:50%;bottom:auto;left:100%;right:auto;transform:translateY(-50%);border-top-color:transparent;border-left-color:#12332E;}
-        .ev-info:hover .ev-tip{display:block;}
       `}</style>
       <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden', fontFamily: FONT, background: C.bg, color: C.ink }}
            onClick={() => { setLocOpen(false); setMonthOpen(false); }}>
