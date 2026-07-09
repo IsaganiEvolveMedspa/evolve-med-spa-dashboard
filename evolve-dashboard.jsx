@@ -154,7 +154,7 @@ const Eyebrow = ({ children }) => (
 // target (with "% to goal" below) — all in the one card.
 const KpiCard = ({ label, value, delta, deltaColor, accent, goal, goalDelta, goalDeltaColor, def }) => (
   <div style={{ background: C.panel, border: `1px solid ${accent ? C.teal : C.line}`, borderRadius: 12, padding: '12px 13px', minWidth: 0 }}>
-    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', textAlign: 'center', font: `600 10.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.3, minHeight: 16 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', textAlign: 'center', font: `600 10.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: accent ? C.teal : C.gray, lineHeight: 1.3, minHeight: 28 }}>
       <span>{label}</span><InfoDot def={def} />
     </div>
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 16, marginTop: 8 }}>
@@ -252,8 +252,8 @@ const PaceBar = ({ pace, color }) => {
 
 // Small "?" affordance with a styled hover popover. Renders nothing when no
 // definition is supplied. Tooltip CSS lives in the global <style> block (.ev-info).
-const InfoDot = ({ def, down, right }) => (def ? (
-  <span className={`ev-info${down ? ' ev-info-down' : ''}${right ? ' ev-info-right' : ''}`}>?<span className="ev-tip">{def}</span></span>
+const InfoDot = ({ def, down, right, left }) => (def ? (
+  <span className={`ev-info${down ? ' ev-info-down' : ''}${right ? ' ev-info-right' : ''}${left ? ' ev-info-left' : ''}`}>?<span className="ev-tip">{def}</span></span>
 ) : null);
 
 // KPI definitions (source: Evolve_Dashboard_Metric_Computations.docx). Shown in
@@ -461,6 +461,8 @@ const Dashboard = () => {
         .ev-info-down .ev-tip::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:#12332E;}
         .ev-info-right .ev-tip{top:50%;bottom:auto;left:calc(100% + 8px);transform:translateY(-50%);}
         .ev-info-right .ev-tip::after{top:50%;bottom:auto;left:auto;right:100%;transform:translateY(-50%);border-top-color:transparent;border-right-color:#12332E;}
+        .ev-info-left .ev-tip{top:50%;bottom:auto;left:auto;right:calc(100% + 8px);transform:translateY(-50%);}
+        .ev-info-left .ev-tip::after{top:50%;bottom:auto;left:100%;right:auto;transform:translateY(-50%);border-top-color:transparent;border-left-color:#12332E;}
         .ev-info:hover .ev-tip{display:block;}
       `}</style>
       <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden', fontFamily: FONT, background: C.bg, color: C.ink }}
@@ -707,14 +709,14 @@ const HeroCard = ({ label, mtd, mtdDelta, proj, projDelta, extraLabel, extra, la
         <>
           <div style={{ width: 3, background: C.line2, margin: '4px 20px', borderRadius: 2, flex: 'none' }} />
           <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>{extraLabel}<InfoDot def={extraDef} /></div>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>{extraLabel}<InfoDot def={extraDef} right /></div>
             <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{extra}</div>
           </div>
         </>
       )}
       <div style={{ width: 3, background: C.line2, margin: '4px 20px', borderRadius: 2, flex: 'none' }} />
       <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>Projected · Run Rate<InfoDot def={projDef} /></div>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', font: `600 11px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray2 }}>Projected · Run Rate<InfoDot def={projDef} left /></div>
         <div style={{ font: `600 34px ${FONT}`, color: C.ink, marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>{proj}</div>
         {projDelta && <div style={{ font: `600 12.5px ${FONT}`, color: projDelta.color, marginTop: 4 }}>{projDelta.text}</div>}
       </div>
