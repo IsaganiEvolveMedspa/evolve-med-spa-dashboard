@@ -238,15 +238,20 @@ def main() -> None:
     html = build_html(report_date)
     attachments = [
         {
-            # Inline image referenced by cid: in the HTML body.
+            # Inline image referenced by cid: in the HTML body. Both a matching
+            # content_id AND an explicit image content_type are required for mail
+            # clients (Gmail/Outlook) to render it embedded in the body rather
+            # than as a downloadable file.
             "filename": f"{VIEW_KEY}.png",
             "content": base64.b64encode(capture["png_bytes"]).decode("ascii"),
             "content_id": VIEW_KEY,
+            "content_type": "image/png",
         },
         {
             # PDF attachment (no content_id → shows as a downloadable file).
             "filename": f"evolve-overview-{date.today().isoformat()}.pdf",
             "content": base64.b64encode(capture["pdf_bytes"]).decode("ascii"),
+            "content_type": "application/pdf",
         },
     ]
 
