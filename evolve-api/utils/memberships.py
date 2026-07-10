@@ -59,3 +59,34 @@ def new_memberships(s: str, e: str, locations: Optional[list[str]]) -> int:
     except Exception as exc:                                 # never take down the KPI header
         log.warning("new_memberships failed; returning 0: %s", exc)
         return 0
+
+
+def existing_members(s: str, e: str, locations: Optional[list[str]]) -> int:
+    """Total distinct members transacting this month (optionally scoped to selected
+    centers). Every guest with a membership sale/bill in [s, e] — new sign-ups AND
+    recurring auto-bills — counted once by guest_code. This is the "returning base"
+    parallel to the cash Existing Customers metric (total distinct customers
+    transacting this month); New Members is NOT subtracted. Returns 0 on any error
+    so it never takes down the KPI header.
+
+    Rules:
+      • sale_date within [s, e]  → membership activity in the MTD window
+      • DISTINCT guest_code      → each member counted once, not per bill/add-on
+      • no sale_type filter      → includes both new sales and recurring bills
+    """
+    try:
+        # Location filter targets this table's center column (sale_center); dates are
+        # inlined (validated router params), location values stay parameterised.
+        loc_and, loc_p = loc_in(locations, col="sale_center")
+        sql = f"""
+            SELECT COUNT(DISTINCT guest_code) AS existing_members
+            FROM {FULL_MEMBERSHIP_SALES}
+            WHERE CAST(sale_date AS DATE) BETWEEN '{s}' AND '{e}'
+              {loc_and}
+        """
+        rows = run_query(sql, loc_p or None)
+        val = rows[0].get("existing_members") if rows else None
+        return int(val) if val is not None else 0
+    except Exception as exc:                                 # never take down the KPI header
+        log.warning("existing_members failed; returning 0: %s", exc)
+        return 0

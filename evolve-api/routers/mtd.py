@@ -17,7 +17,7 @@ from utils.sss import sss_growth_yoy
 from utils.new_customers import new_existing_visits
 from utils.new_guests import new_guest_count
 from utils.rebooking_kpi import rebooking_rate_kpi
-from utils.memberships import new_memberships
+from utils.memberships import new_memberships, existing_members
 from utils.rev_hour import esthetician_rev_per_hour, provider_rev_per_hour
 from utils.errors import log_and_raise_from_request
 
@@ -577,6 +577,7 @@ def get_mtd_kpi_header(
             f_sss      = pool.submit(timed("sss", sss_growth_yoy), s, e, locations, yesterday)
             f_visits   = pool.submit(timed("new_existing", new_existing_visits), s, e, locations)
             f_memb     = pool.submit(timed("memberships", new_memberships), s, e, locations)
+            f_exist_memb = pool.submit(timed("existing_members", existing_members), s, e, locations)
             f_esth_rh  = pool.submit(timed("esth_rev_hr", esthetician_rev_per_hour), s, e, locations)
             f_prov_rh  = pool.submit(timed("prov_rev_hr", provider_rev_per_hour), s, e, locations)
 
@@ -587,6 +588,7 @@ def get_mtd_kpi_header(
             result_recog_rr = f_recog_rr.result()
             result_sss      = f_sss.result()
             new_memb        = f_memb.result()
+            exist_memb      = f_exist_memb.result()
             esth_rev_hr     = f_esth_rh.result()
             prov_rev_hr     = f_prov_rh.result()
             try:
@@ -617,6 +619,10 @@ def get_mtd_kpi_header(
         # Reads 0 if the memberships-sales table has no matching rows for the window.
         non_member = result.get("non_member_count") or 0
         result["new_members"] = new_memb
+        # Existing Members = total distinct members transacting this month (new + recurring),
+        # from BRONZE_ZENOTI_MEMBERSHIPS_SALES. Returning-base parallel to Existing Customers
+        # (total distinct customers); New Members is NOT subtracted out.
+        result["existing_members"] = exist_memb
         result["membership_adoption_rate"] = (new_memb / non_member * 100) if non_member else None
         # Rev/hr Esthetician & Provider — decoupled (all role sales ÷ role booked hours),
         # replacing the per-day-join values that dropped role attribution (~20% for
