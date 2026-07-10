@@ -8,6 +8,18 @@ the supporting-schedules Excel via scripts/build_operating_days_json.py):
   - elapsed working days = open days from month start through the latest data date
   - total working days   = open days in the full calendar month
 Chain run rate = sum of the per-location run rates.
+
+Holiday handling (data/us_holidays.json):
+  The operating schedule is a purely WEEKLY pattern and cannot express a holiday.
+  us_holidays.json flags US holidays the chain is CLOSED for (closure=true); those
+  dates are removed from BOTH the working-day counts AND the MTD sales sums, so a
+  closed day neither dilutes the daily pace nor is projected at normal pace.
+  Only CHAIN-WIDE closures should be closure=true (e.g. New Year's Day, Christmas —
+  data-confirmed $0 across all locations). Holidays the chain still operates
+  (Juneteenth, Veterans Day, …) stay closure=false so their real revenue still counts.
+  Partial closures (some locations open on a holiday, e.g. July 4) are per-(location,
+  date) and are intentionally NOT handled here — those remain real, if slow, operating
+  days. See utils' confirmed-closure note for the per-location alternative.
 """
 import calendar
 import json
@@ -22,6 +34,8 @@ from utils.filters import build_date_filter
 
 _JSON = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                      "data", "operating_days.json")
+_HOLIDAYS_JSON = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                              "data", "us_holidays.json")
 
 # Same cash payment-type filter the cash KPIs use (keep in sync with mtd.py):
 # include a row if it has any real financial tender (Cash, Card, Check, Custom - *),
@@ -46,12 +60,60 @@ def _open_days() -> dict[str, list[str]]:
         return {}
 
 
+@lru_cache(maxsize=1)
+def _holiday_dates() -> frozenset:
+    """ISO dates the chain is CLOSED for a holiday (excluded from working days + sales).
+
+    Reads data/us_holidays.json. Only entries with "closure": true are excluded, so
+    federal holidays the chain still operates keep their revenue. Both the actual and
+    the observed date are excluded when present (e.g. a Sat holiday observed the prior
+    Fri). Chain-wide only — see the module docstring for the partial-closure caveat.
+    """
+    try:
+        with open(_HOLIDAYS_JSON, encoding="utf-8") as f:
+            cal = json.load(f)
+    except (OSError, ValueError):
+        return frozenset()
+    out: set[str] = set()
+    for entries in cal.values():
+        for h in entries:
+            if not h.get("closure"):
+                continue
+            if h.get("date"):
+                out.add(h["date"])
+            if h.get("observed"):
+                out.add(h["observed"])
+    return frozenset(out)
+
+
 def _count_between(dates: list[str], start_iso: str, end_iso: str) -> int:
-    return sum(1 for d in dates if start_iso <= d <= end_iso)
+    """Open days in [start, end], excluding chain-wide holiday closures."""
+    hols = _holiday_dates()
+    return sum(1 for d in dates if start_iso <= d <= end_iso and d not in hols)
+
+
+def _holiday_not_in_clause(date_col: str, s: str, e: str) -> str:
+    """SQL fragment excluding chain-wide holiday dates in [s, e] from an aggregate.
+
+    Keeps the MTD sales sum consistent with the working-day counts: a day removed from
+    the denominator is also removed from the numerator. For genuine ($0) closures this
+    is a no-op on the sum, but it guards against a mismatch if a flagged day ever has
+    stray cash. Dates are safe string literals (same convention as utils/filters).
+    """
+    hols = sorted(d for d in _holiday_dates() if s <= d <= e)
+    if not hols:
+        return ""
+    lits = ", ".join(f"'{d}'" for d in hols)
+    return f" AND CAST({date_col} AS DATE) NOT IN ({lits})"
 
 
 def _project_run_rate(per_center: dict[str, float], s: str, latest_date: str) -> Optional[float]:
-    """Project per-location MTD totals to full month via working days; sum to chain."""
+    """Project per-location MTD totals to full month via working days; sum to chain.
+
+    elapsed/total working days now exclude chain-wide holiday closures via
+    _count_between, so a closed holiday no longer inflates elapsed_wd (which would
+    have understated the daily pace) nor total_wd (which would have over-projected).
+    """
     table = _open_days()
     if not table:
         return None
@@ -78,6 +140,7 @@ def cash_run_rate(s: str, e: str, locations: Optional[list[str]], latest_date: s
         FROM {FULL_CASH}
         {where}
         {_CASH_PAY_FILTER}
+        {_holiday_not_in_clause("payment_date", s, e)}
         GROUP BY center_name
     """
     per = {r["center_name"]: float(r["v"] or 0) for r in run_query(sql, params or None)}
@@ -91,6 +154,7 @@ def recognized_run_rate(s: str, e: str, locations: Optional[list[str]], latest_d
         SELECT center_name, SUM(sales_inc_tax) AS v
         FROM {FULL_SALES}
         {where}
+        {_holiday_not_in_clause("sale_date", s, e)}
         GROUP BY center_name
     """
     per = {r["center_name"]: float(r["v"] or 0) for r in run_query(sql, params or None)}

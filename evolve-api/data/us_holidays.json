@@ -1,0 +1,397 @@
+{
+  "2024": [
+    {
+      "name": "New Year's Day",
+      "date": "2024-01-01",
+      "observed": "2024-01-01",
+      "weekday": "Monday",
+      "closure": true
+    },
+    {
+      "name": "Martin Luther King Jr. Day",
+      "date": "2024-01-15",
+      "observed": "2024-01-15",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Presidents' Day",
+      "date": "2024-02-19",
+      "observed": "2024-02-19",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Memorial Day",
+      "date": "2024-05-27",
+      "observed": "2024-05-27",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Juneteenth",
+      "date": "2024-06-19",
+      "observed": "2024-06-19",
+      "weekday": "Wednesday",
+      "closure": false
+    },
+    {
+      "name": "Independence Day",
+      "date": "2024-07-04",
+      "observed": "2024-07-04",
+      "weekday": "Thursday",
+      "closure": false
+    },
+    {
+      "name": "Labor Day",
+      "date": "2024-09-02",
+      "observed": "2024-09-02",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Columbus Day",
+      "date": "2024-10-14",
+      "observed": "2024-10-14",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Veterans Day",
+      "date": "2024-11-11",
+      "observed": "2024-11-11",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Thanksgiving Day",
+      "date": "2024-11-28",
+      "observed": "2024-11-28",
+      "weekday": "Thursday",
+      "closure": false
+    },
+    {
+      "name": "Christmas Day",
+      "date": "2024-12-25",
+      "observed": "2024-12-25",
+      "weekday": "Wednesday",
+      "closure": true
+    }
+  ],
+  "2025": [
+    {
+      "name": "New Year's Day",
+      "date": "2025-01-01",
+      "observed": "2025-01-01",
+      "weekday": "Wednesday",
+      "closure": true
+    },
+    {
+      "name": "Martin Luther King Jr. Day",
+      "date": "2025-01-20",
+      "observed": "2025-01-20",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Presidents' Day",
+      "date": "2025-02-17",
+      "observed": "2025-02-17",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Memorial Day",
+      "date": "2025-05-26",
+      "observed": "2025-05-26",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Juneteenth",
+      "date": "2025-06-19",
+      "observed": "2025-06-19",
+      "weekday": "Thursday",
+      "closure": false
+    },
+    {
+      "name": "Independence Day",
+      "date": "2025-07-04",
+      "observed": "2025-07-04",
+      "weekday": "Friday",
+      "closure": false
+    },
+    {
+      "name": "Labor Day",
+      "date": "2025-09-01",
+      "observed": "2025-09-01",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Columbus Day",
+      "date": "2025-10-13",
+      "observed": "2025-10-13",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Veterans Day",
+      "date": "2025-11-11",
+      "observed": "2025-11-11",
+      "weekday": "Tuesday",
+      "closure": false
+    },
+    {
+      "name": "Thanksgiving Day",
+      "date": "2025-11-27",
+      "observed": "2025-11-27",
+      "weekday": "Thursday",
+      "closure": false
+    },
+    {
+      "name": "Christmas Day",
+      "date": "2025-12-25",
+      "observed": "2025-12-25",
+      "weekday": "Thursday",
+      "closure": true
+    }
+  ],
+  "2026": [
+    {
+      "name": "New Year's Day",
+      "date": "2026-01-01",
+      "observed": "2026-01-01",
+      "weekday": "Thursday",
+      "closure": true
+    },
+    {
+      "name": "Martin Luther King Jr. Day",
+      "date": "2026-01-19",
+      "observed": "2026-01-19",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Presidents' Day",
+      "date": "2026-02-16",
+      "observed": "2026-02-16",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Memorial Day",
+      "date": "2026-05-25",
+      "observed": "2026-05-25",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Juneteenth",
+      "date": "2026-06-19",
+      "observed": "2026-06-19",
+      "weekday": "Friday",
+      "closure": false
+    },
+    {
+      "name": "Independence Day",
+      "date": "2026-07-04",
+      "observed": "2026-07-03",
+      "weekday": "Saturday",
+      "closure": false
+    },
+    {
+      "name": "Labor Day",
+      "date": "2026-09-07",
+      "observed": "2026-09-07",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Columbus Day",
+      "date": "2026-10-12",
+      "observed": "2026-10-12",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Veterans Day",
+      "date": "2026-11-11",
+      "observed": "2026-11-11",
+      "weekday": "Wednesday",
+      "closure": false
+    },
+    {
+      "name": "Thanksgiving Day",
+      "date": "2026-11-26",
+      "observed": "2026-11-26",
+      "weekday": "Thursday",
+      "closure": false
+    },
+    {
+      "name": "Christmas Day",
+      "date": "2026-12-25",
+      "observed": "2026-12-25",
+      "weekday": "Friday",
+      "closure": true
+    }
+  ],
+  "2027": [
+    {
+      "name": "New Year's Day",
+      "date": "2027-01-01",
+      "observed": "2027-01-01",
+      "weekday": "Friday",
+      "closure": true
+    },
+    {
+      "name": "Martin Luther King Jr. Day",
+      "date": "2027-01-18",
+      "observed": "2027-01-18",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Presidents' Day",
+      "date": "2027-02-15",
+      "observed": "2027-02-15",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Memorial Day",
+      "date": "2027-05-31",
+      "observed": "2027-05-31",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Juneteenth",
+      "date": "2027-06-19",
+      "observed": "2027-06-18",
+      "weekday": "Saturday",
+      "closure": false
+    },
+    {
+      "name": "Independence Day",
+      "date": "2027-07-04",
+      "observed": "2027-07-05",
+      "weekday": "Sunday",
+      "closure": false
+    },
+    {
+      "name": "Labor Day",
+      "date": "2027-09-06",
+      "observed": "2027-09-06",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Columbus Day",
+      "date": "2027-10-11",
+      "observed": "2027-10-11",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Veterans Day",
+      "date": "2027-11-11",
+      "observed": "2027-11-11",
+      "weekday": "Thursday",
+      "closure": false
+    },
+    {
+      "name": "Thanksgiving Day",
+      "date": "2027-11-25",
+      "observed": "2027-11-25",
+      "weekday": "Thursday",
+      "closure": false
+    },
+    {
+      "name": "Christmas Day",
+      "date": "2027-12-25",
+      "observed": "2027-12-24",
+      "weekday": "Saturday",
+      "closure": true
+    }
+  ],
+  "2028": [
+    {
+      "name": "New Year's Day",
+      "date": "2028-01-01",
+      "observed": "2027-12-31",
+      "weekday": "Saturday",
+      "closure": true
+    },
+    {
+      "name": "Martin Luther King Jr. Day",
+      "date": "2028-01-17",
+      "observed": "2028-01-17",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Presidents' Day",
+      "date": "2028-02-21",
+      "observed": "2028-02-21",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Memorial Day",
+      "date": "2028-05-29",
+      "observed": "2028-05-29",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Juneteenth",
+      "date": "2028-06-19",
+      "observed": "2028-06-19",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Independence Day",
+      "date": "2028-07-04",
+      "observed": "2028-07-04",
+      "weekday": "Tuesday",
+      "closure": false
+    },
+    {
+      "name": "Labor Day",
+      "date": "2028-09-04",
+      "observed": "2028-09-04",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Columbus Day",
+      "date": "2028-10-09",
+      "observed": "2028-10-09",
+      "weekday": "Monday",
+      "closure": false
+    },
+    {
+      "name": "Veterans Day",
+      "date": "2028-11-11",
+      "observed": "2028-11-10",
+      "weekday": "Saturday",
+      "closure": false
+    },
+    {
+      "name": "Thanksgiving Day",
+      "date": "2028-11-23",
+      "observed": "2028-11-23",
+      "weekday": "Thursday",
+      "closure": false
+    },
+    {
+      "name": "Christmas Day",
+      "date": "2028-12-25",
+      "observed": "2028-12-25",
+      "weekday": "Monday",
+      "closure": true
+    }
+  ]
+}
