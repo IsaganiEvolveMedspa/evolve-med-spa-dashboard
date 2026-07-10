@@ -1,60 +1,49 @@
 """
-Official Rebooking Rate (Zenoti daily "Business KPI" export) — the source of truth
-for the "Rebook Rate %" KPI card.
+Official Rebooking Rate — the source of truth for the "Rebook Rate %" KPI card.
 
-Source: data/new_guests/*.csv (one file per day), pre-aggregated per day/center into
-data/rebooking_daily.json by scripts/build_rebooking_json.py. Read here with stdlib
-json only, so production needs no CSV/Excel deps.
+Source: dbo.BRONZE_ZENOTI_BUSINESS_KPI (live warehouse), one row per day/center
+with a `rebooking_source_percentage` column (nvarchar, whole-percent values).
+Previously this read a bundled CSV/JSON export (data/rebooking_daily.json, built
+from the daily Business KPI CSVs); the BRONZE table is live, so we query it
+directly and no rebuild step is needed.
 
-Rule (per product spec):
-  • Rebook Rate = AVERAGE of the per-center daily "Rebooking Source %" over the days
-    in [s, e] and the selected centers, EXCLUDING zero rates from the average
+Rule (unchanged):
+  • Rebook Rate = AVERAGE of each center's daily rebooking_source_percentage over
+    the days in [s, e] and the selected centers, EXCLUDING zero/blank rates
     (non-operating centers / closed days shouldn't drag the average down).
-  • EXCEPTION: when a location filter is applied and the selection has no non-zero
-    rate (i.e. the location(s) genuinely rebooked 0%), show 0 instead of dropping it.
-
-Coverage: returns None when the requested range has NO day present in the export
-(callers fall back to the appointments-based SQL rate). A partially-covered range
-uses only the days we have.
+  • Returns None when the range has no usable (non-zero) rate, so the caller in
+    mtd.py falls back to the appointments-based SQL rate.
 """
-import json
-import os
-from functools import lru_cache
+import logging
 from typing import Optional
 
-_JSON = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                     "data", "rebooking_daily.json")
+from config import FULL_BUSINESS_KPI
+from db import run_query
+from utils.filters import loc_in
 
-
-@lru_cache(maxsize=1)
-def _daily() -> dict[str, dict[str, float]]:
-    try:
-        with open(_JSON, encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return {}
+log = logging.getLogger(__name__)
 
 
 def rebooking_rate_kpi(s: str, e: str, locations: Optional[list[str]]) -> Optional[float]:
     """Average per-center daily rebooking % for ISO dates s..e inclusive, over
-    `locations` (all centers when None), EXCLUDING zero rates from the average.
-    Returns 0.0 when a location filter is given but every rate is zero; None when
-    no day in [s, e] exists in the export (caller falls back to the SQL rate)."""
-    daily = _daily()
-    days_in_range = [cc for d, cc in daily.items() if s <= d <= e]
-    if not days_in_range:
+    `locations` (all centers when None), EXCLUDING zero/blank rates. Returns None
+    when no non-zero rate exists in the window (caller falls back to the SQL rate).
+
+    rebooking_source_percentage is stored as nvarchar whole-percents (e.g. '22.22'),
+    so TRY_CAST to FLOAT both parses it and safely drops non-numeric/blank cells.
+    """
+    try:
+        loc_and, loc_p = loc_in(locations, col="center_name")
+        sql = f"""
+            SELECT AVG(TRY_CAST(rebooking_source_percentage AS FLOAT)) AS rebook_rate_pct
+            FROM {FULL_BUSINESS_KPI}
+            WHERE CAST(business_kpi_date AS DATE) BETWEEN '{s}' AND '{e}'
+              AND TRY_CAST(rebooking_source_percentage AS FLOAT) > 0
+              {loc_and}
+        """
+        rows = run_query(sql, loc_p or None)
+        val = rows[0].get("rebook_rate_pct") if rows else None
+        return round(float(val), 2) if val is not None else None
+    except Exception as exc:                                 # never take down the KPI header
+        log.warning("rebooking_rate_kpi failed; returning None: %s", exc)
         return None
-
-    loc_set = set(locations) if locations else None
-    values: list[float] = []
-    for cc in days_in_range:
-        for center, pct in cc.items():
-            if loc_set is None or center in loc_set:
-                values.append(pct)
-
-    nonzero = [v for v in values if v > 0]
-    if nonzero:
-        return round(sum(nonzero) / len(nonzero), 2)
-    # No non-zero rates in the selection. If a location filter is applied, that's a
-    # genuine 0% for the selected location(s) -> show 0. Otherwise treat as no data.
-    return 0.0 if loc_set is not None else None
