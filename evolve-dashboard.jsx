@@ -769,6 +769,7 @@ const OverviewView = () => {
     products: { path: '/api/product-mix', params },
     daily: { path: '/api/mtd-daily-trend', params },
     headerPrev: { path: '/api/mtd-kpi-header', params: prevParams },
+    opsPrev: { path: '/api/operations-summary', params: prevParams },
     appts: { path: '/api/appointments/summary', params },
     apptsPrev: { path: '/api/appointments/summary', params: prevParams },
     retention: { path: '/api/new-guest-return-rate', params },
@@ -777,7 +778,7 @@ const OverviewView = () => {
 
   return (
     <DataState loading={loading || !fl.ready} error={error} onRetry={reload}>
-      <OverviewBody h={data.header || {}} hPrev={data.headerPrev || {}} summary={data.summary || []} ops={data.ops || []} categories={data.categories || []} svcMix={data.svcMix || []} products={data.products || []} daily={data.daily} appts={data.appts || []} apptsPrev={data.apptsPrev || []} retention={data.retention || []} retentionPrev={data.retentionPrev || []} range={fl.monthLabel} />
+      <OverviewBody h={data.header || {}} hPrev={data.headerPrev || {}} summary={data.summary || []} ops={data.ops || []} opsPrev={data.opsPrev || []} categories={data.categories || []} svcMix={data.svcMix || []} products={data.products || []} daily={data.daily} appts={data.appts || []} apptsPrev={data.apptsPrev || []} retention={data.retention || []} retentionPrev={data.retentionPrev || []} range={fl.monthLabel} />
     </DataState>
   );
 };
@@ -789,7 +790,7 @@ const Medal = ({ color }) => (
   </svg>
 );
 
-const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, daily, appts, apptsPrev, retention, retentionPrev, range }) => {
+const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, products, daily, appts, apptsPrev, retention, retentionPrev, range }) => {
   const [drillSeg1, setDrillSeg1] = useState(null);   // Service Mix drill: null = sub-segment 1, else show sub-segment 2 within this segment
   // ---- hero cards ----
   // R32: Cash Sales (MTD) = cumulative cash-basis sales (from FULL_CASH via mtd-kpi-header)
@@ -802,11 +803,16 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
   // R49: PY Variance % = (MTD - PY) / PY * 100
   const yoy = h.same_store_yoy;
 
-  // Revenue MoM (current vs prior month) — the hero-card delta is always
-  // month-over-month (vs the prior calendar month), never YoY. Null when the
-  // prior month has no revenue (momPctDelta guards prv === 0 / missing).
-  const cashMom = momPctDelta(h.mtd_revenue, hPrev.mtd_revenue);
-  const heroDelta = cashMom;
+  // Each hero delta is month-over-month against the SAME metric in the prior month
+  // (prior window = same elapsed days, via prevMonthRange), never YoY. Cash MTD and
+  // both projected run rates come from header/headerPrev; recognized MTD is summed
+  // from ops/opsPrev. momPctDelta returns null (no subheader) when the prior value
+  // is missing or zero.
+  const recRevPrev     = opsPrev.reduce((a, o) => a + (n(o.recognized_revenue) || 0), 0);
+  const cashMom        = momPctDelta(h.mtd_revenue,         hPrev.mtd_revenue);         // Cash Sales · MTD
+  const cashRunRateMom = momPctDelta(h.cash_run_rate,       hPrev.cash_run_rate);       // Cash Sales · Projected Run Rate
+  const recRevMom      = momPctDelta(recRev,                recRevPrev);                // Recognized Revenue · MTD
+  const recRunRateMom  = momPctDelta(h.recognized_run_rate, hPrev.recognized_run_rate); // Recognized Revenue · Projected Run Rate
 
   // Goal props merged INTO a metric card: the target renders beside the metric's
   // value, with "% to goal" beneath it (and the MoM delta beneath the value).
@@ -1023,12 +1029,12 @@ const OverviewBody = ({ h, hPrev, summary, ops, categories, svcMix, products, da
     <div>
       {/* hero trend cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-        <HeroCard label="Cash Sales" mtd={money(cashMtd, { compact: true, floor: true })} mtdDelta={heroDelta}
-          proj={money(projRunRate, { compact: true, floor: true })} projDelta={heroDelta}
+        <HeroCard label="Cash Sales" mtd={money(cashMtd, { compact: true, floor: true })} mtdDelta={cashMom}
+          proj={money(projRunRate, { compact: true, floor: true })} projDelta={cashRunRateMom}
           extraLabel="Full-Month Budget" extra={budget ? money(budget, { compact: true }) : '—'}
           labelDef={DEFS.cashSales} projDef={DEFS.projRunRate} extraDef={DEFS.fullMonthBudget} />
-        <HeroCard label="Recognized Revenue" mtd={money(recRev, { compact: true })} mtdDelta={heroDelta}
-          proj={money(h.recognized_run_rate ?? projRunRate, { compact: true, floor: true })} projDelta={heroDelta}
+        <HeroCard label="Recognized Revenue" mtd={money(recRev, { compact: true })} mtdDelta={recRevMom}
+          proj={money(h.recognized_run_rate ?? projRunRate, { compact: true, floor: true })} projDelta={recRunRateMom}
           labelDef={DEFS.recRev} projDef={DEFS.recRunRate} />
       </div>
 
@@ -1438,19 +1444,19 @@ const FinanceView = () => {
   const prevParams = { start_date: prev.start, end_date: prev.end, locations: fl.locations };
   const { data, loading, error, reload } = useApiData({
     header: { path: '/api/mtd-kpi-header', params },
-    headerPrev: { path: '/api/mtd-kpi-header', params: prevParams },
     monthly: { path: '/api/monthly-trend', params },
+    monthlyPrev: { path: '/api/monthly-trend', params: prevParams },
     daily: { path: '/api/mtd-daily-trend', params },
     categories: { path: '/api/category-breakdown', params },
   }, [JSON.stringify(params)]);
   return (
     <DataState loading={loading || !fl.ready} error={error} onRetry={reload}>
-      <FinanceBody h={data.header || {}} hPrev={data.headerPrev || {}} monthly={data.monthly || []} daily={data.daily} categories={data.categories || []} range={fl.monthLabel} />
+      <FinanceBody h={data.header || {}} monthly={data.monthly || []} monthlyPrev={data.monthlyPrev || []} daily={data.daily} categories={data.categories || []} range={fl.monthLabel} />
     </DataState>
   );
 };
 
-const FinanceBody = ({ h, hPrev = {}, monthly, daily, categories, range }) => {
+const FinanceBody = ({ h, monthly, monthlyPrev = [], daily, categories, range }) => {
   // chain-level P&L aggregated from monthly-trend (per-location rows)
   const agg = monthly.reduce((a, r) => {
     a.revenue += n(r.recognized_revenue) || 0;
@@ -1460,6 +1466,9 @@ const FinanceBody = ({ h, hPrev = {}, monthly, daily, categories, range }) => {
     return a;
   }, { revenue: 0, cogs: 0, payroll: 0, gross: 0 });
   const revenue = agg.revenue || n(h.mtd_revenue) || 0;
+  // Prior-month recognized revenue from the same source (monthly-trend, same elapsed
+  // days) so the delta compares recognized-vs-recognized, not recognized-vs-cash.
+  const revenuePrev = monthlyPrev.reduce((a, r) => a + (n(r.recognized_revenue) || 0), 0);
   const grossProfit = agg.gross || (revenue - agg.cogs);
   const grossMargin = pctScale(h.gross_margin_pct);
   const payroll = agg.payroll;
@@ -1470,7 +1479,7 @@ const FinanceBody = ({ h, hPrev = {}, monthly, daily, categories, range }) => {
   // KPI cards. Revenue delta is month-over-month (current vs prior calendar
   // month) via the prior-month header; others show pt/label where present.
   const kpis = [
-    { label: 'Recognized Revenue', value: money(revenue, { compact: true }), ...spreadOrNull(momPctDelta(h.mtd_revenue, hPrev.mtd_revenue)) },
+    { label: 'Recognized Revenue', value: money(revenue, { compact: true }), ...spreadOrNull(momPctDelta(revenue, revenuePrev)) },
     { label: 'Gross Profit', value: money(grossProfit, { compact: true }), delta: null },
     { label: 'Gross Margin', value: pct(grossMargin), delta: null },
     { label: 'EBITDA', value: money(ebitda, { compact: true }), delta: null },
