@@ -39,24 +39,14 @@ VIEW_KEY = "overview"
 VIEW_LABEL = "Overview"
 VIEW_NAV_TEXT = "Overview"
 
-# Content-IDs for the two INLINE images (referenced via cid: in the HTML body).
-# The email ships both; each client renders the one that fits its screen (see
-# build_html): phones/narrow clients get the compact mobile image, Outlook
-# desktop and wide clients get the full desktop dashboard.
-CID_MOBILE = "overview_mobile"
-CID_DESKTOP = "overview_desktop"
-# Display width (px) of the embedded desktop image in the email body.
-DESKTOP_EMAIL_WIDTH = 640
-
-# Three renders from one page load:
-#   • Desktop PNG (inline) → full desktop layout, embedded for Outlook desktop /
-#     wide clients. Captured at desktop width before the compacting CSS.
-#   • Mobile PNG (inline)  → compact phone layout: stacked cards, chart stacked,
+# Two separate renders:
+#   • PDF attachment  → full desktop layout: larger cards, chart beside Budget
+#     Attainment, all tables full-width, filters shown. Captured at desktop width.
+#   • Inline PNG      → compact phone layout: stacked cards, chart stacked,
 #     filters hidden, tables shrunk to fit. Captured at phone width with
 #     _COMPACT_PNG_CSS injected.
-#   • PDF attachment       → same desktop layout as a high-res downloadable copy.
-# The dashboard components themselves stay large, so the live dashboard, the
-# desktop PNG, and the PDF all read large; only the mobile PNG is compacted.
+# The dashboard components themselves stay large, so the live dashboard and the
+# PDF read large; only the PNG is compacted (via CSS at capture time).
 PDF_VIEWPORT = {"width": 1600, "height": 1200}
 PNG_VIEWPORT = {"width": 430, "height": 1200}
 # The inline PNG is rendered at 3x so the dense tables stay legible in the email
@@ -139,8 +129,7 @@ main th .ev-info { display: none !important; }
 
 
 def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
-    """Open the dashboard, load the Overview, and return
-    {mobile_png, desktop_png, pdf_bytes}."""
+    """Open the dashboard, load the Overview, and return {png_bytes, pdf_bytes}."""
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--no-sandbox"])
         page = browser.new_page(
@@ -177,19 +166,13 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
 
         page.evaluate(_UNCLIP_JS)
 
-        # 1) DESKTOP artifacts FIRST — full desktop layout (no compacting CSS yet).
-        # Hide the sidebar and measure the content once; reuse for both the inline
-        # desktop PNG and the PDF so they match exactly.
+        # 1) PDF FIRST — full desktop layout (no compacting CSS yet). Hide the
+        # sidebar, size the page to the content, one-page PDF.
         dims = page.evaluate(_MEASURE_FOR_PDF_JS)
         page.wait_for_timeout(200)  # reflow after hiding the sidebar
-
-        # 1a) Inline desktop PNG — the embedded image Outlook desktop / wide
-        # clients render in the body (screenshot of <main> at desktop width).
-        desktop_png = page.locator("main").screenshot(type="png")
-        print(f"[send_dashboard_email] Captured '{VIEW_LABEL}' desktop PNG ({len(desktop_png)} bytes)")
-
-        # 1b) PDF — same desktop layout as a high-res downloadable copy. Pin the
-        # page to the desktop viewport width; height follows the measured content.
+        # Pin the PDF page to the desktop viewport width so it always renders the
+        # full desktop layout (hero side-by-side, chart beside attainment, tables
+        # full-width); height follows the measured content.
         pdf_bytes = page.pdf(
             width=f"{PDF_VIEWPORT['width']}px",
             height=f"{dims['h']}px",
@@ -198,49 +181,25 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
         )
         print(f"[send_dashboard_email] Captured '{VIEW_LABEL}' PDF ({len(pdf_bytes)} bytes)")
 
-        # 2) Inline mobile PNG — compact phone layout: shrink the viewport to
-        # phone width and inject the compacting CSS, then screenshot <main>.
+        # 2) Inline PNG — compact phone layout: shrink the viewport to phone
+        # width and inject the compacting CSS, then screenshot <main>.
         page.set_viewport_size(PNG_VIEWPORT)
         page.add_style_tag(content=_COMPACT_PNG_CSS)
         page.wait_for_timeout(500)  # let the layout reflow at phone width
-        mobile_png = page.locator("main").screenshot(type="png")
-        print(f"[send_dashboard_email] Captured '{VIEW_LABEL}' mobile PNG ({len(mobile_png)} bytes)")
+        png_bytes = page.locator("main").screenshot(type="png")
+        print(f"[send_dashboard_email] Captured '{VIEW_LABEL}' PNG ({len(png_bytes)} bytes)")
 
         browser.close()
-    return {"mobile_png": mobile_png, "desktop_png": desktop_png, "pdf_bytes": pdf_bytes}
+    return {"png_bytes": png_bytes, "pdf_bytes": pdf_bytes}
 
 
 def build_html(report_date: str) -> str:
-    """Build an HTML body that embeds BOTH the mobile and desktop Overview images
-    inline (cid:) and lets each client render the one that fits its screen.
-
-    Detection is client-side, not server-side (email can't be adapted at open
-    time). Two mechanisms combine to cover every client:
-      • CSS media query (min-width) — Apple Mail, Gmail, iOS/Android: swap to the
-        desktop image on wide screens, keep the mobile image on phones.
-      • MSO conditional comments — Outlook desktop uses the Word engine and
-        ignores media queries, so it's fed the desktop image directly.
-    """
+    """Build an HTML body with the Overview image inline via a cid: reference."""
     return f"""<!DOCTYPE html>
-<html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-  /* Desktop image hidden by default; revealed on wide, media-query-capable
-     clients. Hidden from Outlook via mso-hide (it uses the [if mso] block). */
-  .ev-desktop {{ display:none; mso-hide:all; max-height:0; overflow:hidden; }}
-  @media only screen and (min-width:600px) {{
-    .ev-mobile  {{ display:none !important; }}
-    .ev-desktop {{ display:block !important; max-height:none !important; overflow:visible !important; }}
-    .ev-shell   {{ max-width:{DESKTOP_EMAIL_WIDTH + 40}px !important; width:{DESKTOP_EMAIL_WIDTH + 40}px !important; }}
-  }}
-</style>
-</head>
-<body style="margin:0;padding:0;background:#f6f8f7;">
+<html><body style="margin:0;padding:0;background:#f6f8f7;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8f7;">
     <tr><td align="center" style="padding:28px 16px;">
-      <table role="presentation" class="ev-shell" width="{DESKTOP_EMAIL_WIDTH + 40}" cellpadding="0" cellspacing="0" style="max-width:{DESKTOP_EMAIL_WIDTH + 40}px;width:100%;">
+      <table role="presentation" width="470" cellpadding="0" cellspacing="0" style="max-width:470px;width:100%;">
         <tr><td style="font:700 22px Arial,Helvetica,sans-serif;color:#1a2b28;padding-bottom:2px;">
           Evolve Med Spa — Overview
         </td></tr>
@@ -248,19 +207,11 @@ def build_html(report_date: str) -> str:
           {report_date}
         </td></tr>
         <tr><td style="padding:0 0 8px 0;">
-          <!--[if !mso]><!-->
-          <img class="ev-mobile" src="cid:{CID_MOBILE}" alt="{VIEW_LABEL}"
+          <img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}"
                style="display:block;width:100%;max-width:430px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
-          <img class="ev-desktop" src="cid:{CID_DESKTOP}" alt="{VIEW_LABEL}"
-               style="width:100%;max-width:{DESKTOP_EMAIL_WIDTH}px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
-          <!--<![endif]-->
-          <!--[if mso]>
-          <img src="cid:{CID_DESKTOP}" alt="{VIEW_LABEL}" width="{DESKTOP_EMAIL_WIDTH}"
-               style="width:{DESKTOP_EMAIL_WIDTH}px;height:auto;" />
-          <![endif]-->
         </td></tr>
         <tr><td style="padding:10px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">
-          A high-resolution PDF of the Overview is attached.
+          A PDF of the Overview is attached.
         </td></tr>
         <tr><td style="padding:26px 0 0 0;font:400 11px Arial,Helvetica,sans-serif;color:#9aaaa5;border-top:1px solid #e2e8e5;">
           Automated snapshot. Confidential — internal use only.
@@ -291,19 +242,13 @@ def main() -> None:
     html = build_html(report_date)
     attachments = [
         {
-            # Inline MOBILE image (cid). A matching content_id AND an explicit
-            # image content_type are required for mail clients to render it
-            # embedded in the body rather than as a downloadable file.
-            "filename": f"{CID_MOBILE}.png",
-            "content": base64.b64encode(capture["mobile_png"]).decode("ascii"),
-            "content_id": CID_MOBILE,
-            "content_type": "image/png",
-        },
-        {
-            # Inline DESKTOP image (cid) — rendered by Outlook desktop / wide clients.
-            "filename": f"{CID_DESKTOP}.png",
-            "content": base64.b64encode(capture["desktop_png"]).decode("ascii"),
-            "content_id": CID_DESKTOP,
+            # Inline image referenced by cid: in the HTML body. Both a matching
+            # content_id AND an explicit image content_type are required for mail
+            # clients (Gmail/Outlook) to render it embedded in the body rather
+            # than as a downloadable file.
+            "filename": f"{VIEW_KEY}.png",
+            "content": base64.b64encode(capture["png_bytes"]).decode("ascii"),
+            "content_id": VIEW_KEY,
             "content_type": "image/png",
         },
         {
