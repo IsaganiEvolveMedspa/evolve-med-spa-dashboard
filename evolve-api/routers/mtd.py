@@ -649,14 +649,15 @@ def get_mtd_kpi_header(
             # main query (asp_new_clients / asp_existing_clients) — no accrual/CSV/total
             # fallback. Only visit COUNTS (new_visits / existing_client_count) still use
             # the accrual + CSV + total-customer sources below.
-        # Official New Guest Count (Zenoti daily "Business KPI" export) is the source
-        # of truth for New Customer Visits. It replaces only the new-side COUNT; it no
-        # longer affects ASP (New) — ASP is pure cash per-customer from the main query.
-        # Falls back to the computed count for months with no export. CAC (below) then
-        # divides ad spend by this authoritative count.
-        csv_new = new_guest_count(s, e, locations)
-        if csv_new is not None:
-            result["new_visits"] = csv_new
+        # Official New Guest Count (Zenoti daily "Business KPI" export, read live from
+        # dbo.BRONZE_ZENOTI_BUSINESS_KPI) is the source of truth for New Customer Visits.
+        # It replaces only the new-side COUNT; it no longer affects ASP (New) — ASP is
+        # pure cash per-customer from the main query. Falls back to the computed count for
+        # ranges the warehouse doesn't cover. CAC (below) then divides ad spend by this
+        # authoritative count.
+        kpi_new = new_guest_count(s, e, locations)
+        if kpi_new is not None:
+            result["new_visits"] = kpi_new
         # Existing Customers = Total distinct Customers transacting this month (New is
         # NOT subtracted, so a new client also counts here). Same total used as the ASP
         # (Existing) denominator below.
