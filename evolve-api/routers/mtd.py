@@ -658,12 +658,16 @@ def get_mtd_kpi_header(
         kpi_new = new_guest_count(s, e, locations)
         if kpi_new is not None:
             result["new_visits"] = kpi_new
-        # Existing Customers = Total distinct Customers transacting this month (New is
-        # NOT subtracted, so a new client also counts here). Same total used as the ASP
-        # (Existing) denominator below.
+        # Existing Customer Visits = returning customers only = Total distinct customers
+        # transacting this month MINUS New Customer Visits. Subtracting New (the shipped
+        # Business KPI value finalized just above) makes New + Existing a clean, non-
+        # overlapping partition of the customer base and keeps "Existing" meaning what its
+        # label says — a brand-new customer is no longer double-counted here. max(…, 0)
+        # guards the edge case where New (Business KPI source) exceeds Total (cash source).
         tot_cust = result.get("total_customer_count")
         if tot_cust is not None:
-            result["existing_client_count"] = int(tot_cust)
+            new_v = result.get("new_visits") or 0
+            result["existing_client_count"] = max(int(tot_cust) - int(new_v), 0)
         # ASP (Existing) is NOT overridden here — it stays the pure cash, per-distinct-
         # customer value from the main query (asp_existing_clients).
         # MTD Ad Spend (chain-level, from bundled Google/FB ad export) + CAC = ad spend / new visits.
