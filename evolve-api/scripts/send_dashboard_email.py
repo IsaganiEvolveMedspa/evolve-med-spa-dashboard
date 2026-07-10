@@ -39,16 +39,17 @@ VIEW_KEY = "overview"
 VIEW_LABEL = "Overview"
 VIEW_NAV_TEXT = "Overview"
 
-# Two separate renders:
-#   • PDF attachment  → full desktop layout: larger cards, chart beside Budget
-#     Attainment, all tables full-width, filters shown. Captured at desktop width.
-#   • Inline PNG      → compact phone layout: stacked cards, chart stacked,
-#     filters hidden, tables shrunk to fit. Captured at phone width with
-#     _COMPACT_PNG_CSS injected.
-# The dashboard components themselves stay large, so the live dashboard and the
-# PDF read large; only the PNG is compacted (via CSS at capture time).
-PDF_VIEWPORT = {"width": 1600, "height": 1200}
-PNG_VIEWPORT = {"width": 430, "height": 1200}
+# Two renders, BOTH from the compact PHONE layout so they read on a phone without
+# zooming:
+#   • Inline PNG → compact phone layout, embedded in the email body.
+#   • PDF        → the SAME compact layout as a narrow (phone-shaped) page, so
+#     opening it on a phone fits the width with no zoom. (No wide desktop PDF —
+#     a PDF can't reflow, so a wide page would always need zooming on a phone.)
+# The dashboard loads at desktop width first (LOAD_VIEWPORT), then we shrink the
+# viewport and inject _COMPACT_PNG_CSS to reflow it into the phone layout.
+LOAD_VIEWPORT  = {"width": 1600, "height": 1200}   # initial desktop load only
+PNG_VIEWPORT   = {"width": 430, "height": 1200}     # inline image capture width
+PDF_PAGE_WIDTH = 470                                 # phone-shaped PDF page width (px)
 # The inline PNG is rendered at 3x so the dense tables stay legible in the email
 # body AND remain crisp if the recipient taps to zoom in their mail client.
 # NOTE: this affects screenshots only — page.pdf() renders at print resolution
@@ -133,7 +134,7 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--no-sandbox"])
         page = browser.new_page(
-            viewport=PDF_VIEWPORT,
+            viewport=LOAD_VIEWPORT,
             device_scale_factor=DEVICE_SCALE_FACTOR,
         )
         page.goto(dashboard_url, wait_until="networkidle", timeout=NAV_TIMEOUT_MS)
@@ -166,28 +167,30 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
 
         page.evaluate(_UNCLIP_JS)
 
-        # 1) PDF FIRST — full desktop layout (no compacting CSS yet). Hide the
-        # sidebar, size the page to the content, one-page PDF.
+        # Reflow to the compact PHONE layout — used for BOTH outputs below.
+        page.set_viewport_size(PNG_VIEWPORT)
+        page.add_style_tag(content=_COMPACT_PNG_CSS)
+        page.wait_for_timeout(500)  # let the layout reflow at phone width
+
+        # 1) Inline PNG — screenshot <main> at phone width.
+        png_bytes = page.locator("main").screenshot(type="png")
+        print(f"[send_dashboard_email] Captured '{VIEW_LABEL}' PNG ({len(png_bytes)} bytes)")
+
+        # 2) Phone-shaped PDF — the SAME compact layout as a narrow page so it fits
+        # a phone screen with no zoom (replaces the old wide desktop PDF). Match the
+        # viewport to the PDF page width so the measured content height is correct,
+        # hide the sidebar, then emit a single narrow page.
+        page.set_viewport_size({"width": PDF_PAGE_WIDTH, "height": PNG_VIEWPORT["height"]})
+        page.wait_for_timeout(300)  # reflow to the PDF page width
         dims = page.evaluate(_MEASURE_FOR_PDF_JS)
-        page.wait_for_timeout(200)  # reflow after hiding the sidebar
-        # Pin the PDF page to the desktop viewport width so it always renders the
-        # full desktop layout (hero side-by-side, chart beside attainment, tables
-        # full-width); height follows the measured content.
+        page.wait_for_timeout(200)
         pdf_bytes = page.pdf(
-            width=f"{PDF_VIEWPORT['width']}px",
+            width=f"{PDF_PAGE_WIDTH}px",
             height=f"{dims['h']}px",
             print_background=True,
             margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
         )
         print(f"[send_dashboard_email] Captured '{VIEW_LABEL}' PDF ({len(pdf_bytes)} bytes)")
-
-        # 2) Inline PNG — compact phone layout: shrink the viewport to phone
-        # width and inject the compacting CSS, then screenshot <main>.
-        page.set_viewport_size(PNG_VIEWPORT)
-        page.add_style_tag(content=_COMPACT_PNG_CSS)
-        page.wait_for_timeout(500)  # let the layout reflow at phone width
-        png_bytes = page.locator("main").screenshot(type="png")
-        print(f"[send_dashboard_email] Captured '{VIEW_LABEL}' PNG ({len(png_bytes)} bytes)")
 
         browser.close()
     return {"png_bytes": png_bytes, "pdf_bytes": pdf_bytes}
