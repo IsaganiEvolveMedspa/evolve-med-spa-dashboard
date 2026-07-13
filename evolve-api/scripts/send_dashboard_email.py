@@ -39,21 +39,18 @@ VIEW_KEY = "overview"
 VIEW_LABEL = "Overview"
 VIEW_NAV_TEXT = "Overview"
 
-# Two renders, BOTH from the compact PHONE layout so they read on a phone without
-# zooming:
-#   • Inline PNG → compact phone layout, embedded in the email body.
-#   • PDF        → the SAME compact layout as a narrow (phone-shaped) page, so
-#     opening it on a phone fits the width with no zoom. (No wide desktop PDF —
-#     a PDF can't reflow, so a wide page would always need zooming on a phone.)
-# The dashboard loads at desktop width first (LOAD_VIEWPORT), then we shrink the
-# viewport and inject _COMPACT_PNG_CSS to reflow it into the phone layout.
-LOAD_VIEWPORT  = {"width": 1600, "height": 1200}   # initial desktop load only
-PNG_VIEWPORT   = {"width": 430, "height": 1200}     # inline image capture width
-PDF_PAGE_WIDTH = 470                                 # phone-shaped PDF page width (px)
-# The inline PNG is rendered at 3x so the dense tables stay legible in the email
-# body AND remain crisp if the recipient taps to zoom in their mail client.
-# NOTE: this affects screenshots only — page.pdf() renders at print resolution
-# and ignores device_scale_factor, so the attached PDF is unchanged.
+# Two renders, BOTH from the full DESKTOP layout (matching the reference
+# overview_desktop.png / evolve-overview PDF — sidebar hidden, filter bar kept):
+#   • Inline PNG → desktop <main> at 1600 CSS px, 3x → 4800px wide.
+#   • PDF        → the SAME desktop layout as a 1600px-wide page → 1200pt MediaBox.
+# The dashboard loads at desktop width and stays there; we only hide the sidebar
+# (via _DESKTOP_CSS) so the capture is the content at full desktop width.
+VIEWPORT       = {"width": 1600, "height": 1200}   # desktop load + capture width
+PDF_PAGE_WIDTH = 1600                                # desktop PDF page width (px) → 1200pt
+# The inline PNG is rendered at 3x so the dense tables stay crisp if the recipient
+# taps to zoom in their mail client. NOTE: this affects screenshots only —
+# page.pdf() renders at print resolution and ignores device_scale_factor, so the
+# attached PDF is unaffected by it.
 DEVICE_SCALE_FACTOR = 3
 NAV_TIMEOUT_MS = 60_000
 # The view fetches live data and shows "Loading live data…" until it's ready.
@@ -103,29 +100,13 @@ _MEASURE_FOR_PDF_JS = """
 """
 
 
-# Injected for the INLINE PNG only (phone width): compact phone layout. The
-# dashboard components stay large; this CSS reflows/shrinks them just for the
-# emailed image. The PDF is captured before this is applied, so it stays large.
-_COMPACT_PNG_CSS = """
+# Injected before capture (both outputs): hide the sidebar so the emailed image /
+# PDF is just the dashboard content at full desktop width — matching the reference
+# overview_desktop.png. Everything else (filter bar, multi-column layout, table
+# sizes) stays exactly as the desktop dashboard renders; no reflow, no value edits.
+_DESKTOP_CSS = """
 aside { display: none !important; }
 main { width: 100% !important; }
-/* Picture, not an interactive page: drop the location filter + Export button
-   (the month selector stays, showing the current month). */
-.ev-filter { display: none !important; }
-/* Stack the desktop multi-column rows into a phone layout. */
-main [style*="repeat("] { grid-template-columns: repeat(2, 1fr) !important; }
-main [style*="1.55fr"] { grid-template-columns: 1fr !important; }
-main [style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
-/* Stack each hero card's columns vertically; hide the vertical dividers. */
-.ev-hero-cols { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
-.ev-hero-cols > div[style*="width: 3px"] { display: none !important; }
-/* Shrink the location tables so every column fully fits at phone width. */
-main table, main th, main td { font-size: 6px !important; }
-main th, main td { padding: 1px 2px !important; letter-spacing: 0 !important; }
-/* Drop the non-functional "?" icons in table headers to reclaim column width. */
-main th .ev-info { display: none !important; }
-/* Reclaim side padding so the tables have the full phone width to work with. */
-.ev-scroll { padding-left: 12px !important; padding-right: 12px !important; }
 """
 
 
@@ -134,7 +115,7 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--no-sandbox"])
         page = browser.new_page(
-            viewport=LOAD_VIEWPORT,
+            viewport=VIEWPORT,
             device_scale_factor=DEVICE_SCALE_FACTOR,
         )
         page.goto(dashboard_url, wait_until="networkidle", timeout=NAV_TIMEOUT_MS)
@@ -167,21 +148,18 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
 
         page.evaluate(_UNCLIP_JS)
 
-        # Reflow to the compact PHONE layout — used for BOTH outputs below.
-        page.set_viewport_size(PNG_VIEWPORT)
-        page.add_style_tag(content=_COMPACT_PNG_CSS)
-        page.wait_for_timeout(500)  # let the layout reflow at phone width
+        # Hide the sidebar; keep the full desktop layout for BOTH outputs below.
+        page.add_style_tag(content=_DESKTOP_CSS)
+        page.wait_for_timeout(500)  # let <main> settle at full desktop width
 
-        # 1) Inline PNG — screenshot <main> at phone width.
+        # 1) Inline PNG — screenshot the full desktop <main> at 1600px width, 3x
+        # (→ 4800px wide, matching overview_desktop.png).
         png_bytes = page.locator("main").screenshot(type="png")
         print(f"[send_dashboard_email] Captured '{VIEW_LABEL}' PNG ({len(png_bytes)} bytes)")
 
-        # 2) Phone-shaped PDF — the SAME compact layout as a narrow page so it fits
-        # a phone screen with no zoom (replaces the old wide desktop PDF). Match the
-        # viewport to the PDF page width so the measured content height is correct,
-        # hide the sidebar, then emit a single narrow page.
-        page.set_viewport_size({"width": PDF_PAGE_WIDTH, "height": PNG_VIEWPORT["height"]})
-        page.wait_for_timeout(300)  # reflow to the PDF page width
+        # 2) Desktop PDF — the SAME desktop layout as a single 1600px-wide page
+        # (→ 1200pt MediaBox, matching the reference PDF). Measure <main> (also
+        # hides the sidebar) so the page height fits all content on one page.
         dims = page.evaluate(_MEASURE_FOR_PDF_JS)
         page.wait_for_timeout(200)
         pdf_bytes = page.pdf(
@@ -202,7 +180,7 @@ def build_html(report_date: str) -> str:
 <html><body style="margin:0;padding:0;background:#f6f8f7;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8f7;">
     <tr><td align="center" style="padding:28px 16px;">
-      <table role="presentation" width="470" cellpadding="0" cellspacing="0" style="max-width:470px;width:100%;">
+      <table role="presentation" width="720" cellpadding="0" cellspacing="0" style="max-width:720px;width:100%;">
         <tr><td style="font:700 22px Arial,Helvetica,sans-serif;color:#1a2b28;padding-bottom:2px;">
           Evolve Med Spa — Overview
         </td></tr>
@@ -211,7 +189,7 @@ def build_html(report_date: str) -> str:
         </td></tr>
         <tr><td style="padding:0 0 8px 0;">
           <img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}"
-               style="display:block;width:100%;max-width:430px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
+               style="display:block;width:100%;max-width:720px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
         </td></tr>
         <tr><td style="padding:10px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">
           A PDF of the Overview is attached.
