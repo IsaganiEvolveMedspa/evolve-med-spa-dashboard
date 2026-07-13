@@ -306,13 +306,13 @@ const DEFS = {
   budgetPct: '% to Budget: MTD cash sales ÷ full-month budget × 100.',
   priorDay: 'Prior Day Sales: raw cash collected (excl. tax, all tenders) on the most recent day that has cash data — a completed month uses its last collection day; the current month uses the latest loaded day (self-adjusts to the cash-settlement lag).',
   sss: 'SSS Growth YoY %: (current-year MTD cash − prior-year same-period cash) ÷ prior-year × 100, over same-store locations only.',
-  aspNew: 'ASP (New): non-membership MTD sales of new customers ÷ New Customer Visits (sales accrual, per customer).',
-  aspExisting: 'ASP (Existing): non-membership MTD sales of existing customers ÷ Existing Customer Visits (sales accrual, per customer).',
+  aspNew: 'ASP (New): non-membership MTD sales of new customers ÷ New Customer Visits (Business KPI new guest count).',
+  aspExisting: 'ASP (Existing): non-membership MTD sales of existing customers ÷ Existing Customer Visits (Business KPI unique guest count).',
   cogs: 'COGS Margin %: cost of goods ÷ net sales (sales excluding tax) × 100.',
   payroll: 'Payroll Margin %: modeled salary (hourly wage × scheduled hours + FFS + 15% commission on commissionable sales + 12.5% benefits) ÷ net sales × 100.',
   gm: 'Gross Margin %: 100 − COGS Margin % − Payroll Margin % (real salary model).',
-  newCust: 'New Customer Visits: distinct guests whose first-ever sale falls in the month and whose first purchase is non-membership (sales accrual).',
-  existingCust: 'Existing Customer Visits: distinct guests with a sale this month whose first-ever sale was before this month, non-membership first purchase.',
+  newCust: 'New Customer Visits: Zenoti Business KPI "New Guest Count" summed over the month, per center.',
+  existingCust: 'Existing Customer Visits: Zenoti Business KPI "Unique Guest Count" summed over the month, per center.',
   adSpend: 'MTD Ad Spend: Google + Facebook ad spend for the month (chain-level, bundled export).',
   cac: 'CAC (Client Acquisition Cost): MTD ad spend ÷ new customers.',
   returnRate: 'New Guest Return Rate · 90 Day: matured new guests who returned within 90 days ÷ matured new guests × 100.',
@@ -850,11 +850,11 @@ const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, pro
     // R02: Prior Day Sales — MoM delta compares yesterday's cash sales against
     // the equivalent prior-day figure from the prior-month header window.
     { label: 'Prior Day Sales', def: DEFS.priorDay, value: money(h.yesterday_revenue, { compact: true }), ...spreadOrNull(momPctDelta(h.yesterday_revenue, hPrev.yesterday_revenue)) },
-    // R18: ASP (New) = Cash Sales (New) less Recurring ÷ New Customers
+    // R18: ASP (New) = non-membership MTD sales (New) ÷ New Customer Visits
     { label: 'ASP (New)', def: DEFS.aspNew, value: money(h.asp_new_clients),
       ...spreadOrNull(momPctDelta(h.asp_new_clients, hPrev.asp_new_clients)),
       ...goalProps(h.asp_new_clients, h.asp_new_goal, (v) => money(v)) },
-    // R19: ASP (Existing) = Cash Sales (Existing) less Recurring ÷ Existing Customers
+    // R19: ASP (Existing) = non-membership MTD sales (Existing) ÷ Existing Customer Visits
     { label: 'ASP (Existing)', def: DEFS.aspExisting, value: money(h.asp_existing_clients),
       ...spreadOrNull(momPctDelta(h.asp_existing_clients, hPrev.asp_existing_clients)),
       ...goalProps(h.asp_existing_clients, h.asp_existing_goal, (v) => money(v)) },
@@ -1069,10 +1069,10 @@ const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, pro
           <PacingChart daily={dailyArr} budget={budget} trending={projRunRate} daysInMonth={daysInMonth} />
           <div style={{ display: 'flex', gap: 26, marginTop: 6, paddingTop: 12, borderTop: `1px solid ${C.line2}`, flexWrap: 'wrap' }}>
             {[
-              ['Cash Sales MTD', money(mtdActual, { decimals: 2 }), C.ink, DEFS.cashSales],
-              ['Budget (MTD)', budgetMtd != null ? money(budgetMtd, { decimals: 2 }) : '—', C.ink, 'Budget (MTD): the full-month budget pro-rated to the elapsed portion of the month.'],
+              ['Cash Sales MTD', money(mtdActual), C.ink, DEFS.cashSales],
+              ['Budget (MTD)', budgetMtd != null ? money(budgetMtd) : '—', C.ink, 'Budget (MTD): the full-month budget pro-rated to the elapsed portion of the month.'],
               ['Pace to Budget', paceToBudget != null ? `${paceToBudget.toFixed(0)}%` : '—', paceToBudget >= 100 ? C.ink : C.clay, DEFS.budgetPct],
-              ['Projected (Run Rate)', money(projRunRate, { decimals: 2, floor: true }), C.ink, DEFS.projRunRate],
+              ['Projected (Run Rate)', money(projRunRate), C.ink, DEFS.projRunRate],
               ['Projected (Run Rate) %', budget ? `${((projRunRate / budget) * 100).toFixed(0)}%` : '—', budget && (projRunRate / budget) * 100 >= 100 ? C.ink : C.clay, 'Projected Run Rate ÷ full-month budget × 100.'],
               ['Full-Month Budget', money(budget, { decimals: 2 }), C.ink, DEFS.fullMonthBudget],
               ['New Customer', num(newVisits), C.ink, DEFS.newCust],
@@ -1277,10 +1277,10 @@ const LocationMetricTable = ({ title, sub, rows, columns, total, legend }) => {
         <table style={{ width: '100%', borderCollapse: 'collapse', font: `500 11.5px ${FONT}`, color: C.ink2 }}>
           <thead>
             <tr>
-              <th style={{ ...th, textAlign: 'left' }}>Location</th>
+              <th style={{ ...th, textAlign: 'center' }}>Location</th>
               {columns.map((c) => (
-                <th key={c.label} style={{ ...th, textAlign: 'right' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>{c.label}<InfoDot def={c.def} /></span>
+                <th key={c.label} style={{ ...th, textAlign: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{c.label}<InfoDot def={c.def} /></span>
                 </th>
               ))}
             </tr>
@@ -1290,8 +1290,8 @@ const LocationMetricTable = ({ title, sub, rows, columns, total, legend }) => {
               const o = l._ops || {};
               return (
                 <tr key={l.location} className="ev-lrow">
-                  <td style={{ ...td, textAlign: 'left', fontWeight: 600, color: C.ink }}>{l.location}</td>
-                  {columns.map((c) => <td key={c.label} style={{ ...td, textAlign: 'right' }}>{c.render(l, o)}</td>)}
+                  <td style={{ ...td, textAlign: 'center', fontWeight: 600, color: C.ink }}>{l.location}</td>
+                  {columns.map((c) => <td key={c.label} style={{ ...td, textAlign: 'center' }}>{c.render(l, o)}</td>)}
                 </tr>
               );
             })}
@@ -1302,8 +1302,8 @@ const LocationMetricTable = ({ title, sub, rows, columns, total, legend }) => {
           {rows.length > 0 && total && (
             <tfoot>
               <tr>
-                <td style={{ ...totCell, textAlign: 'left', font: `700 10px ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: C.teal }}>Total · {rows.length} Loc</td>
-                {total.map((v, i) => <td key={i} style={{ ...totCell, textAlign: 'right' }}>{v}</td>)}
+                <td style={{ ...totCell, textAlign: 'center', font: `700 10px ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: C.teal }}>Total · {rows.length} Loc</td>
+                {total.map((v, i) => <td key={i} style={{ ...totCell, textAlign: 'center' }}>{v}</td>)}
               </tr>
             </tfoot>
           )}

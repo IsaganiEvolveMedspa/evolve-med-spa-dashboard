@@ -6,7 +6,7 @@ from typing import Optional, List
 
 from fastapi import APIRouter, Query, Request
 
-from config import FULL_SALES, FULL_CASH, FULL_SCHEDULE, FULL_APPT
+from config import FULL_SALES, FULL_CASH, FULL_SCHEDULE, FULL_APPT, FULL_MEMBERSHIP_SALES
 from db import run_query, serialize_rows
 from utils.filters import build_date_filter, build_sched_filter, merge_params, loc_in, hhmm_to_hours
 from utils.cogs import fetch_cogs_and_accrual, cogs_margin_pct
@@ -15,7 +15,7 @@ from utils.payroll import compute_salary_by_center, salary_margin_pct
 from utils.operating_days import cash_run_rate, recognized_run_rate
 from utils.sss import sss_growth_yoy
 from utils.new_customers import new_existing_visits
-from utils.new_guests import new_guest_count
+from utils.new_guests import guest_counts
 from utils.rebooking_kpi import rebooking_rate_kpi
 from utils.memberships import new_memberships, existing_members
 from utils.rev_hour import esthetician_rev_per_hour, provider_rev_per_hour
@@ -388,23 +388,16 @@ def get_mtd_kpi_header(
                                                   AND c.sales_collected_exc_tax > 0
                                                   THEN CONCAT(c.guest_name, '|', CAST(c.payment_date AS DATE)) END), 0)
                                                                                                               AS blended_asp,
-                -- ASP = cash sales / DISTINCT customers (non-membership, invoice value > 0).
-                -- Pure cash, per-customer basis — no accrual/CSV/total-customer overrides
-                -- downstream (removed intentionally). New uses is_new=1 guests; Existing
-                -- uses is_new=0 guests. Denominator counts distinct guest_name (a customer),
-                -- NOT guest_name|day (a visit) — a returning guest counts once.
+                -- Non-membership MTD cash sales per segment — the ASP numerators.
+                -- ASP (New/Existing) is computed downstream in Python as this segment
+                -- sales ÷ the segment's Customer Visits (Business KPI new_guest_count /
+                -- unique_guest_count), so the denominator is the authoritative visit
+                -- count, not a cash distinct-customer count. New uses is_new=1 guests;
+                -- Existing uses is_new=0 guests.
                 SUM(CASE WHEN gc.is_new = 1 AND c.item_category != 'Memberships'
-                          THEN c.sales_collected_exc_tax ELSE 0 END) * 1.0
-                    / NULLIF(COUNT(DISTINCT CASE WHEN gc.is_new = 1 AND c.item_category != 'Memberships'
-                                                  AND c.sales_collected_exc_tax > 0
-                                                  THEN c.guest_name END), 0)
-                                                                                                              AS asp_new_clients,
+                          THEN c.sales_collected_exc_tax ELSE 0 END)                                          AS new_nonmemb_sales,
                 SUM(CASE WHEN gc.is_new = 0 AND c.item_category != 'Memberships'
-                          THEN c.sales_collected_exc_tax ELSE 0 END) * 1.0
-                    / NULLIF(COUNT(DISTINCT CASE WHEN gc.is_new = 0 AND c.item_category != 'Memberships'
-                                                  AND c.sales_collected_exc_tax > 0
-                                                  THEN c.guest_name END), 0)
-                                                                                                              AS asp_existing_clients
+                          THEN c.sales_collected_exc_tax ELSE 0 END)                                          AS existing_nonmemb_sales
             FROM {FULL_CASH} c
             JOIN guest_classification gc ON gc.guest_name = c.guest_name
             {where}
@@ -505,8 +498,8 @@ def get_mtd_kpi_header(
             m.new_visits,
             m.membership_adoption_rate,
             m.blended_asp,
-            m.asp_new_clients,
-            m.asp_existing_clients,
+            m.new_nonmemb_sales,
+            m.existing_nonmemb_sales,
             y.yesterday_revenue,
             y.yesterday_clients,
             lm.last_month_revenue,
@@ -541,8 +534,8 @@ def get_mtd_kpi_header(
         # own pooled DB connection and depends only on s/e/locations + the already-
         # resolved yesterday/last_sale_day). Run them concurrently — sequential execution
         # made the header ~27s and tripped the Railway gateway (502s). Parallel, the header
-        # is bounded by the single slowest query. mtd_ad_spend is file-based (no DB) so it
-        # stays inline. new_members / new_visits now come from the main cash query itself
+        # is bounded by the single slowest query. mtd_ad_spend is a lean SUM over the two
+        # ad BRONZE tables so it stays inline. new_members / new_visits now come from the main cash query itself
         # (no separate Bi_* warehouse scans), so there are no slow helpers left to cap.
         # Per-step wall-clock timings (each thread writes its own distinct key — atomic in
         # CPython) are returned under "_timings" only when ?debug is set.
@@ -641,33 +634,37 @@ def get_mtd_kpi_header(
         # date per guest_name, non-membership first purchase): new = first sale this month,
         # existing = first sale before this month + a sale this month. If the scan didn't
         # finish within the cap, fall back to the cash values (m.new_visits / m.existing).
+        # Visit COUNTS fall back to the accrual scan (result_visits) when the Business
+        # KPI export doesn't cover the range; it's overridden by the KPI values below.
         if result_visits is not None:
             result["new_visits"]            = result_visits.get("new")
             result["existing_client_count"] = result_visits.get("existing")
-            # NOTE: ASP New/Existing are intentionally NOT overridden here anymore.
-            # They come purely from the cash, per-distinct-customer computation in the
-            # main query (asp_new_clients / asp_existing_clients) — no accrual/CSV/total
-            # fallback. Only visit COUNTS (new_visits / existing_client_count) still use
-            # the accrual + CSV + total-customer sources below.
-        # Official New Guest Count (Zenoti daily "Business KPI" export, read live from
-        # dbo.BRONZE_ZENOTI_BUSINESS_KPI) is the source of truth for New Customer Visits.
-        # It replaces only the new-side COUNT; it no longer affects ASP (New) — ASP is
-        # pure cash per-customer from the main query. Falls back to the computed count for
-        # ranges the warehouse doesn't cover. CAC (below) then divides ad spend by this
-        # authoritative count.
-        kpi_new = new_guest_count(s, e, locations)
-        if kpi_new is not None:
-            result["new_visits"] = kpi_new
-        # Existing Customer Visits keeps the accrual value set above from
-        # new_existing_visits() (result_visits.get("existing")): distinct guests with a
-        # sale this month whose first-ever sale was before this month, non-membership
-        # first purchase — matching the card's tooltip definition. When the accrual scan
-        # times out (result_visits is None), it falls back to the main cash query's
-        # is_new=0 count. It is intentionally NOT overwritten with (total customers − new)
-        # here, so the number reflects the tooltip rather than a total-minus-new proxy.
-        # ASP (Existing) is NOT overridden here — it stays the pure cash, per-distinct-
-        # customer value from the main query (asp_existing_clients).
-        # MTD Ad Spend (chain-level, from bundled Google/FB ad export) + CAC = ad spend / new visits.
+        # Official guest counts (Zenoti daily "Business KPI" export, read live from
+        # dbo.BRONZE_ZENOTI_BUSINESS_KPI) are the source of truth for BOTH New and
+        # Existing Customer Visits:
+        #   New      = SUM(new_guest_count)
+        #   Existing = SUM(unique_guest_count)
+        # Each side falls back to the accrual value set above (result_visits) and then
+        # the main cash query for ranges the warehouse doesn't cover. CAC (below) then
+        # divides ad spend by the authoritative new count.
+        kpi = guest_counts(s, e, locations)
+        if kpi["new"] is not None:
+            result["new_visits"] = kpi["new"]
+        if kpi["existing"] is not None:
+            result["existing_client_count"] = kpi["existing"]
+        # ASP (New/Existing) = segment non-membership MTD cash sales ÷ that segment's
+        # Customer Visits. Numerators come from the main query (new/existing_nonmemb_sales);
+        # denominators are the authoritative visit counts resolved just above (Business KPI,
+        # else accrual, else the cash query), so ASP always ties to the displayed visit count.
+        new_den   = result.get("new_visits")
+        exist_den = result.get("existing_client_count")
+        new_sales   = result.get("new_nonmemb_sales")
+        exist_sales = result.get("existing_nonmemb_sales")
+        result["asp_new_clients"] = (
+            round(float(new_sales) / new_den, 2) if new_den and new_sales is not None else None)
+        result["asp_existing_clients"] = (
+            round(float(exist_sales) / exist_den, 2) if exist_den and exist_sales is not None else None)
+        # MTD Ad Spend (chain-level, live SUM over BRONZE_ZENOTI_GOOGLE_ADS + BRONZE_ZENOTI_FB_ADS) + CAC = ad spend / new visits.
         result["mtd_ad_spend"] = mtd_ad_spend(s, e)
         result["client_acquisition_cost"] = client_acquisition_cost(
             result.get("mtd_ad_spend"), result.get("new_visits") or result.get("new_client_count"))
@@ -726,6 +723,12 @@ def get_mtd_summary(
         days_in_month     = calendar.monthrange(end_dt.year, end_dt.month)[1]
         days_elapsed      = (end_dt - end_dt.replace(day=1)).days + 1
         loc_and, loc_p    = loc_in(locations)
+        # Per-center New Memberships from the memberships-sales table, reconciled to the
+        # header KPI (utils/memberships.new_memberships): sale_type='Sale', created in
+        # [s,e] AND starting this calendar month. Its center column is sale_center.
+        mbr_month_start = str(end_dt.replace(day=1))
+        mbr_month_end   = str(end_dt.replace(day=calendar.monthrange(end_dt.year, end_dt.month)[1]))
+        mbr_loc_and, mbr_loc_p = loc_in(locations, col="sale_center")
 
         sql = f"""
         WITH budget_lookup AS (
@@ -741,13 +744,24 @@ def get_mtd_summary(
                 SUM(CASE WHEN CAST(payment_date AS DATE)
                              BETWEEN DATEADD(DAY, -6, '{e}') AND '{e}'
                          THEN sales_collected_exc_tax ELSE 0 END)                                             AS current_week_revenue,
-                COUNT(DISTINCT CASE WHEN item_category = 'Memberships'  THEN guest_code END)                  AS new_members,
                 -- Non-members via the `member` flag (spec), not by purchase category.
                 COUNT(DISTINCT CASE WHEN LOWER(member) = 'no'           THEN guest_code END)                  AS non_members,
                 COUNT(DISTINCT guest_code)                                                                     AS total_guests
             FROM {FULL_CASH}
             {where}
             GROUP BY center_name
+        ),
+        membership_new AS (
+            -- New Memberships per center from BRONZE_ZENOTI_MEMBERSHIPS_SALES — SAME rule
+            -- as the header KPI (sale_type='Sale', created in [s,e] AND starting this month),
+            -- so the per-location "Mbr Adopt" reconciles with the header Membership Adoption.
+            SELECT sale_center AS center_name, COUNT(*) AS new_members
+            FROM {FULL_MEMBERSHIP_SALES}
+            WHERE LOWER(LTRIM(RTRIM(sale_type))) = 'sale'
+              AND CAST(sale_date  AS DATE) BETWEEN '{s}' AND '{e}'
+              AND CAST(start_date AS DATE) BETWEEN '{mbr_month_start}' AND '{mbr_month_end}'
+              {mbr_loc_and}
+            GROUP BY sale_center
         ),
         prior_week AS (
             SELECT center_name, SUM(sales_collected_exc_tax) AS pw_revenue
@@ -797,19 +811,22 @@ def get_mtd_summary(
             c.cash_sales - COALESCE(py.py_revenue, 0)                                   AS py_variance,
             (c.cash_sales - COALESCE(py.py_revenue, 0)) * 1.0
                 / NULLIF(COALESCE(py.py_revenue, 0), 0) * 100                           AS py_variance_pct,
-            c.new_members,
+            COALESCE(mn.new_members, 0)                                                 AS new_members,
             c.non_members,
-            -- Adoption = New Memberships / Non-Members (member flag), per spec.
-            c.new_members * 1.0 / NULLIF(c.non_members, 0) * 100                       AS membership_adoption
+            -- Adoption = New Memberships (memberships-sales table, same rule as the header
+            -- KPI) / Non-Members (cash member flag). Reconciled to the header source.
+            COALESCE(mn.new_members, 0) * 1.0 / NULLIF(c.non_members, 0) * 100           AS membership_adoption
         FROM current_period c
-        LEFT JOIN budget_lookup b  ON c.center_name = b.location
+        LEFT JOIN budget_lookup   b  ON c.center_name = b.location
+        LEFT JOIN membership_new  mn ON c.center_name = mn.center_name
         LEFT JOIN prior_week  pw ON c.center_name = pw.center_name
         LEFT JOIN prior_month pm ON c.center_name = pm.center_name
         LEFT JOIN prior_year  py ON c.center_name = py.center_name
         ORDER BY c.center_name
         """
-        # params: current_period (where), prior_week (loc_p), prior_month (loc_p), prior_year (loc_p)
-        all_params = merge_params(params, loc_p, loc_p, loc_p)
+        # params (textual %s order): current_period (where), membership_new (mbr_loc_p),
+        # prior_week (loc_p), prior_month (loc_p), prior_year (loc_p)
+        all_params = merge_params(params, mbr_loc_p, loc_p, loc_p, loc_p)
         return run_query(sql, all_params or None)
 
     except Exception as exc:
