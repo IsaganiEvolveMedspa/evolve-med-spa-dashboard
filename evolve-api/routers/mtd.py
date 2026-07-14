@@ -15,7 +15,7 @@ from utils.payroll import compute_salary_by_center, salary_margin_pct
 from utils.operating_days import cash_run_rate, recognized_run_rate
 from utils.sss import sss_growth_yoy
 from utils.new_customers import new_existing_visits
-from utils.new_guests import guest_counts
+from utils.new_guests import guest_counts, guest_counts_by_center
 from utils.rebooking_kpi import rebooking_rate_kpi
 from utils.memberships import new_memberships, existing_members
 from utils.rev_hour import esthetician_rev_per_hour, provider_rev_per_hour
@@ -822,7 +822,17 @@ def get_mtd_summary(
         # params (textual %s order): current_period (where), membership_new (mbr_loc_p),
         # prior_week (loc_p), prior_month (loc_p), prior_year (loc_p)
         all_params = merge_params(params, mbr_loc_p, loc_p, loc_p, loc_p)
-        return run_query(sql, all_params or None)
+        rows = run_query(sql, all_params or None)
+        # Per-location New / Existing Customer Visits come from the SAME source as the
+        # chain total (Business KPI table, latest snapshot) — see guest_counts_by_center.
+        # This is the single source of truth for these two columns, so the location rows
+        # reconcile with the header total. Centers absent from the snapshot default to 0.
+        gc = guest_counts_by_center(s, e, locations)
+        for row in rows:
+            g = gc.get(row["location"], {})
+            row["new_visits"]            = g.get("new", 0)
+            row["existing_client_count"] = g.get("existing", 0)
+        return rows
 
     except Exception as exc:
         log_and_raise_from_request(exc, request)

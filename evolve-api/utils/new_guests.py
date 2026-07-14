@@ -103,3 +103,52 @@ def guest_counts(s: str, e: str, locations: Optional[list[str]]) -> dict:
 def new_guest_count(s: str, e: str, locations: Optional[list[str]]) -> Optional[int]:
     """Official New Guest Count only — thin wrapper over guest_counts()."""
     return guest_counts(s, e, locations)["new"]
+
+
+def guest_counts_by_center(s: str, e: str, locations: Optional[list[str]]) -> dict[str, dict]:
+    """Per-center version of guest_counts(): {center_name: {"new", "existing"}}.
+
+    Same source and snapshot logic as guest_counts() (the chain total) — match the
+    month's rows (business_kpi_date LIKE 'YYYY-MM%'), keep only the LATEST snapshot
+    (max parsed end date after '_to_'), then SUM per center. This is the single
+    source of truth for the per-LOCATION New/Existing Customer Visits, so those rows
+    reconcile with the chain total. No fallback: New and Existing are both straight
+    sums from the Business KPI table (a center absent from the snapshot simply isn't
+    in the returned map — callers default it to 0). Returns {} on any error so the
+    caller degrades gracefully rather than taking down the summary."""
+    try:
+        loc_and, loc_p = loc_in(locations, col="center_name")
+        month = s[:7]
+        sql = f"""
+            WITH snap AS (
+                SELECT center_name, new_guest_count, unique_guest_count,
+                       TRY_CAST(SUBSTRING(business_kpi_date,
+                                          CHARINDEX('_to_', business_kpi_date) + 4,
+                                          LEN(business_kpi_date)) AS DATE) AS end_dt
+                FROM {FULL_BUSINESS_KPI}
+                WHERE business_kpi_date LIKE '{month}%'
+            )
+            SELECT center_name,
+                   SUM(TRY_CAST(new_guest_count    AS FLOAT)) AS new_guests,
+                   SUM(TRY_CAST(unique_guest_count AS FLOAT)) AS unique_guests
+            FROM snap
+            WHERE end_dt = (SELECT MAX(end_dt) FROM snap)
+              {loc_and}
+            GROUP BY center_name
+        """
+        rows = run_query(sql, loc_p or None)
+        out: dict[str, dict] = {}
+        for r in rows:
+            center = (r.get("center_name") or "").strip()
+            if not center:
+                continue
+            new_val = r.get("new_guests")
+            uniq_val = r.get("unique_guests")
+            out[center] = {
+                "new": int(new_val) if new_val is not None else 0,
+                "existing": int(uniq_val) if uniq_val is not None else 0,
+            }
+        return out
+    except Exception as exc:                  # never take down the summary
+        log.warning("guest_counts_by_center failed: %s", exc)
+        return {}
