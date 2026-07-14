@@ -6,6 +6,9 @@
 **Displayed on:** Overview → Financial group ("SSS Growth YoY %")
 **Basis:** Cash (`sales_collected_exc_tax`, cash tenders only)
 **Last verified:** 2026-07-14 (data through 2026-07-13)
+**Rule change:** 2026-07-14 — same-store cutoff switched from day-precise
+(`month_start − 12 months`) to **calendar-month** (last day of the prior-year
+reporting month). Live % figures below predate this and need re-verification.
 
 ---
 
@@ -57,7 +60,12 @@ Three design decisions make this correct:
    which the router resolves via `MAX(payment_date)`).
 3. **Prior-year window** = `month_start − 1yr` through `latest_dt − 1yr`
    (`_shift_year`, which falls back ~365 days for Feb 29).
-4. **Same-store cutoff** = prior-year month start (`py_start`).
+4. **Same-store cutoff** = **last day of the prior-year reporting month**
+   (`py_start` advanced to its month end). Calendar-month rule: a location counts
+   once it has been open ~12 calendar months as of the reporting month — i.e. it
+   opened in the reporting month one year earlier, or any earlier month. So a
+   store that opened mid-month a year ago (e.g. Jul 8, 2025) counts for the July
+   2026 report, and is excluded in earlier months where it is < 12 months old.
 5. Sum current-year cash per center (`_sum_by_center`) for `month_start … latest_date`.
 6. Sum prior-year cash per center for `py_start … py_latest`.
 7. `same_store` = `same_store_centers(cutoff, latest_date)` — see below.
@@ -70,7 +78,8 @@ Three design decisions make this correct:
 
 A location qualifies as "same-store" for the reporting month only if:
 
-1. It **opened on or before** the cutoff (`month_start − 12 months`), **and**
+1. It **opened on or before the last day of the prior-year reporting month**
+   (calendar-month rule — see step 4 above), **and**
 2. It is **not closed** on/before the current period end.
 
 Open/close dates come from `evolve-api/data/store_dates.json` — real opening
@@ -80,20 +89,14 @@ dates, not a first-cash proxy.
 
 ## 4. Worked example (July 2026, data through Jul 13)
 
-Verified live against production.
+> ⚠️ **Rule changed 2026-07-14 to the calendar-month cutoff.** The dollar/percent
+> figures in this section were computed under the *old* day-precise cutoff
+> (`2025-07-01`, which excluded Bridgewater & Lancaster). Under the new rule those
+> two stores are **included** for July 2026, so the same-store % below is stale and
+> must be re-verified against live data. The store-eligibility table has been
+> updated to the new rule.
 
-### Headline (ALL stores)
-- Current MTD (Jul 1–13, 2026): **$454,237**
-- Prior-year same window (Jul 1–13, 2025): **$453,925**
-- Raw change: **+0.07%** → essentially flat
-
-### Same-store only (the displayed metric)
-- **−2.02%**
-
-The company as a whole is flat YoY, but that "flat" is propped up by two
-brand-new stores. Strip those out and the **mature 12-store base is down ~2%**.
-
-### Which stores count (cutoff = 2025-07-01)
+### Which stores count (cutoff = last day of prior-year reporting month = 2025-07-31)
 
 | Location | Open date | Same-store? | Reason |
 |---|---|---|---|
@@ -109,24 +112,26 @@ brand-new stores. Strip those out and the **mature 12-store base is down ~2%**.
 | Ridgewood, NJ | 2022-05-31 | ✅ | " |
 | Waldorf, MD | 2024-07-31 | ✅ | Open ~1yr before cutoff |
 | Old Bridge, NJ | 2024-09-30 | ✅ | Open before cutoff |
-| **Bridgewater, NJ** | **2025-07-08** | ❌ | Opened *after* cutoff — brand new |
-| **Lancaster, PA** | **2025-07-11** | ❌ | Opened *after* cutoff — brand new |
+| **Bridgewater, NJ** | **2025-07-08** | ✅ | Opened in Jul 2025 → 12 months as of Jul 2026 |
+| **Lancaster, PA** | **2025-07-11** | ✅ | Opened in Jul 2025 → 12 months as of Jul 2026 |
 | Scarsdale, NY | closed 2025-06-30 | ❌ | Closed before the period |
 | Corporate Center | (not a real store) | ❌ | Not in store_dates.json |
 
-**12 stores qualify.** The two new stores are the entire cause of the effect.
+**14 stores qualify** for July 2026 under the calendar-month rule (was 12 under
+the old day-precise rule).
 
-### Why the two new stores create a "phantom" positive
+### Caveat: the mid-month partial prior-year window
 
-- Bridgewater opened **Jul 8, 2025**; Lancaster opened **Jul 11, 2025**.
-- The prior-year comparison window is **Jul 1–13, 2025**.
+Bridgewater opened **Jul 8, 2025** and Lancaster **Jul 11, 2025**, so in the
+prior-year comparison window (**Jul 1–13, 2025**) they had only ~2–5 ramp-up days
+of near-zero sales, versus a full 13 days this year. Including them (per the
+chosen calendar-month rule) therefore inflates July 2026's same-store YoY upward
+this month; the distortion disappears from August 2026 onward, when the
+prior-year window is a full month for both stores. This is a known, accepted
+trade-off of the calendar-month definition.
 
-So in last year's window those stores existed for only ~2–5 days with essentially
-zero sales. This year (Jul 1–13, 2026) they're fully operational. Including them
-would divide "a mature store's 13 days" by "≈$0 last year" → a fake, enormous
-YoY number. Correctly **excluding** them reveals the truth: the 12 established
-stores generated ~2% less cash in the first 13 days of July 2026 than in the same
-13 days of 2025.
+In earlier reporting months (e.g. May 2026) both stores are **< 12 months old**
+and correctly excluded — same-store there is the 12 mature locations only.
 
 Their revenue still appears in the **headline Cash Sales figure** — it's just
 correctly kept out of the same-store comparison.
@@ -138,15 +143,21 @@ correctly kept out of the same-store comparison.
 - ✅ **Like-for-like window.** Current ends on `latest_date` (Jul 13, 2026);
   prior ends on `latest_date − 1yr` (Jul 13, 2025). Both 13 days. Does *not*
   compare a partial month to a full prior month (the most common SSS bug).
-- ✅ **Same-store set is right.** Filter logic in `store_dates.py` verified
-  against `store_dates.json`: includes the 12 mature stores, excludes the 2 new
-  ones, the 1 closed one, and Corporate Center.
+- ✅ **Same-store set matches the calendar-month rule.** Cutoff = last day of the
+  prior-year reporting month (`2025-07-31` for July 2026). Verified against
+  `store_dates.json`: includes the 12 mature stores **plus** Bridgewater and
+  Lancaster (opened Jul 2025 → 12 months as of Jul 2026); excludes Scarsdale
+  (closed) and Corporate Center (not a store). In May 2026 the same check
+  correctly drops Bridgewater/Lancaster as < 12 months old.
 - ✅ **Consistent basis.** Same cash-tender filter and `sales_collected_exc_tax`
   field on both sides.
-- ✅ **Sign sanity-check.** All-store raw (+0.07%) vs same-store (−2.02%) diverge
-  in exactly the direction expected when new stores add excluded revenue.
+- ⚠️ **Mid-month partial-window distortion (July 2026 only).** Because
+  Bridgewater/Lancaster opened mid-July 2025, including them per the calendar
+  rule inflates July 2026 same-store YoY upward; it self-corrects from Aug 2026.
+  See §4 caveat.
 
-**Conclusion: the metric is correct and should be negative.** No code change needed.
+**Conclusion: metric follows the chosen calendar-month rule.** The headline % must
+be re-verified live after this change.
 
 ---
 
@@ -171,7 +182,9 @@ number of each weekday, or use a fiscal 4-4-5 calendar.
 
 ## 7. Bottom line for leadership
 
-> Total revenue is flat year-over-year, but only because two new stores
-> (Bridgewater, Lancaster) opened last July. Our 12 established locations are
-> running about 2% behind last year on a like-for-like basis — worth watching,
-> though some of it may be weekday-mix timing.
+> Same-store sales compare only locations open at least ~12 calendar months.
+> Bridgewater and Lancaster (opened July 2025) enter the same-store base in
+> July 2026. Because they opened mid-July last year, July 2026's reading is
+> flattered by their near-empty prior-year window; the comparison normalizes
+> from August 2026 onward. Read July 2026 same-store as artificially high, and
+> re-verify the live number after the rule change.

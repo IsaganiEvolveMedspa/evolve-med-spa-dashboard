@@ -1215,16 +1215,22 @@ const LocationPerformanceTable = ({ rows, range, h, totals }) => {
   const cashCell = (l) => (
     <span style={{ font: `700 17px ${FONT}`, color: C.ink, whiteSpace: 'nowrap' }}>{money(l.cash_sales, { compact: true, floor: true })}</span>
   );
-  // Proj. Run Rate cell: value on top with a budget-attainment bar beneath it (no
-  // % text). The bar tracks Projected Run Rate ÷ full-month budget (marker at
-  // 100%), so it reads as each location's projected budget attainment.
-  const projCell = (b, t) => {
-    const p = paceOf(b, t);
+  // Budget-attainment color scale (matches the "Budget Attainment by Location"
+  // card): dark teal ≥100%, light teal 95–99.99%, clay below.
+  const attainColor = (p) => (p == null ? C.clayLite : p >= 100 ? C.teal : p >= 95 ? C.tealLite : C.clayLite);
+  // Proj. Run Rate cell: the dollar value is the Projected Run Rate, but the bar
+  // and % beneath it are Budget Attainment (MTD cash ÷ full-month budget, marker
+  // at 100%) — the same metric as the "Budget Attainment by Location" card — so
+  // both read consistently. Both bar and % are colored to the attainment tier.
+  const projCell = (t, attainPct) => {
+    const p = attainPct;
+    const color = attainColor(p);
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 140 }}>
-        <span style={{ font: `600 11.5px ${FONT}`, color: C.ink }}>{money(t, { compact: true })}</span>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <PaceBar pace={p} color={paceColor(p)} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 150 }}>
+        <PaceBar pace={p} color={color} />
+        <div style={{ flex: 'none', textAlign: 'right', lineHeight: 1.2 }}>
+          <div style={{ font: `700 12.5px ${FONT}`, color: C.ink }}>{money(t, { compact: true })}</div>
+          {p != null && <div style={{ font: `600 10px ${FONT}`, color }}>{p.toFixed(0)}%</div>}
         </div>
       </div>
     );
@@ -1291,7 +1297,7 @@ const LocationPerformanceTable = ({ rows, range, h, totals }) => {
                 <tr key={l.location} className="ev-lrow">
                   <td style={{ ...td, textAlign: 'left', fontWeight: 600, color: C.ink }}>{l.location}</td>
                   <td style={{ ...td, textAlign: 'left' }}>{cashCell(l)}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{projCell(l.monthly_budget, l.trending)}</td>
+                  <td style={{ ...td, textAlign: 'center' }}>{projCell(l.trending, pctScale(l.pct_to_goal_mtd))}</td>
                   <td style={{ ...td, textAlign: 'center' }}>{l.monthly_budget != null ? money(l.monthly_budget, { compact: true }) : dash}</td>
                   <td style={{ ...td, textAlign: 'center' }}>{goalPctCell(l.monthly_budget, l.cash_sales, false)}</td>
                   <td style={{ ...td, textAlign: 'center' }}>{goalPctCell(l.monthly_budget, l.trending, true)}</td>
@@ -1322,7 +1328,7 @@ const LocationPerformanceTable = ({ rows, range, h, totals }) => {
               <tr>
                 <td style={{ ...totCell, textAlign: 'left', font: `700 10px ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: C.teal }}>Total · {rows.length} Loc</td>
                 <td style={{ ...totCell, textAlign: 'left' }}><span style={{ font: `700 17px ${FONT}`, color: C.ink }}>{money(totCash, { compact: true, floor: true })}</span></td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{projCell(totals.budget, totProj)}</td>
+                <td style={{ ...totCell, textAlign: 'center' }}>{projCell(totProj, totals.budget ? (totCash / totals.budget) * 100 : null)}</td>
                 <td style={{ ...totCell, textAlign: 'center' }}>{totals.budget ? money(totals.budget, { compact: true }) : dash}</td>
                 <td style={{ ...totCell, textAlign: 'center' }}>{goalPctCell(totals.budget, totCash, false)}</td>
                 <td style={{ ...totCell, textAlign: 'center' }}>{goalPctCell(totals.budget, totProj, true)}</td>
