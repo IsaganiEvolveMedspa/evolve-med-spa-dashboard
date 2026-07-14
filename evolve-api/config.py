@@ -3,6 +3,7 @@ import json
 import base64
 import tempfile
 import threading
+from datetime import datetime
 from dotenv import load_dotenv
 from google.cloud import bigquery
 import pymssql
@@ -133,6 +134,9 @@ COGS_TABLE     = os.getenv("SQL_COGS_TABLE",     "dbo.BRONZE_ZENOTI_COST_OF_GOOD
 MEMBERSHIP_TABLE = os.getenv("SQL_MEMBERSHIP_TABLE", "dbo.Bi_DimMembershipUser_s3")
 MEMBERSHIP_SALES_TABLE = os.getenv("SQL_MEMBERSHIP_SALES_TABLE", "dbo.BRONZE_ZENOTI_MEMBERSHIPS_SALES")
 BUSINESS_KPI_TABLE = os.getenv("SQL_BUSINESS_KPI_TABLE", "dbo.BRONZE_ZENOTI_BUSINESS_KPI")
+# Prior-month source for New/Existing Customer Visits: completed past months read
+# from this table instead of the live BRONZE snapshot table (see utils/new_guests).
+BUSINESS_KPI_TEST_TABLE = os.getenv("SQL_BUSINESS_KPI_TEST_TABLE", "dbo.TEST_ZENOTI_BUSINESS_KPI")
 FACT_COLLECTIONS_TABLE = os.getenv("SQL_FACT_COLLECTIONS_TABLE", "dbo.Bi_FactCollections_s3")
 GOOGLE_ADS_TABLE = os.getenv("SQL_GOOGLE_ADS_TABLE", "dbo.BRONZE_ZENOTI_GOOGLE_ADS")
 FB_ADS_TABLE     = os.getenv("SQL_FB_ADS_TABLE",     "dbo.BRONZE_ZENOTI_FB_ADS")
@@ -146,6 +150,21 @@ FULL_COGS     = COGS_TABLE
 FULL_MEMBERSHIP = MEMBERSHIP_TABLE
 FULL_MEMBERSHIP_SALES = MEMBERSHIP_SALES_TABLE
 FULL_BUSINESS_KPI = BUSINESS_KPI_TABLE
+FULL_BUSINESS_KPI_TEST = BUSINESS_KPI_TEST_TABLE
+
+
+def business_kpi_table_for(s: str) -> str:
+    """Business KPI source table for a selected month (`s` = 'YYYY-MM-DD').
+
+    Current calendar month (or any later selection) → the live BRONZE snapshot
+    table; any earlier (completed) month → the TEST table holding historical
+    month rows. Both share the same schema and 'YYYY-MM-DD_to_YYYY-MM-DD'
+    `business_kpi_date` period label, so only the table name differs. Shared by
+    utils/new_guests (New/Existing Customer Visits) and utils/rebooking_kpi
+    (Rebook Rate %) so both KPIs source the same table for a given month.
+    """
+    current_month = datetime.utcnow().strftime("%Y-%m")
+    return FULL_BUSINESS_KPI if s[:7] >= current_month else FULL_BUSINESS_KPI_TEST
 FULL_FACT_COLLECTIONS = FACT_COLLECTIONS_TABLE
 FULL_GOOGLE_ADS = GOOGLE_ADS_TABLE
 FULL_FB_ADS     = FB_ADS_TABLE

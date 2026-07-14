@@ -2,8 +2,11 @@
 Official New & Existing Guest Counts — the source of truth for New Customer
 Visits and Existing Customer Visits.
 
-Source: dbo.BRONZE_ZENOTI_BUSINESS_KPI (live warehouse) — the daily Zenoti
-"Business KPI" export, one row per day/center, with authoritative
+Source (month-dependent, see config.business_kpi_table_for):
+  • Current calendar month → dbo.BRONZE_ZENOTI_BUSINESS_KPI (live warehouse).
+  • Any earlier (completed) month → dbo.TEST_ZENOTI_BUSINESS_KPI, which holds the
+    historical month rows. Same schema/format, so only the table name changes.
+The daily Zenoti "Business KPI" export, one row per day/center, with authoritative
 `unique_guest_count` and `new_guest_count` columns (Zenoti's own figures).
 Previously New read a bundled CSV/JSON export (data/new_guests_daily.json, built
 from the daily Business KPI CSVs by scripts/build_new_guests_json.py); the BRONZE
@@ -37,7 +40,7 @@ A partially-covered range sums only the days present (fine for MTD-to-date).
 import logging
 from typing import Optional
 
-from config import FULL_BUSINESS_KPI
+from config import business_kpi_table_for
 from db import run_query
 from utils.filters import loc_in
 
@@ -67,13 +70,14 @@ def guest_counts(s: str, e: str, locations: Optional[list[str]]) -> dict:
         #      snapshots aren't double-counted. The end date is the text after '_to_';
         #      TRY_CAST parses it whether or not the day is zero-padded ('2026-07-1').
         month = s[:7]
+        table = business_kpi_table_for(s)
         sql = f"""
             WITH snap AS (
                 SELECT center_name, new_guest_count, unique_guest_count,
                        TRY_CAST(SUBSTRING(business_kpi_date,
                                           CHARINDEX('_to_', business_kpi_date) + 4,
                                           LEN(business_kpi_date)) AS DATE) AS end_dt
-                FROM {FULL_BUSINESS_KPI}
+                FROM {table}
                 WHERE business_kpi_date LIKE '{month}%'
             )
             SELECT SUM(TRY_CAST(new_guest_count AS FLOAT))    AS new_guests,
@@ -119,13 +123,14 @@ def guest_counts_by_center(s: str, e: str, locations: Optional[list[str]]) -> di
     try:
         loc_and, loc_p = loc_in(locations, col="center_name")
         month = s[:7]
+        table = business_kpi_table_for(s)
         sql = f"""
             WITH snap AS (
                 SELECT center_name, new_guest_count, unique_guest_count,
                        TRY_CAST(SUBSTRING(business_kpi_date,
                                           CHARINDEX('_to_', business_kpi_date) + 4,
                                           LEN(business_kpi_date)) AS DATE) AS end_dt
-                FROM {FULL_BUSINESS_KPI}
+                FROM {table}
                 WHERE business_kpi_date LIKE '{month}%'
             )
             SELECT center_name,

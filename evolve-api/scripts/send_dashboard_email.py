@@ -175,11 +175,34 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
 
 
 def build_html(report_date: str) -> str:
-    """Build an HTML body with the Overview image inline via a cid: reference."""
+    """Build an HTML body with the Overview image inline via a cid: reference.
+
+    The inline image is a responsive PREVIEW (full detail is in the attached PDF):
+      • Desktop → medium, capped at 600px wide (.ev-snap default + inline fallback).
+      • Mobile  → smaller, capped at 320px and centered, via the max-width:600px
+        media query in the <style> block below.
+    Media queries are honored by Apple Mail, iOS Mail, Outlook for Mac and Gmail
+    (Google accounts); clients that ignore <style> fall back to the inline
+    width:100%;max-width:600px, i.e. the medium desktop size.
+    """
     return f"""<!DOCTYPE html>
-<html><body style="margin:0;padding:0;background:#f6f8f7;">
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    /* Desktop / default: medium preview */
+    .ev-snap {{ width: 100% !important; max-width: 600px !important; height: auto !important; }}
+    /* Mobile: smaller, centered preview (detail lives in the attached PDF) */
+    @media only screen and (max-width: 600px) {{
+      .ev-snap {{ max-width: 320px !important; }}
+      .ev-pad  {{ padding: 20px 12px !important; }}
+    }}
+  </style>
+</head>
+<body style="margin:0;padding:0;background:#f6f8f7;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8f7;">
-    <tr><td align="center" style="padding:28px 16px;">
+    <tr><td align="center" class="ev-pad" style="padding:28px 16px;">
       <table role="presentation" width="720" cellpadding="0" cellspacing="0" style="max-width:720px;width:100%;">
         <tr><td style="font:700 22px Arial,Helvetica,sans-serif;color:#1a2b28;padding-bottom:2px;">
           Evolve Med Spa — Overview
@@ -187,9 +210,9 @@ def build_html(report_date: str) -> str:
         <tr><td style="font:400 13px Arial,Helvetica,sans-serif;color:#68807a;padding-bottom:14px;">
           {report_date}
         </td></tr>
-        <tr><td style="padding:0 0 8px 0;">
-          <img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}"
-               style="display:block;width:100%;max-width:720px;height:auto;border:1px solid #e2e8e5;border-radius:8px;" />
+        <tr><td align="center" style="padding:0 0 8px 0;">
+          <img class="ev-snap" src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}"
+               style="display:block;width:100%;max-width:600px;height:auto;margin:0 auto;border:1px solid #e2e8e5;border-radius:8px;" />
         </td></tr>
         <tr><td style="padding:10px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">
           A PDF of the Overview is attached.

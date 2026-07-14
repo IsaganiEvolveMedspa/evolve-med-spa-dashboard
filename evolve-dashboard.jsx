@@ -417,7 +417,13 @@ const Dashboard = () => {
     (async () => {
       try {
         const [latest, locs] = await Promise.all([
-          apiGet('/api/latest-date', {}, controller.signal),
+          // Cash-basis anchor (MAX payment_date): the dashboard's headline metric
+          // and most header KPIs are cash collections on payment_date, so the MoM
+          // delta window clamp (prevMonthRange), month picker, and "data through"
+          // subtitle must track the cash table's latest day, not sale_date. The
+          // recognized-revenue/SSS run-rate projections resolve their own sale_date
+          // anchor server-side, so they're unaffected by this choice.
+          apiGet('/api/latest-cash-date', {}, controller.signal),
           apiGet('/api/locations', {}, controller.signal),
         ]);
         if (cancelled) return;
@@ -850,10 +856,9 @@ const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, pro
       delta: budgetPaceVal != null ? `${budgetPaceVal >= 100 ? '▲' : '▼'} ${Math.abs(100 - budgetPaceVal).toFixed(0)}% to goal` : null,
       deltaColor: budgetPaceVal >= 100 ? C.green : C.clay },
     // R49: SSS Growth YoY %
-    { label: 'SSS Growth YoY %', def: DEFS.sss, value: pct(yoy), ...spread(arrowDelta(yoy)) },
-    // R02: Prior Day Sales — MoM delta compares yesterday's cash sales against
-    // the equivalent prior-day figure from the prior-month header window.
-    { label: 'Prior Day Sales', def: DEFS.priorDay, value: money(h.yesterday_revenue, { compact: true }), ...spreadOrNull(momPctDelta(h.yesterday_revenue, hPrev.yesterday_revenue)) },
+    { label: 'SSS Growth YoY %', def: DEFS.sss, value: pct(yoy) },
+    // R02: Prior Day Sales
+    { label: 'Prior Day Sales', def: DEFS.priorDay, value: money(h.yesterday_revenue, { compact: true }) },
     // R18: ASP (New) = non-membership MTD sales (New) ÷ New Customer Visits
     { label: 'ASP (New)', def: DEFS.aspNew, value: money(h.asp_new_clients),
       ...spreadOrNull(momPctDelta(h.asp_new_clients, hPrev.asp_new_clients)),
@@ -1036,11 +1041,9 @@ const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, pro
       {/* hero trend cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <HeroCard label="Cash Sales" mtd={money(cashMtd, { compact: true, floor: true })} mtdDelta={cashMom}
-          extraLabel="Full-Month Budget" extra={money(budget, { compact: true })} extraDef={DEFS.fullMonthBudget}
           proj={money(projRunRate, { compact: true, floor: true })} projDelta={cashRunRateMom}
           labelDef={DEFS.cashSales} projDef={DEFS.projRunRate} />
         <HeroCard label="Recognized Revenue" mtd={money(recRev, { compact: true })} mtdDelta={recRevMom}
-          extraLabel="Full-Month Budget" extra={money(budget, { compact: true })} extraDef={DEFS.fullMonthBudget}
           proj={money(h.recognized_run_rate ?? projRunRate, { compact: true, floor: true })} projDelta={recRunRateMom}
           labelDef={DEFS.recRev} projDef={DEFS.recRunRate} />
       </div>

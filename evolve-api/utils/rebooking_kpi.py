@@ -1,8 +1,10 @@
 """
 Official Rebooking Rate — the source of truth for the "Rebook Rate %" KPI card.
 
-Source: dbo.BRONZE_ZENOTI_BUSINESS_KPI (live warehouse). Each row is a CUMULATIVE
-MTD snapshot per center, keyed by `business_kpi_date` — a period-LABEL string like
+Source (month-dependent, see config.business_kpi_table_for): the current calendar
+month reads dbo.BRONZE_ZENOTI_BUSINESS_KPI (live warehouse); any earlier (completed)
+month reads dbo.TEST_ZENOTI_BUSINESS_KPI (historical rows, same schema/format). Each
+row is a CUMULATIVE MTD snapshot per center, keyed by `business_kpi_date` — a period-LABEL string like
 '2026-07-01_to_2026-07-12' (fixed month start, advancing end date), NOT a castable
 date. New snapshots for the month are appended as their own rows, so we must select
 the month's rows (business_kpi_date LIKE 'YYYY-MM%') and keep only the LATEST
@@ -28,7 +30,7 @@ snapshot logic below (same as utils/new_guests.py).
 import logging
 from typing import Optional
 
-from config import FULL_BUSINESS_KPI
+from config import business_kpi_table_for
 from db import run_query
 from utils.filters import loc_in
 
@@ -51,13 +53,14 @@ def rebooking_rate_kpi(s: str, e: str, locations: Optional[list[str]]) -> Option
     try:
         loc_and, loc_p = loc_in(locations, col="center_name")
         month = s[:7]
+        table = business_kpi_table_for(s)
         sql = f"""
             WITH snap AS (
                 SELECT center_name, rebooking_source_percentage,
                        TRY_CAST(SUBSTRING(business_kpi_date,
                                           CHARINDEX('_to_', business_kpi_date) + 4,
                                           LEN(business_kpi_date)) AS DATE) AS end_dt
-                FROM {FULL_BUSINESS_KPI}
+                FROM {table}
                 WHERE business_kpi_date LIKE '{month}%'
             )
             SELECT AVG(TRY_CAST(rebooking_source_percentage AS FLOAT)) AS rebook_rate_pct
@@ -88,13 +91,14 @@ def rebooking_rate_by_center(s: str, e: str, locations: Optional[list[str]]) -> 
     try:
         loc_and, loc_p = loc_in(locations, col="center_name")
         month = s[:7]
+        table = business_kpi_table_for(s)
         sql = f"""
             WITH snap AS (
                 SELECT center_name, rebooking_source_percentage,
                        TRY_CAST(SUBSTRING(business_kpi_date,
                                           CHARINDEX('_to_', business_kpi_date) + 4,
                                           LEN(business_kpi_date)) AS DATE) AS end_dt
-                FROM {FULL_BUSINESS_KPI}
+                FROM {table}
                 WHERE business_kpi_date LIKE '{month}%'
             )
             SELECT center_name,
