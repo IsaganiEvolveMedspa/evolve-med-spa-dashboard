@@ -211,7 +211,13 @@ def build_html(report_date: str) -> str:
           {report_date}
         </td></tr>
         <tr><td align="center" style="padding:0 0 8px 0;">
-          <img class="ev-snap" src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}"
+          <!-- width="600" is the OUTLOOK fallback: Outlook (Windows/Word engine)
+               ignores <style> media queries AND max-width on images, so without an
+               explicit width attribute it renders the PNG at its native size. The
+               attribute pins it to the medium 600px desktop size; CSS-capable
+               clients still use the inline/media-query rules (100%→600 desktop,
+               320 mobile), which override the attribute. -->
+          <img class="ev-snap" src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}" width="600"
                style="display:block;width:100%;max-width:600px;height:auto;margin:0 auto;border:1px solid #e2e8e5;border-radius:8px;" />
         </td></tr>
         <tr><td style="padding:10px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">

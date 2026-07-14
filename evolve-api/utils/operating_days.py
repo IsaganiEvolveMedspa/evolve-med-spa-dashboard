@@ -107,33 +107,41 @@ def _holiday_not_in_clause(date_col: str, s: str, e: str) -> str:
     return f" AND CAST({date_col} AS DATE) NOT IN ({lits})"
 
 
-def _project_run_rate(per_center: dict[str, float], s: str, latest_date: str) -> Optional[float]:
-    """Project per-location MTD totals to full month via working days; sum to chain.
+def _run_rate_per_center(per_center: dict[str, float], s: str, latest_date: str) -> dict[str, float]:
+    """Per-location MTD → full-month projection via working days (unrounded).
 
-    elapsed/total working days now exclude chain-wide holiday closures via
-    _count_between, so a closed holiday no longer inflates elapsed_wd (which would
-    have understated the daily pace) nor total_wd (which would have over-projected).
+    run rate_loc = MTD_loc / elapsed working days × total working days in month.
+    elapsed/total working days exclude chain-wide holiday closures via _count_between,
+    so a closed holiday no longer inflates elapsed_wd (which would have understated the
+    daily pace) nor total_wd (which would have over-projected). Centers with no elapsed
+    working days are omitted — they can't be projected. Values are unrounded so the chain
+    sum rounds exactly once (see _project_run_rate).
     """
     table = _open_days()
     if not table:
-        return None
+        return {}
     s_dt = datetime.strptime(s, "%Y-%m-%d").date()
     month_start = s_dt.replace(day=1).isoformat()
     month_end   = s_dt.replace(day=calendar.monthrange(s_dt.year, s_dt.month)[1]).isoformat()
 
-    total, seen = 0.0, False
+    out: dict[str, float] = {}
     for loc, mtd in per_center.items():
         days = table.get(loc, [])
         elapsed_wd = _count_between(days, month_start, latest_date)
         total_wd   = _count_between(days, month_start, month_end)
         if elapsed_wd > 0:
-            total += mtd / elapsed_wd * total_wd
-            seen = True
-    return round(total, 2) if seen else None
+            out[loc] = mtd / elapsed_wd * total_wd
+    return out
 
 
-def cash_run_rate(s: str, e: str, locations: Optional[list[str]], latest_date: str) -> Optional[float]:
-    """Working-days projected Cash Sales run rate (chain = Σ per-location)."""
+def _project_run_rate(per_center: dict[str, float], s: str, latest_date: str) -> Optional[float]:
+    """Chain run rate = Σ per-location working-days projections."""
+    rr = _run_rate_per_center(per_center, s, latest_date)
+    return round(sum(rr.values()), 2) if rr else None
+
+
+def _cash_per_center(s: str, e: str, locations: Optional[list[str]]) -> dict[str, float]:
+    """MTD cash per center with the shared cash-pay filter + holiday exclusion."""
     where, params = build_date_filter(s, e, locations, date_col="payment_date")
     sql = f"""
         SELECT center_name, SUM(sales_collected_exc_tax) AS v
@@ -143,8 +151,23 @@ def cash_run_rate(s: str, e: str, locations: Optional[list[str]], latest_date: s
         {_holiday_not_in_clause("payment_date", s, e)}
         GROUP BY center_name
     """
-    per = {r["center_name"]: float(r["v"] or 0) for r in run_query(sql, params or None)}
-    return _project_run_rate(per, s, latest_date)
+    return {r["center_name"]: float(r["v"] or 0) for r in run_query(sql, params or None)}
+
+
+def cash_run_rate(s: str, e: str, locations: Optional[list[str]], latest_date: str) -> Optional[float]:
+    """Working-days projected Cash Sales run rate (chain = Σ per-location)."""
+    return _project_run_rate(_cash_per_center(s, e, locations), s, latest_date)
+
+
+def cash_run_rate_by_center(s: str, e: str, locations: Optional[list[str]],
+                            latest_date: str) -> dict[str, float]:
+    """Per-location working-days Cash Sales run rate (chain total = sum of these).
+
+    Same basis as cash_run_rate so the location table's "Proj. Run Rate" reconciles
+    with the chain figure shown in the header / totals row. Values rounded for display.
+    """
+    rr = _run_rate_per_center(_cash_per_center(s, e, locations), s, latest_date)
+    return {loc: round(v, 2) for loc, v in rr.items()}
 
 
 def recognized_run_rate(s: str, e: str, locations: Optional[list[str]], latest_date: str) -> Optional[float]:

@@ -12,7 +12,7 @@ from utils.filters import build_date_filter, build_sched_filter, merge_params, l
 from utils.cogs import fetch_cogs_and_accrual, cogs_margin_pct
 from utils.ad_spend import mtd_ad_spend, client_acquisition_cost
 from utils.payroll import compute_salary_by_center, salary_margin_pct
-from utils.operating_days import cash_run_rate, recognized_run_rate
+from utils.operating_days import cash_run_rate, cash_run_rate_by_center, recognized_run_rate
 from utils.sss import sss_growth_yoy
 from utils.new_customers import new_existing_visits
 from utils.new_guests import guest_counts, guest_counts_by_center
@@ -867,11 +867,30 @@ def get_mtd_summary(
         # absent → row keeps None so the client falls back to the SQL appointments
         # rate, exactly mirroring the header's KPI-else-SQL fallback.
         rb = rebooking_rate_by_center(s, e, locations)
+        # Per-location Cash Sales run rate on the SAME working-days basis as the header/
+        # totals cash_run_rate (MTD cash ÷ elapsed working days × total working days), so
+        # the "Proj. Run Rate" column reconciles with the chain total (= sum of these) and
+        # matches DEFS.projRunRate. This replaces the old calendar-day `trending`
+        # (avg_daily_sales × days_in_month), which over-projected and never summed to the
+        # total. The elapsed cutoff MUST match get_mtd_kpi_header's `yesterday` — the
+        # latest day that actually has cash data ≤ e — not raw `e`; otherwise an end_date
+        # ahead of the loaded data (cash lags the calendar) would count phantom elapsed
+        # working days and diverge from the header card. Same query/filter as the header.
+        _lc_run = run_query(f"""
+            SELECT MAX(CAST(payment_date AS DATE)) AS d
+            FROM {FULL_CASH}
+            WHERE CAST(payment_date AS DATE) <= '{e}'
+            {loc_and}
+            {_CASH_PAY_FILTER}
+        """, loc_p or None)
+        latest_cash = str(_lc_run[0]["d"]) if _lc_run and _lc_run[0].get("d") else e
+        crr = cash_run_rate_by_center(s, e, locations, latest_cash)
         for row in rows:
             g = gc.get(row["location"], {})
             row["new_visits"]            = g.get("new", 0)
             row["existing_client_count"] = g.get("existing", 0)
             row["rebooking_rate"]        = rb.get(row["location"])
+            row["cash_run_rate"]         = crr.get(row["location"])
             # ASP (New/Existing) = segment non-membership cash sales (from asp_seg) ÷ that
             # segment's Business KPI Customer Visits — SAME spec as the header
             # (asp_new_clients / asp_existing_clients), so per-location rows reconcile with

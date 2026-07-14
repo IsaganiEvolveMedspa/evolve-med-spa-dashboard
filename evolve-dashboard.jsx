@@ -992,9 +992,14 @@ const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, pro
   const opsByLoc = {};
   ops.forEach((o) => { opsByLoc[o.location] = o; });
   const rows = summary.map((l) => ({ ...l, _ops: opsByLoc[l.location] || {} }));
+  // Per-location projected run rate: working-days basis (backend cash_run_rate), so the
+  // "Proj. Run Rate" column reconciles with the totals row (h.cash_run_rate = Σ of these)
+  // and matches DEFS.projRunRate. Falls back to the legacy calendar-day `trending` only
+  // if the backend field is absent (older payloads).
+  const locRunRate = (l) => n(l.cash_run_rate) ?? n(l.trending);
   const totals = summary.reduce((a, l) => {
     a.cash += n(l.cash_sales) || 0; a.budget += n(l.monthly_budget) || 0;
-    a.trending += n(l.trending) || 0; a.newM += n(l.new_members) || 0;
+    a.trending += locRunRate(l) || 0; a.newM += n(l.new_members) || 0;
     const o = opsByLoc[l.location] || {};
     a.recRev += n(o.recognized_revenue) || 0;
     // New / Existing Customer Visits are sourced from the Business KPI table
@@ -1032,9 +1037,16 @@ const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, pro
   totals.esthRevHr = avg(totals._erh);
   totals.rebook = avg(totals._rb);
 
-  // Single projected run rate (working-days, cash-based) shared by both hero cards
-  // and the Sales-to-Budget table so the "Projected · Run Rate" always matches.
-  const projRunRate = h.cash_run_rate ?? trending ?? (mtdActual && daysInMonth ? (mtdActual / Math.max(dailyArr.length, 1)) * daysInMonth : null);
+  // Single projected run rate (working-days, cash-based) shared by both hero cards,
+  // the Sales-to-Budget table, and the location table's totals row so they always match.
+  // Source of truth = the SUM of the per-location run rates actually shown in the
+  // "Proj. Run Rate" cells (Σ locRunRate), so the card/total tie out to the table exactly
+  // (no single-vs-per-row rounding drift). h.cash_run_rate is the same figure chain-side;
+  // it (then the daily/MTD estimate) is only a fallback when no per-location data exists.
+  const hasLocRunRate = summary.some((l) => locRunRate(l) != null);
+  const projRunRate = hasLocRunRate
+    ? totals.trending
+    : (h.cash_run_rate ?? trending ?? (mtdActual && daysInMonth ? (mtdActual / Math.max(dailyArr.length, 1)) * daysInMonth : null));
 
   return (
     <div>
@@ -1180,12 +1192,15 @@ const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, pro
       {(() => {
         const dash = '—';
         const totCash = h.mtd_revenue != null ? h.mtd_revenue : totals.cash;
-        const totProj = h.cash_run_rate != null ? h.cash_run_rate : totals.trending;
+        // Totals-row Proj. Run Rate = the SAME value as the hero card (projRunRate),
+        // which is the sum of the per-location run rates rendered below — so the column
+        // adds up to its own total and to the card exactly.
+        const totProj = projRunRate;
         // Per-location recognized-revenue run rate: no backend field, so scale
         // recognized revenue by the location's cash run-rate multiplier
         // (Proj. Run Rate ÷ Cash MTD). Approximate — see DEFS.recRunRateLoc.
         const recRRLoc = (l, o) => {
-          const rev = n(o.recognized_revenue), cash = n(l.cash_sales), proj = n(l.trending);
+          const rev = n(o.recognized_revenue), cash = n(l.cash_sales), proj = locRunRate(l);
           if (rev == null || !cash || proj == null) return null;
           return rev * (proj / cash);
         };
@@ -1197,13 +1212,15 @@ const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, pro
         const attainColor = (p) => (p == null ? C.clayLite : p >= 100 ? C.teal : p >= 95 ? C.tealLite : C.clayLite);
         // Proj. Run Rate cell: dollar value = Projected Run Rate; the budget-attainment
         // bar + % beside it are MTD cash ÷ full-month budget (marker at 100%).
+        // `floor: true` matches the hero "Projected · Run Rate" card's formatting so the
+        // totals-row value renders identically to the card (both floor the same number).
         const projCell = (t, attainPct) => {
           const p = attainPct, color = attainColor(p);
           return (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, minWidth: 150 }}>
               <PaceBar pace={p} color={color} />
               <div style={{ flex: 'none', textAlign: 'right', lineHeight: 1.2 }}>
-                <div style={{ font: `700 12.5px ${FONT}`, color: C.ink }}>{money(t, { compact: true })}</div>
+                <div style={{ font: `700 12.5px ${FONT}`, color: C.ink }}>{money(t, { compact: true, floor: true })}</div>
                 {p != null && <div style={{ font: `600 10px ${FONT}`, color }}>{p.toFixed(0)}%</div>}
               </div>
             </div>
@@ -1221,10 +1238,10 @@ const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, pro
             <LocationMetricTable title="Location Performance · Sales & Customers" sub={`bars vs budget · line = 100% · ${range}`} rows={rows}
               columns={[
                 { label: 'Cash MTD', def: DEFS.cashSales, render: (l) => money(l.cash_sales, { compact: true, floor: true }) },
-                { label: 'Proj. Run Rate', def: DEFS.projRunRate, render: (l) => projCell(l.trending, pctScale(l.pct_to_goal_mtd)) },
+                { label: 'Proj. Run Rate', def: DEFS.projRunRate, render: (l) => projCell(locRunRate(l), pctScale(l.pct_to_goal_mtd)) },
                 { label: 'Goal', def: DEFS.goal, render: (l) => l.monthly_budget != null ? money(l.monthly_budget, { compact: true }) : dash },
                 { label: 'MTD % Goal', def: DEFS.mtdPctGoal, render: (l) => goalPctCell(l.monthly_budget, l.cash_sales, false) },
-                { label: 'Trend % Goal', def: DEFS.trendPctGoal, render: (l) => goalPctCell(l.monthly_budget, l.trending, true) },
+                { label: 'Trend % Goal', def: DEFS.trendPctGoal, render: (l) => goalPctCell(l.monthly_budget, locRunRate(l), true) },
                 // New / Exist Customer Visits: Business KPI table (mtd-summary), same source as the total.
                 { label: 'New Cust', def: DEFS.newCust, render: (l) => num(l.new_visits) },
                 { label: 'Exist Cust', def: DEFS.existingCust, render: (l) => num(l.existing_client_count) },
