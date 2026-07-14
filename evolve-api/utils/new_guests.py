@@ -55,7 +55,7 @@ def guest_counts(s: str, e: str, locations: Optional[list[str]]) -> dict:
                    SUM(TRY_CAST(unique_guest_count AS FLOAT)) AS unique_guests,
                    COUNT(*)                                   AS day_rows
             FROM {FULL_BUSINESS_KPI}
-            WHERE CAST(business_kpi_date AS DATE) BETWEEN '{s}' AND '{e}'
+            WHERE TRY_CAST(business_kpi_date AS DATE) BETWEEN '{s}' AND '{e}'
               {loc_and}
         """
         rows = run_query(sql, loc_p or None)

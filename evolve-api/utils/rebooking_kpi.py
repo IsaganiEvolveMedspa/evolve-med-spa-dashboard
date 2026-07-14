@@ -37,7 +37,7 @@ def rebooking_rate_kpi(s: str, e: str, locations: Optional[list[str]]) -> Option
         sql = f"""
             SELECT AVG(TRY_CAST(rebooking_source_percentage AS FLOAT)) AS rebook_rate_pct
             FROM {FULL_BUSINESS_KPI}
-            WHERE CAST(business_kpi_date AS DATE) BETWEEN '{s}' AND '{e}'
+            WHERE TRY_CAST(business_kpi_date AS DATE) BETWEEN '{s}' AND '{e}'
               AND TRY_CAST(rebooking_source_percentage AS FLOAT) > 0
               {loc_and}
         """
