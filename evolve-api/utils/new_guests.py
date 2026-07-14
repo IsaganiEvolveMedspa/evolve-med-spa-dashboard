@@ -21,11 +21,14 @@ when no filter is given) — a per-day-distinct (guest-visits) basis.
 
 Unlike Ad Spend, these figures ARE per-center, so they honor the location filter.
 
-Coverage: returns None when the range has NO row present in the table (so callers
-fall back to the computed sales-accrual/cash figure for ranges the warehouse
-doesn't cover). Returns the sum — possibly 0 — whenever at least one day in [s, e]
-is present. A partially-covered range sums only the days we have (fine for
-MTD-to-date).
+Coverage:
+  • New — returns None when the range has NO row present in the table, so the
+    caller can fall back to the computed sales-accrual/cash figure for ranges the
+    warehouse doesn't cover.
+  • Existing — NO fallback: it is always SUM(unique_guest_count), and 0 when the
+    range matches no rows. This is intentional (see mtd.py) — Existing Customer
+    Visits reflects only the Business KPI table.
+A partially-covered range sums only the days present (fine for MTD-to-date).
 """
 import logging
 from typing import Optional
@@ -60,18 +63,18 @@ def guest_counts(s: str, e: str, locations: Optional[list[str]]) -> dict:
         """
         rows = run_query(sql, loc_p or None)
         r = rows[0] if rows else {}
-        # No export rows for this range → let the caller fall back to the computed counts.
-        if not r or (r.get("day_rows") or 0) == 0:
-            return {"new": None, "existing": None}
+        day_rows = (r.get("day_rows") or 0) if r else 0
         new_val = r.get("new_guests")
         uniq_val = r.get("unique_guests")
-        new_n = int(new_val) if new_val is not None else 0
-        # Existing Customer Visits = SUM(unique_guest_count) — total distinct
-        # guest-visits per day/center summed over the range.
-        existing_n = int(uniq_val) if uniq_val is not None else None
+        # New Customer Visits keeps coverage semantics: None when the range has no
+        # export rows, so the caller can fall back to the computed figure.
+        new_n = None if day_rows == 0 else (int(new_val) if new_val is not None else 0)
+        # Existing Customer Visits = SUM(unique_guest_count) straight from the table.
+        # NO fallback — it is always this sum (0 when the range matches no rows).
+        existing_n = int(uniq_val) if uniq_val is not None else 0
         return {"new": new_n, "existing": existing_n}
     except Exception as exc:                  # never take down the KPI header
-        log.warning("guest_counts failed; returning Nones: %s", exc)
+        log.warning("guest_counts failed: %s", exc)
         return {"new": None, "existing": None}
 
 

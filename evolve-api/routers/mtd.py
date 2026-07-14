@@ -634,24 +634,19 @@ def get_mtd_kpi_header(
         # date per guest_name, non-membership first purchase): new = first sale this month,
         # existing = first sale before this month + a sale this month. If the scan didn't
         # finish within the cap, fall back to the cash values (m.new_visits / m.existing).
-        # Visit COUNTS fall back to the accrual scan (result_visits) when the Business
-        # KPI export doesn't cover the range; it's overridden by the KPI values below.
+        # New Customer Visits falls back to the accrual scan (result_visits) when the
+        # Business KPI export doesn't cover the range; the KPI value below overrides it.
+        # Existing Customer Visits does NOT fall back (set unconditionally below).
         if result_visits is not None:
-            result["new_visits"]            = result_visits.get("new")
-            result["existing_client_count"] = result_visits.get("existing")
+            result["new_visits"] = result_visits.get("new")
         # Official guest counts (Zenoti daily "Business KPI" export, read live from
-        # dbo.BRONZE_ZENOTI_BUSINESS_KPI) are the source of truth for BOTH New and
-        # Existing Customer Visits:
-        #   New      = SUM(new_guest_count)
-        #   Existing = SUM(unique_guest_count)
-        # Each side falls back to the accrual value set above (result_visits) and then
-        # the main cash query for ranges the warehouse doesn't cover. CAC (below) then
-        # divides ad spend by the authoritative new count.
+        # dbo.BRONZE_ZENOTI_BUSINESS_KPI):
+        #   New      = SUM(new_guest_count)    — falls back to accrual/cash for uncovered ranges.
+        #   Existing = SUM(unique_guest_count) — NO fallback; strictly this sum (0 if no rows).
         kpi = guest_counts(s, e, locations)
         if kpi["new"] is not None:
             result["new_visits"] = kpi["new"]
-        if kpi["existing"] is not None:
-            result["existing_client_count"] = kpi["existing"]
+        result["existing_client_count"] = kpi["existing"]
         # ASP (New/Existing) = segment non-membership MTD cash sales ÷ that segment's
         # Customer Visits. Numerators come from the main query (new/existing_nonmemb_sales);
         # denominators are the authoritative visit counts resolved just above (Business KPI,
