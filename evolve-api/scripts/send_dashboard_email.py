@@ -68,6 +68,14 @@ NAV_TIMEOUT_MS = 60_000
 DATA_LOAD_TIMEOUT_MS = 60_000
 # Text the dashboard shows while a view is still fetching (see DataState in the UI).
 LOADING_TEXT = "Loading live data"
+# Text the dashboard shows when a view failed to load (DataState error card). We
+# retry on it (transient cold-start 500s clear on reload) and only ABORT if it
+# persists — we must never email execs a "Couldn't load this view" picture.
+ERROR_TEXT = "Couldn't load this view"
+# How many times to (re)load the Overview before giving up, and how long to wait
+# after clicking Retry for the API/DB to come up on a cold start.
+LOAD_ATTEMPTS = 3
+LOAD_RETRY_BACKOFF_MS = 5000
 
 
 def _env(name: str, required: bool = True, default: str | None = None) -> str:
@@ -173,24 +181,56 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
         page.locator("aside a.ev-nav", has_text=VIEW_NAV_TEXT).first.click()
         page.wait_for_load_state("networkidle", timeout=NAV_TIMEOUT_MS)
 
-        # Wait for the "Loading live data…" indicator to clear so we never
-        # capture the loading skeleton.
-        page.wait_for_timeout(1000)
-        try:
-            page.wait_for_function(
-                "(t) => !document.body.innerText.includes(t)",
-                arg=LOADING_TEXT,
-                timeout=DATA_LOAD_TIMEOUT_MS,
-            )
-        except PlaywrightTimeoutError:
-            print(
-                f"[send_dashboard_email] WARN: '{VIEW_LABEL}' still loading after "
-                f"{DATA_LOAD_TIMEOUT_MS}ms; capturing anyway",
-                file=sys.stderr,
-            )
+        # Load the Overview data, retrying transient failures. The dashboard is on
+        # Railway; a cold start (or the DB waking) can make the first hit to
+        # /api/mtd-kpi-header 500, which DataState shows as the error card with a
+        # "Retry" button — a reload/Retry then succeeds. So we clear the loading
+        # indicator, and if the error card is up we click Retry and wait, up to
+        # LOAD_ATTEMPTS times. Only if it STILL fails do we abort (never email an
+        # error-state snapshot to recipients).
+        for attempt in range(1, LOAD_ATTEMPTS + 1):
+            page.wait_for_timeout(1000)
+            try:
+                page.wait_for_function(
+                    "(t) => !document.body.innerText.includes(t)",
+                    arg=LOADING_TEXT,
+                    timeout=DATA_LOAD_TIMEOUT_MS,
+                )
+            except PlaywrightTimeoutError:
+                print(
+                    f"[send_dashboard_email] WARN: '{VIEW_LABEL}' still loading after "
+                    f"{DATA_LOAD_TIMEOUT_MS}ms (attempt {attempt}/{LOAD_ATTEMPTS})",
+                    file=sys.stderr,
+                )
 
-        # Recharts animates via JS (not CSS), so give it a final settle window.
-        page.wait_for_timeout(render_wait_ms)
+            # Recharts animates via JS (not CSS), so give it a final settle window.
+            page.wait_for_timeout(render_wait_ms)
+
+            if page.get_by_text(ERROR_TEXT, exact=False).count() == 0:
+                break  # loaded cleanly — proceed to capture
+
+            if attempt < LOAD_ATTEMPTS:
+                print(
+                    f"[send_dashboard_email] WARN: '{ERROR_TEXT}' on attempt "
+                    f"{attempt}/{LOAD_ATTEMPTS}; clicking Retry (likely a cold-start 500)",
+                    file=sys.stderr,
+                )
+                try:
+                    page.get_by_text("Retry", exact=False).first.click()
+                except Exception:
+                    page.reload(wait_until="networkidle", timeout=NAV_TIMEOUT_MS)
+                page.wait_for_timeout(LOAD_RETRY_BACKOFF_MS)
+            else:
+                # Exhausted retries — abort loudly so no error snapshot is emailed.
+                snippet = ""
+                try:
+                    snippet = " ".join(page.locator("main").inner_text().split())[:300]
+                except Exception:
+                    pass
+                raise RuntimeError(
+                    f"Overview still failing after {LOAD_ATTEMPTS} attempts — found "
+                    f"'{ERROR_TEXT}'; aborting without sending. Page said: {snippet!r}"
+                )
 
         page.evaluate(_UNCLIP_JS)
 
