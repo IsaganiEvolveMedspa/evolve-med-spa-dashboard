@@ -327,7 +327,7 @@ const DEFS = {
   utilEsth: 'Utilization · Esthetician: booked hours ÷ (scheduled − paid block-out hours) × 100, for Estheticians.',
   revProvider: 'Rev / Hr · Provider: sales (excl. tax) by Treatment-Provider employees ÷ their booked hours.',
   revEsth: 'Rev / Hr · Esthetician: sales (excl. tax) by Esthetician employees ÷ their booked hours.',
-  rebook: 'Rebook Rate: distinct closed invoices that rebooked before leaving ÷ distinct closed invoices × 100.',
+  rebook: 'Rebook Rate %: official Business KPI rebooking source % per center (falls back to distinct closed invoices that rebooked ÷ distinct closed invoices × 100 where the export has no rate).',
   recRev: 'Recognized Revenue (MTD): sum of net sales including tax (accrual basis).',
   recRunRate: 'Run Rate · Recognized Revenue: recognized revenue projected to the full month on the same working-day run-rate basis as cash.',
   recRunRateLoc: 'Run Rate Rec. Rev (per location): recognized revenue scaled by the location’s cash run-rate multiplier (Proj. Run Rate ÷ Cash MTD) — an approximation, since recognized run rate is computed chain-level.',
@@ -1047,12 +1047,12 @@ const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, pro
 
       {/* KPI groups */}
       <Eyebrow>Financial</Eyebrow>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 12, marginBottom: 18, alignItems: 'stretch' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${financial.length},1fr)`, gap: 12, marginBottom: 18, alignItems: 'stretch' }}>
         {financial.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
       <Eyebrow>Operational</Eyebrow>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 12, marginBottom: 18, alignItems: 'stretch' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${operational.length},1fr)`, gap: 12, marginBottom: 18, alignItems: 'stretch' }}>
         {operational.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
 
@@ -1173,8 +1173,113 @@ const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, pro
         </Card>
       </div>
 
-      {/* Location performance — single consolidated table */}
-      <LocationPerformanceTable rows={rows} range={range} h={h} totals={totals} />
+      {/* Location performance — three by-location tables */}
+      {(() => {
+        const dash = '—';
+        const totCash = h.mtd_revenue != null ? h.mtd_revenue : totals.cash;
+        const totProj = h.cash_run_rate != null ? h.cash_run_rate : totals.trending;
+        // Per-location recognized-revenue run rate: no backend field, so scale
+        // recognized revenue by the location's cash run-rate multiplier
+        // (Proj. Run Rate ÷ Cash MTD). Approximate — see DEFS.recRunRateLoc.
+        const recRRLoc = (l, o) => {
+          const rev = n(o.recognized_revenue), cash = n(l.cash_sales), proj = n(l.trending);
+          if (rev == null || !cash || proj == null) return null;
+          return rev * (proj / cash);
+        };
+        // actual-or-projected ÷ full-month budget × 100. ≥95% reads as on-pace.
+        const paceOf = (b, t) => { const bu = n(b), tr = n(t); return bu ? (tr / bu) * 100 : null; };
+        const paceColor = (p) => (p != null && p >= 95 ? C.teal : C.clay);
+        // Budget-attainment color scale (matches "Budget Attainment by Location"):
+        // dark teal ≥100%, light teal 95–99.99%, clay below.
+        const attainColor = (p) => (p == null ? C.clayLite : p >= 100 ? C.teal : p >= 95 ? C.tealLite : C.clayLite);
+        // Proj. Run Rate cell: dollar value = Projected Run Rate; the budget-attainment
+        // bar + % beside it are MTD cash ÷ full-month budget (marker at 100%).
+        const projCell = (t, attainPct) => {
+          const p = attainPct, color = attainColor(p);
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, minWidth: 150 }}>
+              <PaceBar pace={p} color={color} />
+              <div style={{ flex: 'none', textAlign: 'right', lineHeight: 1.2 }}>
+                <div style={{ font: `700 12.5px ${FONT}`, color: C.ink }}>{money(t, { compact: true })}</div>
+                {p != null && <div style={{ font: `600 10px ${FONT}`, color }}>{p.toFixed(0)}%</div>}
+              </div>
+            </div>
+          );
+        };
+        // % to goal — actual-or-projected ÷ full-month goal. `paced` colors on the
+        // 95% on-pace threshold (Trending); MTD stays neutral since it's partial by design.
+        const goalPctCell = (b, v, paced) => {
+          const p = paceOf(b, v);
+          if (p == null) return dash;
+          return <span style={{ font: `600 11.5px ${FONT}`, color: paced ? paceColor(p) : C.ink2 }}>{p.toFixed(0)}%</span>;
+        };
+        return (
+          <>
+            <LocationMetricTable title="Location Performance · Sales & Customers" sub={`bars vs budget · line = 100% · ${range}`} rows={rows}
+              columns={[
+                { label: 'Cash MTD', def: DEFS.cashSales, render: (l) => money(l.cash_sales, { compact: true, floor: true }) },
+                { label: 'Proj. Run Rate', def: DEFS.projRunRate, render: (l) => projCell(l.trending, pctScale(l.pct_to_goal_mtd)) },
+                { label: 'Goal', def: DEFS.goal, render: (l) => l.monthly_budget != null ? money(l.monthly_budget, { compact: true }) : dash },
+                { label: 'MTD % Goal', def: DEFS.mtdPctGoal, render: (l) => goalPctCell(l.monthly_budget, l.cash_sales, false) },
+                { label: 'Trend % Goal', def: DEFS.trendPctGoal, render: (l) => goalPctCell(l.monthly_budget, l.trending, true) },
+                // New / Exist Customer Visits: Business KPI table (mtd-summary), same source as the total.
+                { label: 'New Cust', def: DEFS.newCust, render: (l) => num(l.new_visits) },
+                { label: 'Exist Cust', def: DEFS.existingCust, render: (l) => num(l.existing_client_count) },
+                // ASP New/Exist: spec-correct per-location figures (segment non-membership
+                // cash sales ÷ Business KPI visits), same source as the header/total.
+                { label: 'ASP New', def: DEFS.aspNew, render: (l) => l.asp_new_clients != null ? money(l.asp_new_clients) : dash },
+                { label: 'ASP Exist', def: DEFS.aspExisting, render: (l) => l.asp_existing_clients != null ? money(l.asp_existing_clients) : dash },
+              ]}
+              total={[
+                money(totCash, { compact: true, floor: true }),
+                projCell(totProj, totals.budget ? (totCash / totals.budget) * 100 : null),
+                totals.budget ? money(totals.budget, { compact: true }) : dash,
+                goalPctCell(totals.budget, totCash, false),
+                goalPctCell(totals.budget, totProj, true),
+                num(h.new_visits != null ? h.new_visits : totals.newCust),
+                num(h.existing_client_count != null ? h.existing_client_count : totals.existCust),
+                h.asp_new_clients != null ? money(h.asp_new_clients) : dash,
+                h.asp_existing_clients != null ? money(h.asp_existing_clients) : dash,
+              ]} />
+
+            <LocationMetricTable title="Location Performance · Operations" sub={range} rows={rows} legend
+              columns={[
+                { label: 'Prov Util', def: DEFS.utilProvider, render: (l, o) => o.provider_utilization != null ? <span style={{ color: utilPill(o.provider_utilization).color }}>{pct(o.provider_utilization, 0)}</span> : dash },
+                { label: 'Prov Rev/Hr', def: DEFS.revProvider, render: (l, o) => o.rev_per_provider != null ? <span style={{ color: revHrPill(o.rev_per_provider, 'prov').color }}>{money(o.rev_per_provider)}</span> : dash },
+                { label: 'Esth Util', def: DEFS.utilEsth, render: (l, o) => o.esthetician_utilization != null ? <span style={{ color: utilPill(o.esthetician_utilization).color }}>{pct(o.esthetician_utilization, 0)}</span> : dash },
+                { label: 'Esth Rev/Hr', def: DEFS.revEsth, render: (l, o) => o.rev_per_esthetician != null ? <span style={{ color: revHrPill(o.rev_per_esthetician, 'esth').color }}>{money(o.rev_per_esthetician)}</span> : dash },
+                // Rebook: Business KPI per-center rate (same source as the header/total),
+                // falling back to the SQL appointments rate where the export has no rate.
+                { label: 'Rebook', def: DEFS.rebook, render: (l, o) => pct(l.rebooking_rate != null ? l.rebooking_rate : o.rebooking_rate, 0) },
+                { label: 'Mbr Adopt', def: DEFS.membership, render: (l) => pct(l.membership_adoption, 1) },
+              ]}
+              total={[
+                h.provider_utilization != null ? pct(h.provider_utilization, 0) : dash,
+                h.rev_per_provider != null ? money(h.rev_per_provider) : dash,
+                h.esthetician_utilization != null ? pct(h.esthetician_utilization, 0) : dash,
+                h.rev_per_esthetician != null ? money(h.rev_per_esthetician) : dash,
+                h.rebooking_rate != null ? pct(h.rebooking_rate, 0) : dash,
+                h.membership_adoption_rate != null ? pct(h.membership_adoption_rate, 1) : dash,
+              ]} />
+
+            <LocationMetricTable title="Location Performance · Financials" sub={range} rows={rows}
+              columns={[
+                { label: 'Rec. Rev', def: DEFS.recRev, render: (l, o) => money(o.recognized_revenue, { compact: true }) },
+                { label: 'RR Rec. Rev', def: DEFS.recRunRateLoc, render: (l, o) => { const v = recRRLoc(l, o); return v != null ? money(v, { compact: true }) : dash; } },
+                { label: 'COGS %', def: DEFS.cogs, render: (l, o) => pct(o.cogs_pct, 1) },
+                { label: 'Payroll %', def: DEFS.payroll, render: (l, o) => pct(o.payroll_pct, 1) },
+                { label: 'GM %', def: DEFS.gm, render: (l, o) => pct(o.gross_margin_pct, 0) },
+              ]}
+              total={[
+                money(totals.recRev, { compact: true }),
+                h.recognized_run_rate != null ? money(h.recognized_run_rate, { compact: true }) : dash,
+                h.cogs_margin_pct != null ? pct(h.cogs_margin_pct, 1) : dash,
+                h.payroll_margin_pct != null ? pct(h.payroll_margin_pct, 1) : dash,
+                h.gross_margin_pct != null ? pct(h.gross_margin_pct, 0) : dash,
+              ]} />
+          </>
+        );
+      })()}
     </div>
   );
 };
@@ -1188,102 +1293,39 @@ function spread(d) { return { delta: d.text, deltaColor: d.color }; }
 // spread a MoM delta into KpiCard props, or render no subheader if unavailable
 function spreadOrNull(d) { return d ? { delta: d.text, deltaColor: d.color } : { delta: null }; }
 
-// Single consolidated by-location performance table. Column set + grouped
-// PROVIDER / ESTHETICIAN header strictly match the design: Location, Cash MTD
-// (with a bar vs budget), Proj. Run Rate (value + % of budget), Rec. Rev,
-// COGS%, Payroll%, GM%, New Cust, Exist Cust, ASP New, ASP Exist,
-// Provider Util% / Rev/Hr, Esthetician Util% / Rev/Hr, Rebook.
-const LocationPerformanceTable = ({ rows, range, h, totals }) => {
-  const dash = '—';
+// Config-driven by-location table. `columns` is [{ label, def, render(l, o) }];
+// `total` is an array of pre-formatted chain-total cells aligned to `columns`.
+const LocationMetricTable = ({ title, sub, rows, columns, total, legend }) => {
   const th = { border: `1px solid ${C.line2}`, padding: '7px 9px', font: `600 9.5px ${FONT}`, letterSpacing: '.04em', textTransform: 'uppercase', color: C.gray2, background: '#F5F8F7', whiteSpace: 'nowrap' };
-  const grp = { ...th, font: `700 9px ${FONT}`, letterSpacing: '.09em', color: C.gray, borderBottom: `2px solid ${C.line}` };
   const td = { border: `1px solid ${C.line3}`, padding: '7px 9px', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' };
   const totCell = { ...td, background: '#F5F8F7', fontWeight: 700, color: C.ink };
-
-  const totCash = h.mtd_revenue != null ? h.mtd_revenue : totals.cash;
-  const totProj = h.cash_run_rate != null ? h.cash_run_rate : totals.trending;
-  // Proj. Run Rate ÷ full-month budget × 100 (the % under the run-rate value; also
-  // drives the Cash MTD bar). ≥95% reads as on-pace (teal), below as behind (clay).
-  const paceOf = (b, t) => { const bu = n(b), tr = n(t); return bu ? (tr / bu) * 100 : null; };
-  const paceColor = (p) => (p != null && p >= 95 ? C.teal : C.clay);
-
-  const Pill = ({ pill, children }) => (
-    <span style={{ display: 'inline-block', minWidth: 34, padding: '2px 7px', borderRadius: 5, background: pill.bg, color: pill.color, font: `600 11px ${FONT}` }}>{children}</span>
-  );
-
-  // Cash MTD cell: just the large cash-sales value (no bar).
-  const cashCell = (l) => (
-    <span style={{ font: `700 17px ${FONT}`, color: C.ink, whiteSpace: 'nowrap' }}>{money(l.cash_sales, { compact: true, floor: true })}</span>
-  );
-  // Budget-attainment color scale (matches the "Budget Attainment by Location"
-  // card): dark teal ≥100%, light teal 95–99.99%, clay below.
-  const attainColor = (p) => (p == null ? C.clayLite : p >= 100 ? C.teal : p >= 95 ? C.tealLite : C.clayLite);
-  // Proj. Run Rate cell: the dollar value is the Projected Run Rate, but the bar
-  // and % beneath it are Budget Attainment (MTD cash ÷ full-month budget, marker
-  // at 100%) — the same metric as the "Budget Attainment by Location" card — so
-  // both read consistently. Both bar and % are colored to the attainment tier.
-  const projCell = (t, attainPct) => {
-    const p = attainPct;
-    const color = attainColor(p);
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 150 }}>
-        <PaceBar pace={p} color={color} />
-        <div style={{ flex: 'none', textAlign: 'right', lineHeight: 1.2 }}>
-          <div style={{ font: `700 12.5px ${FONT}`, color: C.ink }}>{money(t, { compact: true })}</div>
-          {p != null && <div style={{ font: `600 10px ${FONT}`, color }}>{p.toFixed(0)}%</div>}
-        </div>
-      </div>
-    );
-  };
-  // % to goal cell — actual-or-projected ÷ full-month goal. `paced` colors on the
-  // 95% on-pace threshold (Trending); MTD stays neutral since it's partial by design.
-  const goalPctCell = (b, v, paced) => {
-    const p = paceOf(b, v);
-    if (p == null) return dash;
-    return <span style={{ font: `600 11.5px ${FONT}`, color: paced ? paceColor(p) : C.ink2 }}>{p.toFixed(0)}%</span>;
-  };
-
   return (
     <Card style={{ marginTop: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>Location Performance</div>
-        <div style={{ font: `500 11.5px ${FONT}`, color: C.gray }}>{`bars vs budget · line = 100% · ${range}`}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: legend ? 10 : 12 }}>
+        <div style={{ font: `600 14px ${FONT}`, color: C.ink }}>{title}</div>
+        {sub && <div style={{ font: `500 11.5px ${FONT}`, color: C.gray }}>{sub}</div>}
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px 20px', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ font: `700 9px ${FONT}`, letterSpacing: '.09em', textTransform: 'uppercase', color: C.gray }}>Util%</span>
-        <LegendPill bg={PILL_RED} color={C.red}>Under &lt;60%</LegendPill>
-        <LegendPill bg={PILL_GOLD} color={C.gold}>Average 60–74.99%</LegendPill>
-        <LegendPill bg={PILL_TEAL} color={C.teal}>High ≥75%</LegendPill>
-        <span style={{ width: 1, height: 14, background: C.line }} />
-        <span style={{ font: `700 9px ${FONT}`, letterSpacing: '.09em', textTransform: 'uppercase', color: C.gray }}>Rev/Hr</span>
-        <LegendPill bg={PILL_RED} color={C.red}>Under · Prov &lt;$450 / Esth &lt;$125</LegendPill>
-        <LegendPill bg={PILL_GOLD} color={C.gold}>Average · Prov $450–550 / Esth $125–175</LegendPill>
-        <LegendPill bg={PILL_TEAL} color={C.teal}>High · Prov ≥$550 / Esth ≥$175</LegendPill>
-      </div>
+      {legend && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px 20px', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ font: `700 9px ${FONT}`, letterSpacing: '.09em', textTransform: 'uppercase', color: C.gray }}>Util%</span>
+          <LegendPill bg="#FBE3E1" color={C.red}>&lt;60%</LegendPill>
+          <LegendPill bg="#FBF1D6" color={C.gold}>60–75%</LegendPill>
+          <LegendPill bg="#DDF0E6" color={C.teal}>≥75%</LegendPill>
+          <span style={{ width: 1, height: 14, background: C.line }} />
+          <span style={{ font: `700 9px ${FONT}`, letterSpacing: '.09em', textTransform: 'uppercase', color: C.gray }}>Rev/Hr</span>
+          <LegendPill bg="#FBE3E1" color={C.red}>Prov &lt;$450 / Esth &lt;$125</LegendPill>
+          <LegendPill bg="#FBF1D6" color={C.gold}>Prov 450–550 / Esth 125–175</LegendPill>
+          <LegendPill bg="#DDF0E6" color={C.teal}>Prov ≥$550 / Esth ≥$175</LegendPill>
+        </div>
+      )}
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', font: `500 11.5px ${FONT}`, color: C.ink2 }}>
           <thead>
-            {/* Grouped header: PROVIDER / ESTHETICIAN span their two sub-columns. */}
             <tr>
-              <th style={{ ...th, background: '#fff', border: 'none' }} colSpan={14} />
-              <th style={{ ...grp, textAlign: 'center' }} colSpan={2}>Provider</th>
-              <th style={{ ...grp, textAlign: 'center' }} colSpan={2}>Esthetician</th>
-              <th style={{ ...th, background: '#fff', border: 'none' }} colSpan={2} />
-            </tr>
-            <tr>
-              {[
-                ['Location', null, 'left'],
-                ['Cash MTD', DEFS.cashSales], ['Proj. Run Rate', DEFS.projRunRate],
-                ['Goal', DEFS.goal], ['MTD % Goal', DEFS.mtdPctGoal], ['Trend % Goal', DEFS.trendPctGoal],
-                ['Rec. Rev', DEFS.recRev], ['COGS%', DEFS.cogs], ['Payroll%', DEFS.payroll], ['GM%', DEFS.gm],
-                ['New Cust', DEFS.newCust], ['Exist Cust', DEFS.existingCust],
-                ['ASP New', DEFS.aspNew], ['ASP Exist', DEFS.aspExisting],
-                ['Util%', DEFS.utilProvider], ['Rev/Hr', DEFS.revProvider],
-                ['Util%', DEFS.utilEsth], ['Rev/Hr', DEFS.revEsth],
-                ['Rebook', DEFS.rebook], ['Membership', DEFS.membership],
-              ].map(([label, def, align], i) => (
-                <th key={i} style={{ ...th, textAlign: align === 'left' ? 'left' : 'center' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: align === 'left' ? 'flex-start' : 'center' }}>{label}<InfoDot def={def} /></span>
+              <th style={{ ...th, textAlign: 'center' }}>Location</th>
+              {columns.map((c) => (
+                <th key={c.label} style={{ ...th, textAlign: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{c.label}<InfoDot def={c.def} /></span>
                 </th>
               ))}
             </tr>
@@ -1291,61 +1333,22 @@ const LocationPerformanceTable = ({ rows, range, h, totals }) => {
           <tbody>
             {rows.map((l) => {
               const o = l._ops || {};
-              const pu = utilPill(o.provider_utilization), pr = revHrPill(o.rev_per_provider, 'prov');
-              const eu = utilPill(o.esthetician_utilization), er = revHrPill(o.rev_per_esthetician, 'esth');
               return (
                 <tr key={l.location} className="ev-lrow">
-                  <td style={{ ...td, textAlign: 'left', fontWeight: 600, color: C.ink }}>{l.location}</td>
-                  <td style={{ ...td, textAlign: 'left' }}>{cashCell(l)}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{projCell(l.trending, pctScale(l.pct_to_goal_mtd))}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{l.monthly_budget != null ? money(l.monthly_budget, { compact: true }) : dash}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{goalPctCell(l.monthly_budget, l.cash_sales, false)}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{goalPctCell(l.monthly_budget, l.trending, true)}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{money(o.recognized_revenue, { compact: true })}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{pct(o.cogs_pct, 1)}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{pct(o.payroll_pct, 1)}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{pct(o.gross_margin_pct, 0)}</td>
-                  {/* New / Exist Customer Visits: Business KPI table (mtd-summary), same source as the total. */}
-                  <td style={{ ...td, textAlign: 'center' }}>{num(l.new_visits)}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{num(l.existing_client_count)}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{money(o.asp)}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{money(o.asp_excl_memberships)}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{o.provider_utilization != null ? <Pill pill={pu}>{pct(o.provider_utilization, 0)}</Pill> : dash}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{o.rev_per_provider != null ? <Pill pill={pr}>{money(o.rev_per_provider)}</Pill> : dash}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{o.esthetician_utilization != null ? <Pill pill={eu}>{pct(o.esthetician_utilization, 0)}</Pill> : dash}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{o.rev_per_esthetician != null ? <Pill pill={er}>{money(o.rev_per_esthetician)}</Pill> : dash}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{pct(o.rebooking_rate, 0)}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{pct(l.membership_adoption, 0)}</td>
+                  <td style={{ ...td, textAlign: 'center', fontWeight: 600, color: C.ink }}>{l.location}</td>
+                  {columns.map((c) => <td key={c.label} style={{ ...td, textAlign: 'center' }}>{c.render(l, o)}</td>)}
                 </tr>
               );
             })}
             {rows.length === 0 && (
-              <tr><td colSpan={20} style={{ ...td, textAlign: 'center', color: C.gray, padding: '20px 9px' }}>No location data for this range.</td></tr>
+              <tr><td colSpan={columns.length + 1} style={{ ...td, textAlign: 'center', color: C.gray, padding: '20px 9px' }}>No location data for this range.</td></tr>
             )}
           </tbody>
-          {rows.length > 0 && (
+          {rows.length > 0 && total && (
             <tfoot>
               <tr>
-                <td style={{ ...totCell, textAlign: 'left', font: `700 10px ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: C.teal }}>Total · {rows.length} Loc</td>
-                <td style={{ ...totCell, textAlign: 'left' }}><span style={{ font: `700 17px ${FONT}`, color: C.ink }}>{money(totCash, { compact: true, floor: true })}</span></td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{projCell(totProj, totals.budget ? (totCash / totals.budget) * 100 : null)}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{totals.budget ? money(totals.budget, { compact: true }) : dash}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{goalPctCell(totals.budget, totCash, false)}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{goalPctCell(totals.budget, totProj, true)}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{money(totals.recRev, { compact: true })}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{h.cogs_margin_pct != null ? pct(h.cogs_margin_pct, 1) : dash}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{h.payroll_margin_pct != null ? pct(h.payroll_margin_pct, 1) : dash}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{h.gross_margin_pct != null ? pct(h.gross_margin_pct, 0) : dash}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{num(h.new_visits != null ? h.new_visits : totals.newCust)}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{num(h.existing_client_count != null ? h.existing_client_count : totals.existCust)}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{h.asp_new_clients != null ? money(h.asp_new_clients) : dash}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{h.asp_existing_clients != null ? money(h.asp_existing_clients) : dash}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{h.provider_utilization != null ? pct(h.provider_utilization, 0) : dash}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{h.rev_per_provider != null ? money(h.rev_per_provider) : dash}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{h.esthetician_utilization != null ? pct(h.esthetician_utilization, 0) : dash}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{h.rev_per_esthetician != null ? money(h.rev_per_esthetician) : dash}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{h.rebooking_rate != null ? pct(h.rebooking_rate, 0) : dash}</td>
-                <td style={{ ...totCell, textAlign: 'center' }}>{h.membership_adoption_rate != null ? pct(h.membership_adoption_rate, 0) : dash}</td>
+                <td style={{ ...totCell, textAlign: 'center', font: `700 10px ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: C.teal }}>Total · {rows.length} Loc</td>
+                {total.map((v, i) => <td key={i} style={{ ...totCell, textAlign: 'center' }}>{v}</td>)}
               </tr>
             </tfoot>
           )}

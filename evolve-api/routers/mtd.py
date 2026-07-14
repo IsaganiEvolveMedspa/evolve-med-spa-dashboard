@@ -16,7 +16,7 @@ from utils.operating_days import cash_run_rate, recognized_run_rate
 from utils.sss import sss_growth_yoy
 from utils.new_customers import new_existing_visits
 from utils.new_guests import guest_counts, guest_counts_by_center
-from utils.rebooking_kpi import rebooking_rate_kpi
+from utils.rebooking_kpi import rebooking_rate_kpi, rebooking_rate_by_center
 from utils.memberships import new_memberships, existing_members
 from utils.rev_hour import esthetician_rev_per_hour, provider_rev_per_hour
 from utils.errors import log_and_raise_from_request
@@ -726,7 +726,19 @@ def get_mtd_summary(
         mbr_loc_and, mbr_loc_p = loc_in(locations, col="sale_center")
 
         sql = f"""
-        WITH budget_lookup AS (
+        WITH guest_classification AS (
+            -- One row per guest_name: is_new=1 if ANY row in period has first_visit='yes'.
+            -- SAME rule + cash-pay filter as the header (get_mtd_kpi_header) so the
+            -- per-center ASP numerators classify guests identically to the chain total.
+            SELECT
+                guest_name,
+                MAX(CASE WHEN LOWER(first_visit) = 'yes' THEN 1 ELSE 0 END) AS is_new
+            FROM {FULL_CASH}
+            {where}
+            {_CASH_PAY_FILTER}
+            GROUP BY guest_name
+        ),
+        budget_lookup AS (
             SELECT location, monthly_budget FROM {_budget_values_sql(e)}
         ),
         current_period AS (
@@ -745,6 +757,24 @@ def get_mtd_summary(
             FROM {FULL_CASH}
             {where}
             GROUP BY center_name
+        ),
+        asp_seg AS (
+            -- Non-membership MTD cash sales per center, split by new/existing guest —
+            -- the ASP (New)/(Existing) numerators. SAME definition and cash-pay filter
+            -- as the header (new_nonmemb_sales / existing_nonmemb_sales); divided in
+            -- Python by the Business KPI visit counts so per-location ASP ties to the
+            -- header/total spec (not the operations accrual ÷ invoices figure).
+            SELECT
+                c.center_name,
+                SUM(CASE WHEN gc.is_new = 1 AND c.item_category != 'Memberships'
+                          THEN c.sales_collected_exc_tax ELSE 0 END)                                           AS new_nonmemb_sales,
+                SUM(CASE WHEN gc.is_new = 0 AND c.item_category != 'Memberships'
+                          THEN c.sales_collected_exc_tax ELSE 0 END)                                           AS existing_nonmemb_sales
+            FROM {FULL_CASH} c
+            JOIN guest_classification gc ON gc.guest_name = c.guest_name
+            {where}
+            {_CASH_PAY_FILTER}
+            GROUP BY c.center_name
         ),
         membership_new AS (
             -- New Memberships per center from BRONZE_ZENOTI_MEMBERSHIPS_SALES — SAME rule
@@ -810,28 +840,46 @@ def get_mtd_summary(
             c.non_members,
             -- Adoption = New Memberships (memberships-sales table, same rule as the header
             -- KPI) / Non-Members (cash member flag). Reconciled to the header source.
-            COALESCE(mn.new_members, 0) * 1.0 / NULLIF(c.non_members, 0) * 100           AS membership_adoption
+            COALESCE(mn.new_members, 0) * 1.0 / NULLIF(c.non_members, 0) * 100           AS membership_adoption,
+            COALESCE(a.new_nonmemb_sales, 0)                                            AS new_nonmemb_sales,
+            COALESCE(a.existing_nonmemb_sales, 0)                                       AS existing_nonmemb_sales
         FROM current_period c
         LEFT JOIN budget_lookup   b  ON c.center_name = b.location
+        LEFT JOIN asp_seg         a  ON c.center_name = a.center_name
         LEFT JOIN membership_new  mn ON c.center_name = mn.center_name
         LEFT JOIN prior_week  pw ON c.center_name = pw.center_name
         LEFT JOIN prior_month pm ON c.center_name = pm.center_name
         LEFT JOIN prior_year  py ON c.center_name = py.center_name
         ORDER BY c.center_name
         """
-        # params (textual %s order): current_period (where), membership_new (mbr_loc_p),
-        # prior_week (loc_p), prior_month (loc_p), prior_year (loc_p)
-        all_params = merge_params(params, mbr_loc_p, loc_p, loc_p, loc_p)
+        # params (textual %s order): guest_classification (where), current_period (where),
+        # asp_seg (where), membership_new (mbr_loc_p), prior_week (loc_p),
+        # prior_month (loc_p), prior_year (loc_p)
+        all_params = merge_params(params, params, params, mbr_loc_p, loc_p, loc_p, loc_p)
         rows = run_query(sql, all_params or None)
         # Per-location New / Existing Customer Visits come from the SAME source as the
         # chain total (Business KPI table, latest snapshot) — see guest_counts_by_center.
         # This is the single source of truth for these two columns, so the location rows
         # reconcile with the header total. Centers absent from the snapshot default to 0.
         gc = guest_counts_by_center(s, e, locations)
+        # Per-center Rebook Rate % from the Business KPI export (same source as the
+        # header/total rebooking_rate_kpi). Centers with no non-zero KPI rate are
+        # absent → row keeps None so the client falls back to the SQL appointments
+        # rate, exactly mirroring the header's KPI-else-SQL fallback.
+        rb = rebooking_rate_by_center(s, e, locations)
         for row in rows:
             g = gc.get(row["location"], {})
             row["new_visits"]            = g.get("new", 0)
             row["existing_client_count"] = g.get("existing", 0)
+            row["rebooking_rate"]        = rb.get(row["location"])
+            # ASP (New/Existing) = segment non-membership cash sales (from asp_seg) ÷ that
+            # segment's Business KPI Customer Visits — SAME spec as the header
+            # (asp_new_clients / asp_existing_clients), so per-location rows reconcile with
+            # the header/total ASP instead of the operations accrual-÷-invoices figure.
+            nd, ed = row["new_visits"], row["existing_client_count"]
+            ns, es = row.get("new_nonmemb_sales"), row.get("existing_nonmemb_sales")
+            row["asp_new_clients"]      = round(float(ns) / nd, 2) if nd and ns is not None else None
+            row["asp_existing_clients"] = round(float(es) / ed, 2) if ed and es is not None else None
         return rows
 
     except Exception as exc:
