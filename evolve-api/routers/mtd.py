@@ -742,6 +742,13 @@ def get_mtd_summary(
             SELECT location, monthly_budget FROM {_budget_values_sql(e)}
         ),
         current_period AS (
+            -- Cash aggregates use the SAME _CASH_PAY_FILTER as the header's `mtd` CTE
+            -- (get_mtd_kpi_header) so per-location Cash MTD (cash_sales) reconciles with
+            -- the header/card mtd_revenue and the totals row. Without it, redemption-only
+            -- tenders (gift card / prepaid / package / loyalty) inflate the per-location
+            -- figure and it no longer sums to the chain total. The prior_week/month/year
+            -- CTEs below carry the same filter so the WoW/MoM/YoY variance columns compare
+            -- like-for-like (matching the header's filtered last_month/prior_year).
             SELECT
                 center_name,
                 SUM(sales_collected_exc_tax)                                                                  AS cash_sales,
@@ -756,6 +763,7 @@ def get_mtd_summary(
                 COUNT(DISTINCT guest_code)                                                                     AS total_guests
             FROM {FULL_CASH}
             {where}
+            {_CASH_PAY_FILTER}
             GROUP BY center_name
         ),
         asp_seg AS (
@@ -794,6 +802,7 @@ def get_mtd_summary(
             WHERE CAST(payment_date AS DATE) >= '{pw_start}'
               AND CAST(payment_date AS DATE) <= '{pw_end}'
             {loc_and}
+            {_CASH_PAY_FILTER}
             GROUP BY center_name
         ),
         prior_month AS (
@@ -802,6 +811,7 @@ def get_mtd_summary(
             WHERE CAST(payment_date AS DATE) >= '{pm_start}'
               AND CAST(payment_date AS DATE) <= '{pm_end}'
             {loc_and}
+            {_CASH_PAY_FILTER}
             GROUP BY center_name
         ),
         prior_year AS (
@@ -810,6 +820,7 @@ def get_mtd_summary(
             WHERE CAST(payment_date AS DATE) >= '{py_start}'
               AND CAST(payment_date AS DATE) <= '{py_end}'
             {loc_and}
+            {_CASH_PAY_FILTER}
             GROUP BY center_name
         )
         SELECT
