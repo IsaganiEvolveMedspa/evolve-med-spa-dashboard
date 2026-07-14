@@ -1211,27 +1211,21 @@ const LocationPerformanceTable = ({ rows, range, h, totals }) => {
     <span style={{ display: 'inline-block', minWidth: 34, padding: '2px 7px', borderRadius: 5, background: pill.bg, color: pill.color, font: `600 11px ${FONT}` }}>{children}</span>
   );
 
-  // Cash MTD cell: large cash-sales value on top, with a budget-attainment bar
-  // beneath it. The bar tracks Projected Run Rate ÷ full-month budget (marker at
+  // Cash MTD cell: just the large cash-sales value (no bar).
+  const cashCell = (l) => (
+    <span style={{ font: `700 17px ${FONT}`, color: C.ink, whiteSpace: 'nowrap' }}>{money(l.cash_sales, { compact: true, floor: true })}</span>
+  );
+  // Proj. Run Rate cell: value on top with a budget-attainment bar beneath it (no
+  // % text). The bar tracks Projected Run Rate ÷ full-month budget (marker at
   // 100%), so it reads as each location's projected budget attainment.
-  const cashCell = (l) => {
-    const p = paceOf(l.monthly_budget, l.trending);
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 150 }}>
-        <span style={{ font: `700 17px ${FONT}`, color: C.ink, whiteSpace: 'nowrap' }}>{money(l.cash_sales, { compact: true, floor: true })}</span>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <PaceBar pace={p} color={paceColor(p)} />
-        </div>
-      </div>
-    );
-  };
-  // Proj. Run Rate cell: value with % of budget beneath.
   const projCell = (b, t) => {
     const p = paceOf(b, t);
     return (
-      <div style={{ lineHeight: 1.15 }}>
-        <div style={{ font: `600 11.5px ${FONT}`, color: C.ink }}>{money(t, { compact: true })}</div>
-        {p != null && <div style={{ font: `600 9.5px ${FONT}`, color: paceColor(p) }}>{p.toFixed(0)}%</div>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 140 }}>
+        <span style={{ font: `600 11.5px ${FONT}`, color: C.ink }}>{money(t, { compact: true })}</span>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <PaceBar pace={p} color={paceColor(p)} />
+        </div>
       </div>
     );
   };
