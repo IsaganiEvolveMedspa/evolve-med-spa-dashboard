@@ -12,12 +12,16 @@ migration Rebook Rate made (see utils/rebooking_kpi.py). This removes the
 staleness where the visit counts froze whenever the daily CSVs weren't
 re-imported into the JSON.
 
-  New Customer Visits      = SUM(new_guest_count)    for dates in [s, e].
-  Existing Customer Visits = SUM(unique_guest_count) for dates in [s, e].
+  New Customer Visits      = SUM(new_guest_count)    for the requested month.
+  Existing Customer Visits = SUM(unique_guest_count) for the requested month.
 
-Each daily row's `unique_guest_count` is that day/center's distinct guests. Both
-figures are summed over the days in [s, e] and the selected centers (all centers
-when no filter is given) — a per-day-distinct (guest-visits) basis.
+`business_kpi_date` is a period-LABEL string (e.g. '2026-07-01_to_2026-07-12'),
+NOT a date — it's a cumulative MTD snapshot whose end date advances, added as a new
+row each update. So rows are matched by month prefix (business_kpi_date LIKE
+'YYYY-MM%') from the requested start date (exact days disregarded), then reduced to
+the LATEST snapshot (max parsed end date) so cumulative snapshots aren't double
+counted. Both figures are summed over that snapshot's rows for the selected centers
+(all centers when no filter is given).
 
 Unlike Ad Spend, these figures ARE per-center, so they honor the location filter.
 
@@ -53,12 +57,30 @@ def guest_counts(s: str, e: str, locations: Optional[list[str]]) -> dict:
     """
     try:
         loc_and, loc_p = loc_in(locations, col="center_name")
+        # business_kpi_date holds a period-LABEL string like '2026-07-01_to_2026-07-12'
+        # (a cumulative MTD snapshot: fixed month-start, advancing end date), NOT a
+        # castable date. New snapshots for the month are added as their own rows
+        # (…_to_07-12, then …_to_07-13, …), so we must:
+        #   1. LIKE 'YYYY-MM%' to select the month's rows (`s` is a validated
+        #      YYYY-MM-DD router param, so s[:7] is a safe 'YYYY-MM' literal).
+        #   2. Keep only the LATEST snapshot (max parsed end date) so cumulative
+        #      snapshots aren't double-counted. The end date is the text after '_to_';
+        #      TRY_CAST parses it whether or not the day is zero-padded ('2026-07-1').
+        month = s[:7]
         sql = f"""
+            WITH snap AS (
+                SELECT center_name, new_guest_count, unique_guest_count,
+                       TRY_CAST(SUBSTRING(business_kpi_date,
+                                          CHARINDEX('_to_', business_kpi_date) + 4,
+                                          LEN(business_kpi_date)) AS DATE) AS end_dt
+                FROM {FULL_BUSINESS_KPI}
+                WHERE business_kpi_date LIKE '{month}%'
+            )
             SELECT SUM(TRY_CAST(new_guest_count AS FLOAT))    AS new_guests,
                    SUM(TRY_CAST(unique_guest_count AS FLOAT)) AS unique_guests,
                    COUNT(*)                                   AS day_rows
-            FROM {FULL_BUSINESS_KPI}
-            WHERE TRY_CAST(business_kpi_date AS DATE) BETWEEN '{s}' AND '{e}'
+            FROM snap
+            WHERE end_dt = (SELECT MAX(end_dt) FROM snap)
               {loc_and}
         """
         rows = run_query(sql, loc_p or None)
