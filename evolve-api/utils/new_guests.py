@@ -26,21 +26,8 @@ fall back to the computed sales-accrual/cash figure for ranges the warehouse
 doesn't cover). Returns the sum — possibly 0 — whenever at least one day in [s, e]
 is present. A partially-covered range sums only the days we have (fine for
 MTD-to-date).
-
-TEMPORARY CSV OVERRIDE: while the warehouse Business KPI values are being fixed,
-a manual export can be dropped at data/business_kpi_override_<YYYY-MM>.csv (one
-per month, keyed by the report month of the request's end-date). When a file
-matching the requested month exists it fully replaces the DB query below —
-New = SUM("New Guest Count"), Existing = SUM("Unique Guest count") over the rows
-whose "Center Name" matches the location filter (all rows when none). Each export
-is a single month snapshot with no date column, so the [s, e] range only selects
-which month's file to use; day-level slicing within the month is not possible
-while the override is active. DELETE a month's file to revert THAT month to the
-live DB; months without a file always use the DB.
 """
-import csv
 import logging
-import os
 from typing import Optional
 
 from config import FULL_BUSINESS_KPI
@@ -49,42 +36,6 @@ from utils.filters import loc_in
 
 log = logging.getLogger(__name__)
 
-# Repo data/ dir. Month overrides live at data/business_kpi_override_<YYYY-MM>.csv.
-_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-
-
-def _csv_guest_counts(e: str, locations: Optional[list[str]]) -> Optional[dict]:
-    """TEMP override: sum New/Unique guest counts from the manual CSV export for
-    the report month of end-date `e` (data/business_kpi_override_<YYYY-MM>.csv),
-    filtered to `locations` (all rows when None). Returns None when no file exists
-    for that month (or it's unreadable) so the caller uses the live DB query."""
-    path = os.path.join(_DATA_DIR, f"business_kpi_override_{e[:7]}.csv")
-    if not os.path.exists(path):
-        return None
-    try:
-        wanted = {l.strip() for l in locations} if locations else None
-
-        def _num(v: Optional[str]) -> int:
-            try:
-                return int(float((v or "").strip() or 0))
-            except ValueError:
-                return 0
-
-        new_n = existing_n = 0
-        with open(path, newline="", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                center = (row.get("Center Name") or "").strip()
-                if wanted is not None and center not in wanted:
-                    continue
-                new_n += _num(row.get("New Guest Count"))
-                existing_n += _num(row.get("Unique Guest count"))
-        log.info("guest_counts: using CSV override %s (new=%s, existing=%s)", path, new_n, existing_n)
-        return {"new": new_n, "existing": existing_n}
-    except Exception as exc:                  # never take down the KPI header
-        log.warning("business_kpi CSV override failed; falling back to DB: %s", exc)
-        return None
-
 
 def guest_counts(s: str, e: str, locations: Optional[list[str]]) -> dict:
     """Return {"new", "existing"} official guest counts for ISO dates s..e
@@ -92,18 +43,11 @@ def guest_counts(s: str, e: str, locations: Optional[list[str]]) -> dict:
     no row in [s, e] exists in the warehouse table, so the caller falls back to
     the computed figure.
 
-    While a temporary CSV override for the requested month
-    (data/business_kpi_override_<YYYY-MM>.csv) is present it replaces the DB query
-    entirely — see the module docstring.
-
     new_guest_count / unique_guest_count are stored as nvarchar (like
     rebooking_source_percentage), so TRY_CAST to FLOAT both parses them and
     safely drops any non-numeric/blank cells. Dates are inlined (validated router
     params); location values stay parameterised via loc_in().
     """
-    override = _csv_guest_counts(e, locations)
-    if override is not None:
-        return override
     try:
         loc_and, loc_p = loc_in(locations, col="center_name")
         sql = f"""
