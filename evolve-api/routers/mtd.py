@@ -633,20 +633,28 @@ def get_mtd_kpi_header(
         # New / Existing Customer Visits from BRONZE_ZENOTI_SALES_ACCRUAL (first-ever sale
         # date per guest_name, non-membership first purchase): new = first sale this month,
         # existing = first sale before this month + a sale this month. If the scan didn't
-        # finish within the cap, fall back to the cash values (m.new_visits / m.existing).
-        # New Customer Visits falls back to the accrual scan (result_visits) when the
-        # Business KPI export doesn't cover the range; the KPI value below overrides it.
-        # Existing Customer Visits does NOT fall back (set unconditionally below).
+        # finish within the cap, the cash values (m.new_visits / m.existing) remain as base.
+        # BOTH New and Existing fall back to the same-elapsed accrual scan (result_visits)
+        # when the Business KPI export has no snapshot for the requested window; the KPI
+        # values below override when present. Existing uses the SAME fallback as New
+        # (previously it was hard-pinned to Business-KPI-only, which returned 0 for a
+        # completed prior month whose only snapshot is the full month — rejected by the
+        # `end_dt <= e` clamp in guest_counts). That 0 nulled the prior-month value and made
+        # the Existing / ASP-Existing MoM deltas vanish; the accrual fallback keeps them on
+        # the same elapsed days as the current month so the delta stays meaningful.
         if result_visits is not None:
-            result["new_visits"] = result_visits.get("new")
+            result["new_visits"]            = result_visits.get("new")
+            result["existing_client_count"] = result_visits.get("existing")
         # Official guest counts (Zenoti daily "Business KPI" export, read live from
-        # dbo.BRONZE_ZENOTI_BUSINESS_KPI):
-        #   New      = SUM(new_guest_count)    — falls back to accrual/cash for uncovered ranges.
-        #   Existing = SUM(unique_guest_count) — NO fallback; strictly this sum (0 if no rows).
+        # dbo.BRONZE_ZENOTI_BUSINESS_KPI), for the snapshot matching the requested window
+        # (latest end_dt <= e). kpi["new"] is None exactly when that window has NO snapshot
+        # rows (day_rows == 0); since New and Existing come from the SAME snapshot, that one
+        # signal gates BOTH — present → KPI overrides the accrual fallback; None → the
+        # accrual (else cash) same-elapsed values stand.
         kpi = guest_counts(s, e, locations)
         if kpi["new"] is not None:
-            result["new_visits"] = kpi["new"]
-        result["existing_client_count"] = kpi["existing"]
+            result["new_visits"]            = kpi["new"]
+            result["existing_client_count"] = kpi["existing"]
         # ASP (New/Existing) = segment non-membership MTD cash sales ÷ that segment's
         # Customer Visits. Numerators come from the main query (new/existing_nonmemb_sales);
         # denominators are the authoritative visit counts resolved just above (Business KPI,
