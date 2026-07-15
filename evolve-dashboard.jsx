@@ -1054,6 +1054,7 @@ const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, pro
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <HeroCard label="Cash Sales" mtd={money(cashMtd, { compact: true, floor: true })} mtdDelta={cashMom}
           proj={money(projRunRate, { compact: true, floor: true })} projDelta={cashRunRateMom}
+          extraLabel="Full-Month Budget" extra={budget ? money(budget, { compact: true, floor: true }) : null} extraDef={DEFS.fullMonthBudget}
           labelDef={DEFS.cashSales} projDef={DEFS.projRunRate} />
         <HeroCard label="Recognized Revenue" mtd={money(recRev, { compact: true })} mtdDelta={recRevMom}
           proj={money(h.recognized_run_rate ?? projRunRate, { compact: true, floor: true })} projDelta={recRunRateMom}
