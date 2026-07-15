@@ -72,11 +72,20 @@ def build_sched_filter(
 
 
 def hhmm_to_hours(col: str) -> str:
-    """SQL expression: convert HH:MM varchar column to decimal hours (FLOAT)."""
+    """SQL expression: convert an HH:MM or HH:MM:SS varchar column to decimal hours (FLOAT).
+
+    Robust to seconds and to non-numeric/blank cells: every component uses TRY_CAST
+    (so a malformed cell contributes 0 instead of erroring the whole query — the old
+    plain-CAST version threw a conversion error on any HH:MM:SS value like '1:30:00').
+    Hours = text before the first ':'; minutes = the two chars after it; seconds = the
+    two chars after 'MM:' (NULLIF drops an absent seconds segment for plain HH:MM)."""
     return (
-        f"(CASE WHEN {col} LIKE '%:%' THEN "
-        f"CAST(SUBSTRING({col}, 1, CHARINDEX(':', {col})-1) AS FLOAT) + "
-        f"CAST(SUBSTRING({col}, CHARINDEX(':', {col})+1, LEN({col})) AS FLOAT)/60.0 "
+        f"(CASE "
+        f"WHEN {col} IS NULL OR {col} = '' THEN 0 "
+        f"WHEN CHARINDEX(':', {col}) > 0 THEN "
+        f"COALESCE(TRY_CAST(LEFT({col}, CHARINDEX(':', {col}) - 1) AS FLOAT), 0) "
+        f"+ COALESCE(TRY_CAST(SUBSTRING({col}, CHARINDEX(':', {col}) + 1, 2) AS FLOAT), 0) / 60.0 "
+        f"+ COALESCE(TRY_CAST(NULLIF(SUBSTRING({col}, CHARINDEX(':', {col}) + 4, 2), '') AS FLOAT), 0) / 3600.0 "
         f"ELSE COALESCE(TRY_CAST({col} AS FLOAT), 0) END)"
     )
 

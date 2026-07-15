@@ -204,3 +204,85 @@ FROM joined;
    Returns per-location mtd_cash | elapsed_wd | total_wd | run_rate, plus a CHAIN TOTAL.
    NOTE: the "Cash Run Rate (Projected)" row in section A above uses the OLD data-days x calendar
    formula and is superseded by VERIFY_RUNRATE.sql. */
+
+/* ---------- H) PER-LOCATION ESTHETICIAN REV / BOOKED HOUR (reference method) ----------
+   Replicates utils/rev_hour._role_rev_hours_by_center(role='esthetician') and the
+   per-location override in routers/operations.py — the method BOTH the Operations-table
+   "Esth Rev/Hr" column and the KPI header card now use (card = CHAIN TOTAL row below).
+   Read-only.
+
+   Method (matches the agreed reference SQL):
+     • schedule aggregated per (center, employee) for job_name = 'Esthetician' with a
+       positive scheduled_hours (a real working shift); booked hours via an HH:MM(:SS)-safe
+       TRY_CAST parser;
+     • revenue attributed by sold_by, joined to schedule on employee_name + center ONLY
+       (no per-day join), so an off-schedule-day sale still counts;
+     • per-center rev/hr = SUM(revenue) / SUM(booked_hours); CHAIN TOTAL = the same totals.
+
+   Window = month-to-date through the latest day with SALES data (MAX(sale_date)), so @end
+   auto-advances as data lands. Anchoring on revenue keeps the numerator (sales) and the
+   denominator (booked hours) on the SAME realized period — it never divides earned revenue
+   by not-yet-worked / future-booked schedule hours, which a calendar-today or month-end
+   window can do. The dashboard sends month-end; this matches it as long as there are no
+   future-dated booked esthetician hours in the month (the normal case). If they ever
+   diverge, the month-end dashboard figure is being diluted by future hours — flag it.
+   SUPERSEDES the "Rev/Hr Esthetician" / "Rev/Hr Provider" rows in section E above, which
+   use the OLD per-day-join-on-serviced_by method. */
+DECLARE @rh_end   DATE = (SELECT MAX(CAST(sale_date AS DATE)) FROM dbo.BRONZE_ZENOTI_SALES_ACCRUAL);
+DECLARE @rh_start DATE = DATEFROMPARTS(YEAR(@rh_end), MONTH(@rh_end), 1);
+
+;WITH sched AS (
+    SELECT center_name, employee_name,
+           SUM(
+               CASE
+                   WHEN booked_hours IS NULL OR booked_hours = '' THEN 0
+                   WHEN CHARINDEX(':', booked_hours) > 0 THEN
+                         COALESCE(TRY_CAST(LEFT(booked_hours, CHARINDEX(':', booked_hours) - 1) AS FLOAT), 0)
+                       + COALESCE(TRY_CAST(SUBSTRING(booked_hours, CHARINDEX(':', booked_hours) + 1, 2) AS FLOAT), 0) / 60.0
+                       + COALESCE(TRY_CAST(NULLIF(SUBSTRING(booked_hours, CHARINDEX(':', booked_hours) + 4, 2), '') AS FLOAT), 0) / 3600.0
+                   ELSE COALESCE(TRY_CAST(booked_hours AS FLOAT), 0)
+               END
+           ) AS booked_hours
+    FROM dbo.BRONZE_ZENOTI_EMPLOYEE_SCHEDULES
+    WHERE CAST(date AS DATE) BETWEEN @rh_start AND @rh_end
+      AND LOWER(job_name) = 'esthetician'
+      AND scheduled_hours IS NOT NULL
+      AND scheduled_hours NOT IN ('', '0', '0:00', '00:00')
+      AND employee_name IS NOT NULL
+    GROUP BY center_name, employee_name
+),
+sales AS (
+    SELECT sa.center_name, sa.sold_by AS employee_name,
+           SUM(sa.sales_exc_tax) AS revenue
+    FROM dbo.BRONZE_ZENOTI_SALES_ACCRUAL sa
+    WHERE CAST(sa.sale_date AS DATE) BETWEEN @rh_start AND @rh_end
+      AND EXISTS (
+            SELECT 1 FROM sched sc
+            WHERE sc.employee_name = sa.sold_by
+              AND sc.center_name   = sa.center_name
+      )
+    GROUP BY sa.center_name, sa.sold_by
+),
+per_emp AS (
+    SELECT sch.center_name,
+           sch.booked_hours,
+           COALESCE(sa.revenue, 0) AS revenue
+    FROM sched sch
+    LEFT JOIN sales sa
+           ON sa.employee_name = sch.employee_name
+          AND sa.center_name   = sch.center_name
+)
+SELECT
+    center_name,
+    CAST(SUM(revenue)      AS DECIMAL(18,2))                                AS esth_revenue,
+    CAST(SUM(booked_hours) AS DECIMAL(18,2))                                AS esth_booked_hours,
+    CAST(SUM(revenue) / NULLIF(SUM(booked_hours), 0) AS DECIMAL(18,2))      AS rev_per_booked_hour
+FROM per_emp
+GROUP BY center_name
+UNION ALL
+SELECT 'CHAIN TOTAL',
+    CAST(SUM(revenue)      AS DECIMAL(18,2)),
+    CAST(SUM(booked_hours) AS DECIMAL(18,2)),
+    CAST(SUM(revenue) / NULLIF(SUM(booked_hours), 0) AS DECIMAL(18,2))
+FROM per_emp
+ORDER BY CASE WHEN center_name = 'CHAIN TOTAL' THEN 1 ELSE 0 END, rev_per_booked_hour DESC;

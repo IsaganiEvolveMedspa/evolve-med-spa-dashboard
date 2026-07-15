@@ -9,6 +9,10 @@ from db import run_query, serialize_rows
 from utils.filters import build_date_filter, build_sched_filter, merge_params, loc_in, hhmm_to_hours
 from utils.cogs import fetch_cogs_and_accrual, cogs_margin_pct
 from utils.payroll import compute_salary_by_center
+from utils.rev_hour import (
+    esthetician_rev_per_hour_by_center,
+    provider_rev_per_hour_by_center,
+)
 from utils.errors import log_and_raise_from_request
 
 router = APIRouter()
@@ -171,8 +175,20 @@ def get_operations_summary(
         # Per-location: COGS %, real payroll/salary %, gross % = 100 − cogs% − payroll%.
         cm  = fetch_cogs_and_accrual(s, e, locations)
         sal = compute_salary_by_center(s, e, locations)
+        # Rev/Hr (Provider, Esthetician) — override the rev_by_role CTE (per-day join
+        # on serviced_by) with the reference method from utils/rev_hour: sold_by, joined
+        # on name+center only, <role> booked hours with a positive scheduled_hours. This
+        # is the SAME helper the KPI header card uses (chain = Σ of these per-center
+        # values), so the Operations table and the card reconcile with each other and
+        # with the reference calc. Centers absent from the helper keep the CTE value.
+        esth_rh = esthetician_rev_per_hour_by_center(s, e, locations)
+        prov_rh = provider_rev_per_hour_by_center(s, e, locations)
         for row in rows:
             loc = row["location"]
+            if loc in prov_rh:
+                row["rev_per_provider"] = prov_rh[loc]
+            if loc in esth_rh:
+                row["rev_per_esthetician"] = esth_rh[loc]
             c = cm.get(loc, {})
             cogs, accrual = c.get("cogs", 0), c.get("accrual", 0)
             cogs_m    = cogs_margin_pct(cogs, accrual)
