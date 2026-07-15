@@ -1215,13 +1215,13 @@ const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, pro
         // bar + % beside it are MTD cash ÷ full-month budget (marker at 100%).
         // `floor: true` matches the hero "Projected · Run Rate" card's formatting so the
         // totals-row value renders identically to the card (both floor the same number).
-        const projCell = (t, attainPct) => {
+        const projCell = (t, attainPct, strong = false) => {
           const p = attainPct, color = attainColor(p);
           return (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, minWidth: 150 }}>
               <PaceBar pace={p} color={color} />
               <div style={{ flex: 'none', textAlign: 'right', lineHeight: 1.2 }}>
-                <div style={{ font: `700 12.5px ${FONT}`, color: C.ink }}>{money(t, { compact: true, floor: true })}</div>
+                <div style={{ font: `${strong ? 700 : 500} 12.5px ${FONT}`, color: C.ink }}>{money(t, { compact: true, floor: true })}</div>
                 {p != null && <div style={{ font: `600 10px ${FONT}`, color }}>{p.toFixed(0)}%</div>}
               </div>
             </div>
@@ -1253,7 +1253,7 @@ const OverviewBody = ({ h, hPrev, summary, ops, opsPrev, categories, svcMix, pro
               ]}
               total={[
                 money(totCash, { compact: true, floor: true }),
-                projCell(totProj, totals.budget ? (totCash / totals.budget) * 100 : null),
+                projCell(totProj, totals.budget ? (totCash / totals.budget) * 100 : null, true),
                 totals.budget ? money(totals.budget, { compact: true }) : dash,
                 goalPctCell(totals.budget, totCash, false),
                 goalPctCell(totals.budget, totProj, true),
