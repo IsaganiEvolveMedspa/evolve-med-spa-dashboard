@@ -21,10 +21,16 @@ re-imported into the JSON.
 `business_kpi_date` is a period-LABEL string (e.g. '2026-07-01_to_2026-07-12'),
 NOT a date — it's a cumulative MTD snapshot whose end date advances, added as a new
 row each update. So rows are matched by month prefix (business_kpi_date LIKE
-'YYYY-MM%') from the requested start date (exact days disregarded), then reduced to
-the LATEST snapshot (max parsed end date) so cumulative snapshots aren't double
-counted. Both figures are summed over that snapshot's rows for the selected centers
-(all centers when no filter is given).
+'YYYY-MM%') from the requested start date, then reduced to the snapshot that MATCHES
+THE REQUESTED WINDOW: the latest parsed end date that is <= the requested end date
+`e`. This keeps the visit denominator on the SAME elapsed days as the sales numerator
+it divides into (ASP = sales ÷ visits). Taking the month's final snapshot instead
+(plain MAX end date) understated a completed prior month's ASP — a same-elapsed
+prior window (e.g. Jun 1–14) would divide half-month sales by the FULL-month Jun 1–30
+visit count, roughly halving ASP and inflating the MoM delta to ~+100%. For the
+current (in-progress) month the two are equivalent (no snapshot has end_dt > e).
+Both figures are summed over that snapshot's rows for the selected centers (all
+centers when no filter is given).
 
 Unlike Ad Spend, these figures ARE per-center, so they honor the location filter.
 
@@ -66,9 +72,12 @@ def guest_counts(s: str, e: str, locations: Optional[list[str]]) -> dict:
         # (…_to_07-12, then …_to_07-13, …), so we must:
         #   1. LIKE 'YYYY-MM%' to select the month's rows (`s` is a validated
         #      YYYY-MM-DD router param, so s[:7] is a safe 'YYYY-MM' literal).
-        #   2. Keep only the LATEST snapshot (max parsed end date) so cumulative
-        #      snapshots aren't double-counted. The end date is the text after '_to_';
-        #      TRY_CAST parses it whether or not the day is zero-padded ('2026-07-1').
+        #   2. Keep the snapshot MATCHING THE REQUESTED WINDOW: max parsed end date
+        #      that is <= `e` (also a validated YYYY-MM-DD param, inlined like s[:7]).
+        #      This puts the visit count on the SAME elapsed days as the sales it's
+        #      divided into; plain MAX(end_dt) would grab a completed month's FULL
+        #      snapshot and halve a same-elapsed prior ASP. The end date is the text
+        #      after '_to_'; TRY_CAST parses it zero-padded or not ('2026-07-1').
         month = s[:7]
         table = business_kpi_table_for(s)
         sql = f"""
@@ -84,7 +93,7 @@ def guest_counts(s: str, e: str, locations: Optional[list[str]]) -> dict:
                    SUM(TRY_CAST(unique_guest_count AS FLOAT)) AS unique_guests,
                    COUNT(*)                                   AS day_rows
             FROM snap
-            WHERE end_dt = (SELECT MAX(end_dt) FROM snap)
+            WHERE end_dt = (SELECT MAX(end_dt) FROM snap WHERE end_dt <= '{e}')
               {loc_and}
         """
         rows = run_query(sql, loc_p or None)
@@ -113,10 +122,11 @@ def guest_counts_by_center(s: str, e: str, locations: Optional[list[str]]) -> di
     """Per-center version of guest_counts(): {center_name: {"new", "existing"}}.
 
     Same source and snapshot logic as guest_counts() (the chain total) — match the
-    month's rows (business_kpi_date LIKE 'YYYY-MM%'), keep only the LATEST snapshot
-    (max parsed end date after '_to_'), then SUM per center. This is the single
-    source of truth for the per-LOCATION New/Existing Customer Visits, so those rows
-    reconcile with the chain total. No fallback: New and Existing are both straight
+    month's rows (business_kpi_date LIKE 'YYYY-MM%'), keep the snapshot matching the
+    requested window (max parsed end date after '_to_' that is <= `e`), then SUM per
+    center. This is the single source of truth for the per-LOCATION New/Existing
+    Customer Visits, so those rows reconcile with the chain total. No fallback: New
+    and Existing are both straight
     sums from the Business KPI table (a center absent from the snapshot simply isn't
     in the returned map — callers default it to 0). Returns {} on any error so the
     caller degrades gracefully rather than taking down the summary."""
@@ -137,7 +147,7 @@ def guest_counts_by_center(s: str, e: str, locations: Optional[list[str]]) -> di
                    SUM(TRY_CAST(new_guest_count    AS FLOAT)) AS new_guests,
                    SUM(TRY_CAST(unique_guest_count AS FLOAT)) AS unique_guests
             FROM snap
-            WHERE end_dt = (SELECT MAX(end_dt) FROM snap)
+            WHERE end_dt = (SELECT MAX(end_dt) FROM snap WHERE end_dt <= '{e}')
               {loc_and}
             GROUP BY center_name
         """
