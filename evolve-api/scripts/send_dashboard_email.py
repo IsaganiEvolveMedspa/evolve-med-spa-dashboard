@@ -475,8 +475,8 @@ _MOBILE_REFLOW_JS = r"""
 
 
 def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
-    """Open the dashboard, load the Overview, and return
-    {png_desktop, png_mobile, pdf_bytes}. Returns {} if the view never loads."""
+    """Open the dashboard, load the Overview, and return {pdf_bytes}.
+    Returns {} if the view never loads."""
     from playwright.sync_api import (
         TimeoutError as PlaywrightTimeoutError,
         sync_playwright,
@@ -518,12 +518,7 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
         page.add_style_tag(content=_DESKTOP_CSS)
         page.wait_for_timeout(500)
 
-        # 1) Desktop PNG — full <main> at 1600px width, 3x.
-        png_desktop = page.locator("main").screenshot(type="png")
-        print(f"[send_dashboard_email] Captured desktop PNG ({len(png_desktop)} bytes)")
-
-        # 2) Desktop PDF — same layout as one 1600px-wide page (captured BEFORE the
-        # mobile reflow so it keeps the multi-column desktop layout).
+        # PDF only — the full Overview as one 1600px-wide page (the emailed artifact).
         dims = page.evaluate(_MEASURE_FOR_PDF_JS)
         page.wait_for_timeout(200)
         pdf_bytes = page.pdf(
@@ -534,17 +529,8 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
         )
         print(f"[send_dashboard_email] Captured PDF ({len(pdf_bytes)} bytes)")
 
-        # 3) Mobile PNG — narrow to phone width, collapse grids + stack hero cards.
-        page.set_viewport_size(MOBILE_VIEWPORT)
-        page.wait_for_timeout(800)          # let Recharts ResponsiveContainers resize
-        page.evaluate(_MOBILE_REFLOW_JS)
-        page.evaluate(_UNCLIP_JS)           # heights changed after the reflow
-        page.wait_for_timeout(600)
-        png_mobile = page.locator("main").screenshot(type="png")
-        print(f"[send_dashboard_email] Captured mobile PNG ({len(png_mobile)} bytes)")
-
         browser.close()
-    return {"png_desktop": png_desktop, "png_mobile": png_mobile, "pdf_bytes": pdf_bytes}
+    return {"pdf_bytes": pdf_bytes}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -642,29 +628,17 @@ def _loc_table_html(rows: list, totals: dict) -> str:
     )
 
 
-def build_html(report_date: str, sections: list, loc_rows: list, loc_totals: dict, has_snapshot: bool) -> str:
-    # TWO full-dashboard snapshots embedded INLINE in the body via cid (referenced
-    # inline images render in-body and are NOT listed as attachment tiles). Both are
-    # captured at 3× resolution, so clicking a snapshot in the mail client opens the
-    # full-resolution version (click-to-zoom). The PDF stays as a downloadable copy.
-    label_td = f'font:600 11px Arial,Helvetica,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:{GRAY};padding:6px 0 4px 0;'
-    snapshot_html = ""
-    if has_snapshot:
-        snapshot_html = (
-            f'<tr><td style="padding:24px 0 6px 0;"><span style="font:700 14px Arial,Helvetica,sans-serif;color:{INK};">Full Dashboard Snapshot</span></td></tr>'
-            f'<tr><td style="padding:2px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">Click a snapshot to open it full-size — a PDF is also attached.</td></tr>'
-            f'<tr><td style="{label_td}">Desktop</td></tr>'
-            f'<tr><td align="center" style="padding-bottom:12px;">'
-            f'<img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL} — desktop" width="680" '
-            f'style="display:block;width:100%;max-width:680px;height:auto;margin:0 auto;border:1px solid {LINE};border-radius:8px;" />'
-            f'</td></tr>'
-            f'<tr><td style="{label_td}">Mobile</td></tr>'
-            f'<tr><td align="center" style="padding-bottom:4px;">'
-            f'<img src="cid:{MOBILE_KEY}" alt="{VIEW_LABEL} — mobile" width="360" '
-            f'style="display:block;width:100%;max-width:360px;height:auto;margin:0 auto;border:1px solid {LINE};border-radius:8px;" />'
+def build_html(report_date: str, loc_rows: list, loc_totals: dict, has_pdf: bool) -> str:
+    # Body = the readable HTML location table only. The full dashboard (all KPI
+    # tiles + charts) ships as the attached PDF, which zooms/pans smoothly on a
+    # phone — far better than an inline image that must be pinch-zoomed.
+    pdf_note = ""
+    if has_pdf:
+        pdf_note = (
+            f'<tr><td style="padding:22px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">'
+            f'The full Overview (all KPIs + charts) is attached as a PDF — open it to view and zoom.'
             f'</td></tr>'
         )
-    sections_html = "".join(_section_html(s) for s in sections)
     loc_html = _loc_table_html(loc_rows, loc_totals) if loc_rows else ""
     return f"""<!DOCTYPE html>
 <html>
@@ -679,9 +653,8 @@ def build_html(report_date: str, sections: list, loc_rows: list, loc_totals: dic
       <table role="presentation" width="720" cellpadding="0" cellspacing="0" style="max-width:720px;width:100%;">
         <tr><td style="font:700 22px Arial,Helvetica,sans-serif;color:{INK};padding-bottom:2px;">Evolve Med Spa — Overview</td></tr>
         <tr><td style="font:400 13px Arial,Helvetica,sans-serif;color:#68807a;padding-bottom:6px;">{report_date}</td></tr>
-        {sections_html}
         {loc_html}
-        {snapshot_html}
+        {pdf_note}
         <tr><td style="padding:26px 0 0 0;font:400 11px Arial,Helvetica,sans-serif;color:#9aaaa5;border-top:1px solid {LINE};">
           Automated snapshot. Confidential — internal use only.
         </td></tr>
@@ -713,37 +686,24 @@ def main() -> None:
     subject = _env("EMAIL_SUBJECT", required=False, default=f"Evolve Dashboard Overview — {report_date}")
 
     data = fetch_data(api_base)
-    sections = build_sections(data)
     loc_rows, loc_totals = build_location_rows(data.get("summary") or [])
 
+    # The Chromium pass now only needs the PDF (the full dashboard for zoom/pan).
     capture: dict = {}
     if not skip_snapshot:
         try:
             capture = capture_overview(dashboard_url, render_wait_ms)
-        except Exception as exc:  # never let a capture failure block the KPI email
-            print(f"[send_dashboard_email] WARN: snapshot capture failed, sending tables only: {exc}", file=sys.stderr)
+        except Exception as exc:  # never let a capture failure block the email
+            print(f"[send_dashboard_email] WARN: PDF capture failed, sending table only: {exc}", file=sys.stderr)
 
-    has_snapshot = bool(capture.get("png_desktop"))
-    html = build_html(report_date, sections, loc_rows, loc_totals, has_snapshot)
+    has_pdf = bool(capture.get("pdf_bytes"))
+    html = build_html(report_date, loc_rows, loc_totals, has_pdf)
 
     attachments = []
-    if has_snapshot:
-        # Desktop + mobile PNGs are embedded INLINE via content_id (both referenced
-        # in the body → render in-body, NOT shown as attachment tiles). The PDF is
-        # the only downloadable attachment (open it to zoom).
+    if has_pdf:
+        # PDF is the single downloadable attachment — the full Overview (all KPI
+        # tiles + charts), which zooms/pans smoothly in a PDF viewer.
         attachments = [
-            {
-                "filename": f"{VIEW_KEY}.png",
-                "content": base64.b64encode(capture["png_desktop"]).decode("ascii"),
-                "content_id": VIEW_KEY,
-                "content_type": "image/png",
-            },
-            {
-                "filename": f"{MOBILE_KEY}.png",
-                "content": base64.b64encode(capture["png_mobile"]).decode("ascii"),
-                "content_id": MOBILE_KEY,
-                "content_type": "image/png",
-            },
             {
                 "filename": f"evolve-overview-{date.today().isoformat()}.pdf",
                 "content": base64.b64encode(capture["pdf_bytes"]).decode("ascii"),
@@ -759,7 +719,7 @@ def main() -> None:
 
     resend.Emails.send(params)
     recipients = ", ".join(email_to + email_cc)
-    kind = "tables + inline snapshot + PDF" if has_snapshot else "tables only"
+    kind = "location table + PDF" if has_pdf else "location table only"
     print(f"[send_dashboard_email] Sent HTML Overview ({kind}) to {recipients}")
 
 
