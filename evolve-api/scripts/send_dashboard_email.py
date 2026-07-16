@@ -66,6 +66,9 @@ PDF_PAGE_WIDTH = 1600                        # desktop PDF page width (px) → 1
 DEVICE_SCALE_FACTOR = 3                       # 3x so dense tables stay crisp on zoom
 NAV_TIMEOUT_MS = 60_000
 DATA_LOAD_TIMEOUT_MS = 60_000
+# Max time to wait for the view to be FULLY rendered (charts painted, fonts/images
+# ready) before capturing — see _READY_JS. Capped so the run can't hang.
+READY_TIMEOUT_MS = 45_000
 LOADING_TEXT = "Loading live data"
 ERROR_TEXT = "Couldn't load this view"
 LOAD_ATTEMPTS = 3
@@ -473,6 +476,26 @@ _MOBILE_REFLOW_JS = r"""
 }
 """
 
+# Returns true only when the Overview is FULLY rendered, so we never screenshot a
+# half-loaded view. Checks (all must hold): the "Loading live data…" indicator is
+# gone; web fonts have settled; every <img> is loaded; every Recharts chart surface
+# has actually drawn geometry (path/rect/circle/line) — and at least one chart is
+# mounted (guards against shooting before charts appear). Wrapped in try/catch so a
+# transient DOM error just reports "not ready yet" rather than throwing.
+_READY_JS = r"""
+() => {
+  try {
+    if (document.body.innerText.includes('Loading live data')) return false;
+    if (document.fonts && document.fonts.status !== 'loaded') return false;
+    if (Array.from(document.images).some((im) => !im.complete)) return false;
+    const surfaces = Array.from(document.querySelectorAll('.recharts-surface'));
+    if (surfaces.length === 0) return false;                                  // charts not mounted yet
+    if (surfaces.some((s) => !s.querySelector('path,rect,circle,line'))) return false;  // a chart not painted
+    return true;
+  } catch (e) { return false; }
+}
+"""
+
 
 def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
     """Open the dashboard, load the Overview, and return
@@ -500,6 +523,17 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
                 )
             except PlaywrightTimeoutError:
                 print(f"[send_dashboard_email] WARN: still loading (attempt {attempt}/{LOAD_ATTEMPTS})", file=sys.stderr)
+            # Condition-based readiness: block until charts are painted and
+            # fonts/images have settled, so we never capture a half-loaded view.
+            try:
+                page.wait_for_function(_READY_JS, timeout=READY_TIMEOUT_MS)
+            except PlaywrightTimeoutError:
+                print(
+                    f"[send_dashboard_email] WARN: view not fully rendered after "
+                    f"{READY_TIMEOUT_MS}ms (attempt {attempt}/{LOAD_ATTEMPTS}); capturing anyway",
+                    file=sys.stderr,
+                )
+            # Final settle for chart animation frames after paint.
             page.wait_for_timeout(render_wait_ms)
             if page.get_by_text(ERROR_TEXT, exact=False).count() == 0:
                 break
@@ -516,6 +550,12 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
 
         page.evaluate(_UNCLIP_JS)
         page.add_style_tag(content=_DESKTOP_CSS)
+        # One more network-idle + readiness confirmation right before capturing.
+        try:
+            page.wait_for_load_state("networkidle", timeout=NAV_TIMEOUT_MS)
+            page.wait_for_function(_READY_JS, timeout=READY_TIMEOUT_MS)
+        except PlaywrightTimeoutError:
+            print("[send_dashboard_email] WARN: readiness re-check timed out before desktop capture", file=sys.stderr)
         page.wait_for_timeout(500)
 
         # 1) Desktop PNG — full <main> at 1600px width, 3x.
@@ -539,6 +579,11 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
         page.wait_for_timeout(800)          # let Recharts ResponsiveContainers resize
         page.evaluate(_MOBILE_REFLOW_JS)
         page.evaluate(_UNCLIP_JS)           # heights changed after the reflow
+        # Re-confirm charts repainted at the narrow width before shooting.
+        try:
+            page.wait_for_function(_READY_JS, timeout=READY_TIMEOUT_MS)
+        except PlaywrightTimeoutError:
+            print("[send_dashboard_email] WARN: readiness re-check timed out before mobile capture", file=sys.stderr)
         page.wait_for_timeout(600)
         png_mobile = page.locator("main").screenshot(type="png")
         print(f"[send_dashboard_email] Captured mobile PNG ({len(png_mobile)} bytes)")
