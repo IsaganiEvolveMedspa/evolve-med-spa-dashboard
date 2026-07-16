@@ -10,11 +10,11 @@ Emails the Overview as a table-based HTML email whose KPI values are REAL text
     exactly (money/pct/num, ▲/▼ MoM deltas, "% to goal").
   • Per-location table — Cash MTD, Proj. Run Rate, Goal, MTD/Trend % to goal — from
     GET /api/mtd-summary.
-  • Full-dashboard snapshot — the whole Overview captured via headless Chromium and
-    embedded INLINE in the body via cid (a referenced inline image renders in-body
-    and is NOT shown as a broken attachment tile). No standalone PNG attachments.
-  • PDF — the desktop Overview as the single downloadable attachment; open it to
-    zoom in. (A mobile-width PNG is still captured but no longer emailed.)
+  • Full-dashboard snapshots — the whole Overview captured via headless Chromium at
+    TWO widths (desktop + mobile) and embedded INLINE in the body via cid (referenced
+    inline images render in-body and are NOT shown as attachment tiles). Captured at
+    3×, so clicking a snapshot opens the full-resolution version (click-to-zoom).
+  • PDF — the desktop Overview as the single downloadable attachment.
 
 Data host: the dashboard's API (API_BASE), NOT the dashboard URL. DASHBOARD_URL is
 used only to render the inline snapshots + PDF.
@@ -643,18 +643,26 @@ def _loc_table_html(rows: list, totals: dict) -> str:
 
 
 def build_html(report_date: str, sections: list, loc_rows: list, loc_totals: dict, has_snapshot: bool) -> str:
-    # Snapshot is embedded INLINE in the body via cid (a referenced inline image
-    # renders in the body and is NOT listed as an attachment tile — so no broken
-    # PNG tiles). The PDF is the single downloadable attachment; open it to zoom.
+    # TWO full-dashboard snapshots embedded INLINE in the body via cid (referenced
+    # inline images render in-body and are NOT listed as attachment tiles). Both are
+    # captured at 3× resolution, so clicking a snapshot in the mail client opens the
+    # full-resolution version (click-to-zoom). The PDF stays as a downloadable copy.
+    label_td = f'font:600 11px Arial,Helvetica,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:{GRAY};padding:6px 0 4px 0;'
     snapshot_html = ""
     if has_snapshot:
         snapshot_html = (
-            f'<tr><td style="padding:24px 0 8px 0;"><span style="font:700 14px Arial,Helvetica,sans-serif;color:{INK};">Full Dashboard Snapshot</span></td></tr>'
-            f'<tr><td align="center" style="padding-bottom:4px;">'
-            f'<img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}" width="680" '
+            f'<tr><td style="padding:24px 0 6px 0;"><span style="font:700 14px Arial,Helvetica,sans-serif;color:{INK};">Full Dashboard Snapshot</span></td></tr>'
+            f'<tr><td style="padding:2px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">Click a snapshot to open it full-size — a PDF is also attached.</td></tr>'
+            f'<tr><td style="{label_td}">Desktop</td></tr>'
+            f'<tr><td align="center" style="padding-bottom:12px;">'
+            f'<img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL} — desktop" width="680" '
             f'style="display:block;width:100%;max-width:680px;height:auto;margin:0 auto;border:1px solid {LINE};border-radius:8px;" />'
             f'</td></tr>'
-            f'<tr><td style="padding:8px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">A PDF of the full Overview is attached — open it to zoom in.</td></tr>'
+            f'<tr><td style="{label_td}">Mobile</td></tr>'
+            f'<tr><td align="center" style="padding-bottom:4px;">'
+            f'<img src="cid:{MOBILE_KEY}" alt="{VIEW_LABEL} — mobile" width="360" '
+            f'style="display:block;width:100%;max-width:360px;height:auto;margin:0 auto;border:1px solid {LINE};border-radius:8px;" />'
+            f'</td></tr>'
         )
     sections_html = "".join(_section_html(s) for s in sections)
     loc_html = _loc_table_html(loc_rows, loc_totals) if loc_rows else ""
@@ -720,14 +728,20 @@ def main() -> None:
 
     attachments = []
     if has_snapshot:
-        # Desktop PNG is embedded INLINE via content_id (referenced in the body →
-        # renders in-body, not shown as an attachment tile). The PDF is the only
-        # downloadable attachment (open it to zoom). No standalone PNG attachments.
+        # Desktop + mobile PNGs are embedded INLINE via content_id (both referenced
+        # in the body → render in-body, NOT shown as attachment tiles). The PDF is
+        # the only downloadable attachment (open it to zoom).
         attachments = [
             {
                 "filename": f"{VIEW_KEY}.png",
                 "content": base64.b64encode(capture["png_desktop"]).decode("ascii"),
                 "content_id": VIEW_KEY,
+                "content_type": "image/png",
+            },
+            {
+                "filename": f"{MOBILE_KEY}.png",
+                "content": base64.b64encode(capture["png_mobile"]).decode("ascii"),
+                "content_id": MOBILE_KEY,
                 "content_type": "image/png",
             },
             {
