@@ -437,12 +437,12 @@ main { width: 100% !important; }
 """
 
 # Injected only for the MOBILE capture (after narrowing the viewport). The dashboard
-# has no responsive layout, so this collapses the fixed multi-column grids to a
-# single-column shape AND — the fix for the clipped hero cards — stacks the hero
-# cards' internal flex columns (`.ev-hero-cols`: MTD | Full-Month Budget |
-# Projected), hiding the thin vertical divider bars, so no card/table/graph runs
-# off the narrow viewport. Charts use Recharts ResponsiveContainer and resize on
-# their own.
+# has no responsive layout, so this: (1) collapses the fixed multi-column grids to a
+# single-column shape; (2) stacks the hero cards' internal flex columns
+# (`.ev-hero-cols`: MTD | Full-Month Budget | Projected), hiding the thin divider
+# bars; and (3) reveals + compresses the wide tables trapped in overflow-x:auto
+# scroll boxes so their columns aren't clipped in the screenshot. Charts are
+# hand-rolled inline <svg> at width:100% and resize to the narrow width on their own.
 _MOBILE_REFLOW_JS = r"""
 () => {
   const main = document.querySelector('main');
@@ -473,24 +473,50 @@ _MOBILE_REFLOW_JS = r"""
       else { ch.style.width = '100%'; ch.style.marginBottom = '12px'; }
     });
   });
+  // Wide tables (Location Performance, etc.) live in overflow-x:auto scroll boxes.
+  // A screenshot CLIPS those to the viewport width, cutting off right-hand columns.
+  // Reveal the box and compress the table to fit the narrow width (fixed layout,
+  // wrapping cells, tighter font/padding) so every column is visible, none cut.
+  main.querySelectorAll('div').forEach((el) => {
+    const ox = getComputedStyle(el).overflowX;
+    if (ox !== 'auto' && ox !== 'scroll') return;
+    el.style.overflow = 'visible';
+    el.querySelectorAll('table').forEach((t) => {
+      t.style.width = '100%';
+      t.style.minWidth = '0';
+      t.style.tableLayout = 'fixed';
+      t.querySelectorAll('th,td').forEach((c) => {
+        c.style.whiteSpace = 'normal';
+        c.style.wordBreak = 'break-word';
+        c.style.padding = '4px 3px';
+        c.style.fontSize = '9px';
+      });
+    });
+  });
 }
 """
 
 # Returns true only when the Overview is FULLY rendered, so we never screenshot a
 # half-loaded view. Checks (all must hold): the "Loading live data…" indicator is
-# gone; web fonts have settled; every <img> is loaded; every Recharts chart surface
-# has actually drawn geometry (path/rect/circle/line) — and at least one chart is
-# mounted (guards against shooting before charts appear). Wrapped in try/catch so a
-# transient DOM error just reports "not ready yet" rather than throwing.
+# gone; web fonts have settled; every <img> is loaded; and the charts are drawn.
+# The dashboard's charts are hand-rolled inline <svg> (width:100%), NOT Recharts —
+# icons are tiny 14px SVGs, so we look at the LARGE svgs (rendered width ≥ 200px)
+# and require each to contain drawn geometry (path/rect/line/polyline/…). At least
+# one large chart must be present (guards against shooting before charts lay out).
+# Wrapped in try/catch so a transient DOM error just reports "not ready yet".
 _READY_JS = r"""
 () => {
   try {
     if (document.body.innerText.includes('Loading live data')) return false;
     if (document.fonts && document.fonts.status !== 'loaded') return false;
     if (Array.from(document.images).some((im) => !im.complete)) return false;
-    const surfaces = Array.from(document.querySelectorAll('.recharts-surface'));
-    if (surfaces.length === 0) return false;                                  // charts not mounted yet
-    if (surfaces.some((s) => !s.querySelector('path,rect,circle,line'))) return false;  // a chart not painted
+    const main = document.querySelector('main');
+    if (!main) return false;
+    const charts = Array.from(main.querySelectorAll('svg')).filter(
+      (s) => s.getBoundingClientRect().width >= 200
+    );
+    if (charts.length === 0) return false;                                              // charts not laid out yet
+    if (charts.some((s) => !s.querySelector('path,rect,line,polyline,polygon,circle'))) return false;  // a chart not painted
     return true;
   } catch (e) { return false; }
 }
@@ -576,7 +602,7 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
 
         # 3) Mobile PNG — narrow to phone width, collapse grids + stack hero cards.
         page.set_viewport_size(MOBILE_VIEWPORT)
-        page.wait_for_timeout(800)          # let Recharts ResponsiveContainers resize
+        page.wait_for_timeout(800)          # let the width:100% SVG charts resize
         page.evaluate(_MOBILE_REFLOW_JS)
         page.evaluate(_UNCLIP_JS)           # heights changed after the reflow
         # Re-confirm charts repainted at the narrow width before shooting.
