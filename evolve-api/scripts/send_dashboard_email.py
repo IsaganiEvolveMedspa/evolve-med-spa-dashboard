@@ -11,9 +11,9 @@ Emails the Overview as a table-based HTML email whose KPI values are REAL text
   • Per-location table — Cash MTD, Proj. Run Rate, Goal, MTD/Trend % to goal — from
     GET /api/mtd-summary.
   • Full-dashboard snapshots — the whole Overview captured via headless Chromium at
-    TWO widths and embedded INLINE (responsive: the wide desktop image on desktop
-    clients, the single-column mobile image on phones). The mobile reflow now also
-    stacks the hero cards' internal columns so nothing is clipped.
+    TWO widths (desktop + mobile) and attached as DOWNLOADABLE PNG files (not inline),
+    so they open in the recipient's image viewer and pinch-zoom freely. The mobile
+    reflow stacks the hero cards' internal columns so nothing is clipped.
   • PDF — the desktop Overview as a downloadable PDF attachment.
 
 Data host: the dashboard's API (API_BASE), NOT the dashboard URL. DASHBOARD_URL is
@@ -553,13 +553,9 @@ def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
 _EMAIL_STYLE = """
     body { margin:0; padding:0; background:#f6f8f7; }
     table { border-collapse:collapse; }
-    .ev-mobile { display:none; }
     @media only screen and (max-width:600px) {
       .ev-tile { display:block !important; width:100% !important; }
       .ev-pad { padding:18px 10px !important; }
-      .ev-desktop { display:none !important; max-height:0 !important; overflow:hidden !important; }
-      .ev-mobile  { display:block !important; max-height:none !important; overflow:visible !important; }
-      .ev-mobile img { width:100% !important; max-width:100% !important; height:auto !important; }
     }
 """
 
@@ -647,22 +643,15 @@ def _loc_table_html(rows: list, totals: dict) -> str:
 
 
 def build_html(report_date: str, sections: list, loc_rows: list, loc_totals: dict, has_snapshot: bool) -> str:
-    # Inline full-dashboard snapshot: desktop image by default (also the Outlook
-    # fallback via width="680"); mobile image swapped in by the media query and
-    # skipped by Outlook via the mso conditional.
+    # Snapshots are DOWNLOADABLE ATTACHMENTS (not inline) so they open in the
+    # recipient's image/PDF viewer, where the mobile snapshot can be pinch-zoomed
+    # freely — inline email images can't be. The body is just a note pointing to them.
     snapshot_html = ""
     if has_snapshot:
         snapshot_html = (
-            f'<tr><td style="padding:24px 0 8px 0;"><span style="font:700 14px Arial,Helvetica,sans-serif;color:{INK};">Full Dashboard Snapshot</span></td></tr>'
-            f'<tr><td align="center" style="padding-bottom:4px;">'
-            f'<div class="ev-desktop"><img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}" width="680" '
-            f'style="display:block;width:100%;max-width:680px;height:auto;margin:0 auto;border:1px solid {LINE};border-radius:8px;" /></div>'
-            f'<!--[if !mso]><!-- -->'
-            f'<div class="ev-mobile" style="display:none;"><img src="cid:{MOBILE_KEY}" alt="{VIEW_LABEL}" '
-            f'style="display:block;width:100%;max-width:100%;height:auto;margin:0 auto;border:1px solid {LINE};border-radius:8px;" /></div>'
-            f'<!--<![endif]-->'
+            f'<tr><td style="padding:22px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">'
+            f'Attached: desktop snapshot ({VIEW_KEY}.png), mobile snapshot ({MOBILE_KEY}.png), and a PDF of the Overview.'
             f'</td></tr>'
-            f'<tr><td style="padding:8px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">A PDF of the Overview is attached.</td></tr>'
         )
     sections_html = "".join(_section_html(s) for s in sections)
     loc_html = _loc_table_html(loc_rows, loc_totals) if loc_rows else ""
@@ -728,24 +717,20 @@ def main() -> None:
 
     attachments = []
     if has_snapshot:
+        # All three are DOWNLOADABLE attachments (no content_id → not embedded
+        # inline), so they open in the recipient's image/PDF viewer and zoom freely.
         attachments = [
             {
-                # Desktop inline image (cid) — both content_id AND image content_type
-                # are required for clients to embed rather than attach.
                 "filename": f"{VIEW_KEY}.png",
                 "content": base64.b64encode(capture["png_desktop"]).decode("ascii"),
-                "content_id": VIEW_KEY,
                 "content_type": "image/png",
             },
             {
-                # Mobile inline image (shown on phones via the media query).
                 "filename": f"{MOBILE_KEY}.png",
                 "content": base64.b64encode(capture["png_mobile"]).decode("ascii"),
-                "content_id": MOBILE_KEY,
                 "content_type": "image/png",
             },
             {
-                # PDF (no content_id → downloadable attachment).
                 "filename": f"evolve-overview-{date.today().isoformat()}.pdf",
                 "content": base64.b64encode(capture["pdf_bytes"]).decode("ascii"),
                 "content_type": "application/pdf",
