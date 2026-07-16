@@ -10,11 +10,11 @@ Emails the Overview as a table-based HTML email whose KPI values are REAL text
     exactly (money/pct/num, ▲/▼ MoM deltas, "% to goal").
   • Per-location table — Cash MTD, Proj. Run Rate, Goal, MTD/Trend % to goal — from
     GET /api/mtd-summary.
-  • Full-dashboard snapshots — the whole Overview captured via headless Chromium at
-    TWO widths (desktop + mobile) and attached as DOWNLOADABLE PNG files (not inline),
-    so they open in the recipient's image viewer and pinch-zoom freely. The mobile
-    reflow stacks the hero cards' internal columns so nothing is clipped.
-  • PDF — the desktop Overview as a downloadable PDF attachment.
+  • Full-dashboard snapshot — the whole Overview captured via headless Chromium and
+    embedded INLINE in the body via cid (a referenced inline image renders in-body
+    and is NOT shown as a broken attachment tile). No standalone PNG attachments.
+  • PDF — the desktop Overview as the single downloadable attachment; open it to
+    zoom in. (A mobile-width PNG is still captured but no longer emailed.)
 
 Data host: the dashboard's API (API_BASE), NOT the dashboard URL. DASHBOARD_URL is
 used only to render the inline snapshots + PDF.
@@ -643,15 +643,18 @@ def _loc_table_html(rows: list, totals: dict) -> str:
 
 
 def build_html(report_date: str, sections: list, loc_rows: list, loc_totals: dict, has_snapshot: bool) -> str:
-    # Snapshots are DOWNLOADABLE ATTACHMENTS (not inline) so they open in the
-    # recipient's image/PDF viewer, where the mobile snapshot can be pinch-zoomed
-    # freely — inline email images can't be. The body is just a note pointing to them.
+    # Snapshot is embedded INLINE in the body via cid (a referenced inline image
+    # renders in the body and is NOT listed as an attachment tile — so no broken
+    # PNG tiles). The PDF is the single downloadable attachment; open it to zoom.
     snapshot_html = ""
     if has_snapshot:
         snapshot_html = (
-            f'<tr><td style="padding:22px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">'
-            f'Attached: desktop snapshot ({VIEW_KEY}.png), mobile snapshot ({MOBILE_KEY}.png), and a PDF of the Overview.'
+            f'<tr><td style="padding:24px 0 8px 0;"><span style="font:700 14px Arial,Helvetica,sans-serif;color:{INK};">Full Dashboard Snapshot</span></td></tr>'
+            f'<tr><td align="center" style="padding-bottom:4px;">'
+            f'<img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}" width="680" '
+            f'style="display:block;width:100%;max-width:680px;height:auto;margin:0 auto;border:1px solid {LINE};border-radius:8px;" />'
             f'</td></tr>'
+            f'<tr><td style="padding:8px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">A PDF of the full Overview is attached — open it to zoom in.</td></tr>'
         )
     sections_html = "".join(_section_html(s) for s in sections)
     loc_html = _loc_table_html(loc_rows, loc_totals) if loc_rows else ""
@@ -717,17 +720,14 @@ def main() -> None:
 
     attachments = []
     if has_snapshot:
-        # All three are DOWNLOADABLE attachments (no content_id → not embedded
-        # inline), so they open in the recipient's image/PDF viewer and zoom freely.
+        # Desktop PNG is embedded INLINE via content_id (referenced in the body →
+        # renders in-body, not shown as an attachment tile). The PDF is the only
+        # downloadable attachment (open it to zoom). No standalone PNG attachments.
         attachments = [
             {
                 "filename": f"{VIEW_KEY}.png",
                 "content": base64.b64encode(capture["png_desktop"]).decode("ascii"),
-                "content_type": "image/png",
-            },
-            {
-                "filename": f"{MOBILE_KEY}.png",
-                "content": base64.b64encode(capture["png_mobile"]).decode("ascii"),
+                "content_id": VIEW_KEY,
                 "content_type": "image/png",
             },
             {
