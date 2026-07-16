@@ -1,8 +1,8 @@
 """
-Scheduled Dashboard Snapshot Email  (HTML KPI edition)
-======================================================
+Scheduled Dashboard Snapshot Email  (HTML KPI + inline snapshots)
+=================================================================
 Emails the Overview as a table-based HTML email whose KPI values are REAL text
-(selectable, zoomable, screen-reader friendly) rather than a flattened PNG:
+(selectable, no zoom needed), PLUS the full dashboard snapshots and a PDF:
 
   • KPI tiles — Financial / Operational / Marketing — rendered as HTML tables from
     the same JSON the dashboard uses (GET /api/mtd-kpi-header, plus appointments &
@@ -10,13 +10,14 @@ Emails the Overview as a table-based HTML email whose KPI values are REAL text
     exactly (money/pct/num, ▲/▼ MoM deltas, "% to goal").
   • Per-location table — Cash MTD, Proj. Run Rate, Goal, MTD/Trend % to goal — from
     GET /api/mtd-summary.
-  • Charts (HYBRID) — the two Overview charts ("Sales to Budget — Month to Date"
-    and "Revenue by Service Line") are still captured as PNGs via a slim headless
-    Chromium pass and embedded inline via cid:, because email HTML can't run the
-    Recharts/JS that draws them.
+  • Full-dashboard snapshots — the whole Overview captured via headless Chromium at
+    TWO widths and embedded INLINE (responsive: the wide desktop image on desktop
+    clients, the single-column mobile image on phones). The mobile reflow now also
+    stacks the hero cards' internal columns so nothing is clipped.
+  • PDF — the desktop Overview as a downloadable PDF attachment.
 
 Data host: the dashboard's API (API_BASE), NOT the dashboard URL. DASHBOARD_URL is
-used only to render the two chart images.
+used only to render the inline snapshots + PDF.
 
   • Delivered via Resend (HTTP API — Railway blocks outbound SMTP ports).
 
@@ -26,14 +27,15 @@ Intended to run as a Railway Cron service:
 
 Environment variables (set in Railway → Variables):
     RESEND_API_KEY   Resend API key
-    DASHBOARD_URL    Live dashboard URL (used ONLY to capture the chart images)
+    DASHBOARD_URL    Live dashboard URL (used ONLY to capture the snapshots + PDF)
     API_BASE         (optional) Reporting API base; defaults to the known backend
     EMAIL_TO         Comma-separated primary recipient list (at least one)
     EMAIL_CC         (optional) Comma-separated CC recipient list
     EMAIL_FROM       Verified sender, e.g. "Evolve Dashboard <reports@yourdomain.com>"
     EMAIL_SUBJECT    (optional) Subject line override
     RENDER_WAIT_MS   (optional) Extra settle time for charts to paint (default 2800)
-    SKIP_CHARTS      (optional) "1" to send KPI tables only (no Chromium pass)
+    SKIP_SNAPSHOT    (optional) "1" to send KPI tables only (no Chromium pass).
+                     (SKIP_CHARTS is accepted as a legacy alias.)
 """
 
 from __future__ import annotations
@@ -51,13 +53,17 @@ import resend
 # Default reporting API (same host the dashboard's apiGet points at).
 DEFAULT_API_BASE = "https://backend-production-0019.up.railway.app"
 
-# The two Overview charts we still ship as images (matched by their CardTitle text).
-CHART_TITLES = ["Sales to Budget — Month to Date", "Revenue by Service Line"]
-
-# --- capture settings (chart-only, hybrid) ---
+# --- inline snapshot cids ---
+VIEW_KEY = "overview"            # desktop inline image cid + filename
+MOBILE_KEY = "overview_mobile"   # mobile inline image cid + filename
+VIEW_LABEL = "Overview"
 VIEW_NAV_TEXT = "Overview"
-VIEWPORT = {"width": 1600, "height": 1200}
-DEVICE_SCALE_FACTOR = 3
+
+# --- capture settings ---
+VIEWPORT = {"width": 1600, "height": 1200}   # desktop load + capture width
+MOBILE_VIEWPORT = {"width": 430, "height": 932}  # phone width → single-column reflow
+PDF_PAGE_WIDTH = 1600                        # desktop PDF page width (px) → 1200pt
+DEVICE_SCALE_FACTOR = 3                       # 3x so dense tables stay crisp on zoom
 NAV_TIMEOUT_MS = 60_000
 DATA_LOAD_TIMEOUT_MS = 60_000
 LOADING_TEXT = "Loading live data"
@@ -389,39 +395,93 @@ def build_location_rows(summary: list) -> tuple[list, dict]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Chart capture (hybrid) — screenshot just the two Overview chart cards.
+# Full-dashboard snapshot capture (desktop PNG + mobile PNG + PDF).
 # ─────────────────────────────────────────────────────────────────────────────
-_TAG_CHART_CARDS_JS = """
-(titles) => {
-  const out = [];
-  titles.forEach((t, i) => {
-    const titleEl = Array.from(document.querySelectorAll('div'))
-      .find(d => d.childElementCount === 0 && d.textContent.trim() === t);
-    if (!titleEl) { out.push(null); return; }
-    let card = titleEl;
-    while (card && card !== document.body) {
-      const br = parseFloat(getComputedStyle(card).borderTopLeftRadius) || 0;
-      if (br >= 12 && card.offsetWidth > 200) break;
-      card = card.parentElement;
+# Removes the height:100vh / overflow:hidden constraints so a full-page screenshot
+# / PDF captures the ENTIRE view instead of just the visible viewport.
+_UNCLIP_JS = """
+() => {
+  const shell = document.querySelector('#root > div');
+  if (shell) { shell.style.height = 'auto'; shell.style.overflow = 'visible'; }
+  const main = document.querySelector('main');
+  if (main) { main.style.overflow = 'visible'; }
+  const scroll = document.querySelector('.ev-scroll');
+  if (scroll) { scroll.style.overflow = 'visible'; scroll.style.flex = 'none'; }
+  document.body.style.height = 'auto';
+  document.documentElement.style.height = 'auto';
+}
+"""
+
+# Hides the sidebar and reports <main> dimensions so the PDF fits one page.
+_MEASURE_FOR_PDF_JS = """
+() => {
+  const aside = document.querySelector('aside');
+  if (aside) aside.style.display = 'none';
+  const main = document.querySelector('main');
+  const r = main.getBoundingClientRect();
+  return {
+    w: Math.ceil(Math.max(main.scrollWidth, r.width)),
+    h: Math.ceil(Math.max(main.scrollHeight, r.height)),
+  };
+}
+"""
+
+# Injected before capture (both outputs): hide the sidebar so the emailed image /
+# PDF is just the dashboard content at full desktop width.
+_DESKTOP_CSS = """
+aside { display: none !important; }
+main { width: 100% !important; }
+"""
+
+# Injected only for the MOBILE capture (after narrowing the viewport). The dashboard
+# has no responsive layout, so this collapses the fixed multi-column grids to a
+# single-column shape AND — the fix for the clipped hero cards — stacks the hero
+# cards' internal flex columns (`.ev-hero-cols`: MTD | Full-Month Budget |
+# Projected), hiding the thin vertical divider bars, so no card/table/graph runs
+# off the narrow viewport. Charts use Recharts ResponsiveContainer and resize on
+# their own.
+_MOBILE_REFLOW_JS = r"""
+() => {
+  const main = document.querySelector('main');
+  if (!main) return;
+  main.querySelectorAll('*').forEach((el) => {
+    const cs = getComputedStyle(el);
+    if (cs.display !== 'grid') return;
+    const raw = (el.style.gridTemplateColumns || '').trim();
+    if (!raw) return;
+    const count = cs.gridTemplateColumns.split(' ').filter(Boolean).length;
+    const isRepeat = raw.includes('repeat(');
+    const allEqual = /^(?:\s*1fr\s*,?)+$/.test(raw);
+    if (isRepeat || allEqual) {
+      el.style.gridTemplateColumns = count >= 3 ? '1fr 1fr' : '1fr';
+      el.style.gap = '10px';
+    } else if (count === 2) {
+      el.style.gridTemplateColumns = '1fr';
+      el.style.gap = '12px';
     }
-    if (!card || card === document.body) { out.push(null); return; }
-    const id = 'ev-chart-' + i;
-    card.setAttribute('id', id);
-    out.push({ id, title: t });
   });
-  return out;
+  // Stack each hero card's internal flex row so the 3 wide stats don't overflow.
+  main.querySelectorAll('.ev-hero-cols').forEach((el) => {
+    el.style.flexDirection = 'column';
+    el.style.alignItems = 'stretch';
+    Array.from(el.children).forEach((ch) => {
+      const w = ch.getBoundingClientRect().width;
+      if (w <= 6) { ch.style.display = 'none'; }        // thin divider bar
+      else { ch.style.width = '100%'; ch.style.marginBottom = '12px'; }
+    });
+  });
 }
 """
 
 
-def capture_charts(dashboard_url: str, render_wait_ms: int) -> list[dict]:
-    """Return [{id, title, png}] for each Overview chart card we could capture."""
+def capture_overview(dashboard_url: str, render_wait_ms: int) -> dict:
+    """Open the dashboard, load the Overview, and return
+    {png_desktop, png_mobile, pdf_bytes}. Returns {} if the view never loads."""
     from playwright.sync_api import (
         TimeoutError as PlaywrightTimeoutError,
         sync_playwright,
     )
 
-    captured: list[dict] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--no-sandbox"])
         page = browser.new_page(viewport=VIEWPORT, device_scale_factor=DEVICE_SCALE_FACTOR)
@@ -450,24 +510,41 @@ def capture_charts(dashboard_url: str, render_wait_ms: int) -> list[dict]:
                     page.reload(wait_until="networkidle", timeout=NAV_TIMEOUT_MS)
                 page.wait_for_timeout(LOAD_RETRY_BACKOFF_MS)
             else:
-                print(f"[send_dashboard_email] WARN: '{ERROR_TEXT}' persisted — skipping charts", file=sys.stderr)
+                print(f"[send_dashboard_email] WARN: '{ERROR_TEXT}' persisted — no snapshot", file=sys.stderr)
                 browser.close()
-                return []
+                return {}
 
-        page.add_style_tag(content="aside { display: none !important; }")
-        page.wait_for_timeout(400)
-        tags = page.evaluate(_TAG_CHART_CARDS_JS, CHART_TITLES) or []
-        for tag in tags:
-            if not tag:
-                continue
-            try:
-                png = page.locator(f"#{tag['id']}").screenshot(type="png")
-                captured.append({"id": tag["id"], "title": tag["title"], "png": png})
-                print(f"[send_dashboard_email] Captured chart '{tag['title']}' ({len(png)} bytes)")
-            except Exception as exc:
-                print(f"[send_dashboard_email] WARN: could not capture '{tag['title']}': {exc}", file=sys.stderr)
+        page.evaluate(_UNCLIP_JS)
+        page.add_style_tag(content=_DESKTOP_CSS)
+        page.wait_for_timeout(500)
+
+        # 1) Desktop PNG — full <main> at 1600px width, 3x.
+        png_desktop = page.locator("main").screenshot(type="png")
+        print(f"[send_dashboard_email] Captured desktop PNG ({len(png_desktop)} bytes)")
+
+        # 2) Desktop PDF — same layout as one 1600px-wide page (captured BEFORE the
+        # mobile reflow so it keeps the multi-column desktop layout).
+        dims = page.evaluate(_MEASURE_FOR_PDF_JS)
+        page.wait_for_timeout(200)
+        pdf_bytes = page.pdf(
+            width=f"{PDF_PAGE_WIDTH}px",
+            height=f"{dims['h']}px",
+            print_background=True,
+            margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
+        )
+        print(f"[send_dashboard_email] Captured PDF ({len(pdf_bytes)} bytes)")
+
+        # 3) Mobile PNG — narrow to phone width, collapse grids + stack hero cards.
+        page.set_viewport_size(MOBILE_VIEWPORT)
+        page.wait_for_timeout(800)          # let Recharts ResponsiveContainers resize
+        page.evaluate(_MOBILE_REFLOW_JS)
+        page.evaluate(_UNCLIP_JS)           # heights changed after the reflow
+        page.wait_for_timeout(600)
+        png_mobile = page.locator("main").screenshot(type="png")
+        print(f"[send_dashboard_email] Captured mobile PNG ({len(png_mobile)} bytes)")
+
         browser.close()
-    return captured
+    return {"png_desktop": png_desktop, "png_mobile": png_mobile, "pdf_bytes": pdf_bytes}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -476,9 +553,13 @@ def capture_charts(dashboard_url: str, render_wait_ms: int) -> list[dict]:
 _EMAIL_STYLE = """
     body { margin:0; padding:0; background:#f6f8f7; }
     table { border-collapse:collapse; }
+    .ev-mobile { display:none; }
     @media only screen and (max-width:600px) {
       .ev-tile { display:block !important; width:100% !important; }
       .ev-pad { padding:18px 10px !important; }
+      .ev-desktop { display:none !important; max-height:0 !important; overflow:hidden !important; }
+      .ev-mobile  { display:block !important; max-height:none !important; overflow:visible !important; }
+      .ev-mobile img { width:100% !important; max-width:100% !important; height:auto !important; }
     }
 """
 
@@ -565,13 +646,23 @@ def _loc_table_html(rows: list, totals: dict) -> str:
     )
 
 
-def build_html(report_date: str, sections: list, loc_rows: list, loc_totals: dict, charts: list) -> str:
-    charts_html = ""
-    for c in charts:
-        charts_html += (
-            f'<tr><td style="padding:22px 0 6px 0;"><span style="font:700 14px Arial,Helvetica,sans-serif;color:{INK};">{c["title"]}</span></td></tr>'
-            f'<tr><td align="center" style="padding-bottom:6px;"><img src="cid:{c["id"]}" alt="{c["title"]}" '
-            f'style="display:block;width:100%;max-width:680px;height:auto;border:1px solid {LINE};border-radius:8px;" /></td></tr>'
+def build_html(report_date: str, sections: list, loc_rows: list, loc_totals: dict, has_snapshot: bool) -> str:
+    # Inline full-dashboard snapshot: desktop image by default (also the Outlook
+    # fallback via width="680"); mobile image swapped in by the media query and
+    # skipped by Outlook via the mso conditional.
+    snapshot_html = ""
+    if has_snapshot:
+        snapshot_html = (
+            f'<tr><td style="padding:24px 0 8px 0;"><span style="font:700 14px Arial,Helvetica,sans-serif;color:{INK};">Full Dashboard Snapshot</span></td></tr>'
+            f'<tr><td align="center" style="padding-bottom:4px;">'
+            f'<div class="ev-desktop"><img src="cid:{VIEW_KEY}" alt="{VIEW_LABEL}" width="680" '
+            f'style="display:block;width:100%;max-width:680px;height:auto;margin:0 auto;border:1px solid {LINE};border-radius:8px;" /></div>'
+            f'<!--[if !mso]><!-- -->'
+            f'<div class="ev-mobile" style="display:none;"><img src="cid:{MOBILE_KEY}" alt="{VIEW_LABEL}" '
+            f'style="display:block;width:100%;max-width:100%;height:auto;margin:0 auto;border:1px solid {LINE};border-radius:8px;" /></div>'
+            f'<!--<![endif]-->'
+            f'</td></tr>'
+            f'<tr><td style="padding:8px 0 0 0;font:400 12px Arial,Helvetica,sans-serif;color:#68807a;">A PDF of the Overview is attached.</td></tr>'
         )
     sections_html = "".join(_section_html(s) for s in sections)
     loc_html = _loc_table_html(loc_rows, loc_totals) if loc_rows else ""
@@ -590,7 +681,7 @@ def build_html(report_date: str, sections: list, loc_rows: list, loc_totals: dic
         <tr><td style="font:400 13px Arial,Helvetica,sans-serif;color:#68807a;padding-bottom:6px;">{report_date}</td></tr>
         {sections_html}
         {loc_html}
-        {charts_html}
+        {snapshot_html}
         <tr><td style="padding:26px 0 0 0;font:400 11px Arial,Helvetica,sans-serif;color:#9aaaa5;border-top:1px solid {LINE};">
           Automated snapshot. Confidential — internal use only.
         </td></tr>
@@ -608,7 +699,11 @@ def main() -> None:
     email_cc = [e.strip() for e in _env("EMAIL_CC", required=False).split(",") if e.strip()]
     email_from = _env("EMAIL_FROM")
     render_wait_ms = int(_env("RENDER_WAIT_MS", required=False, default="2800"))
-    skip_charts = _env("SKIP_CHARTS", required=False, default="") == "1"
+    # SKIP_SNAPSHOT (or legacy SKIP_CHARTS) = "1" → tables only, no Chromium pass.
+    skip_snapshot = (
+        _env("SKIP_SNAPSHOT", required=False, default="") == "1"
+        or _env("SKIP_CHARTS", required=False, default="") == "1"
+    )
 
     report_date = (
         date.today().strftime("%A, %B %-d, %Y")
@@ -621,23 +716,41 @@ def main() -> None:
     sections = build_sections(data)
     loc_rows, loc_totals = build_location_rows(data.get("summary") or [])
 
-    charts: list[dict] = []
-    if not skip_charts:
+    capture: dict = {}
+    if not skip_snapshot:
         try:
-            charts = capture_charts(dashboard_url, render_wait_ms)
-        except Exception as exc:  # never let a chart failure block the KPI email
-            print(f"[send_dashboard_email] WARN: chart capture failed, sending tables only: {exc}", file=sys.stderr)
+            capture = capture_overview(dashboard_url, render_wait_ms)
+        except Exception as exc:  # never let a capture failure block the KPI email
+            print(f"[send_dashboard_email] WARN: snapshot capture failed, sending tables only: {exc}", file=sys.stderr)
 
-    html = build_html(report_date, sections, loc_rows, loc_totals, charts)
-    attachments = [
-        {
-            "filename": f"{c['id']}.png",
-            "content": base64.b64encode(c["png"]).decode("ascii"),
-            "content_id": c["id"],
-            "content_type": "image/png",
-        }
-        for c in charts
-    ]
+    has_snapshot = bool(capture.get("png_desktop"))
+    html = build_html(report_date, sections, loc_rows, loc_totals, has_snapshot)
+
+    attachments = []
+    if has_snapshot:
+        attachments = [
+            {
+                # Desktop inline image (cid) — both content_id AND image content_type
+                # are required for clients to embed rather than attach.
+                "filename": f"{VIEW_KEY}.png",
+                "content": base64.b64encode(capture["png_desktop"]).decode("ascii"),
+                "content_id": VIEW_KEY,
+                "content_type": "image/png",
+            },
+            {
+                # Mobile inline image (shown on phones via the media query).
+                "filename": f"{MOBILE_KEY}.png",
+                "content": base64.b64encode(capture["png_mobile"]).decode("ascii"),
+                "content_id": MOBILE_KEY,
+                "content_type": "image/png",
+            },
+            {
+                # PDF (no content_id → downloadable attachment).
+                "filename": f"evolve-overview-{date.today().isoformat()}.pdf",
+                "content": base64.b64encode(capture["pdf_bytes"]).decode("ascii"),
+                "content_type": "application/pdf",
+            },
+        ]
 
     params = {"from": email_from, "to": email_to, "subject": subject, "html": html}
     if attachments:
@@ -647,7 +760,8 @@ def main() -> None:
 
     resend.Emails.send(params)
     recipients = ", ".join(email_to + email_cc)
-    print(f"[send_dashboard_email] Sent HTML Overview ({len(charts)} chart image(s)) to {recipients}")
+    kind = "tables + inline snapshot + PDF" if has_snapshot else "tables only"
+    print(f"[send_dashboard_email] Sent HTML Overview ({kind}) to {recipients}")
 
 
 if __name__ == "__main__":
