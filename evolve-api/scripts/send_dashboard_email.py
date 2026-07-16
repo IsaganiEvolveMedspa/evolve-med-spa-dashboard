@@ -554,9 +554,14 @@ def _loc_table_html(rows: list, totals: dict) -> str:
         f'<td style="{tot}">{totals["mtd_pct"]}</td>'
         f'<td style="{tot}">{totals["trend_pct"]}</td></tr>'
     )
+    # Wrap in a horizontal-scroll container with a min-width so the 6-column table
+    # scrolls (not clips) on narrow phones. Desktop (720px shell) is unaffected —
+    # min-width:520px is below the container width so the table just fills it.
     return (
         f'<tr><td style="padding:24px 0 10px 0;"><span style="font:700 14px Arial,Helvetica,sans-serif;color:{INK};">Location Performance · Sales &amp; Customers</span></td></tr>'
-        f'<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>{head}</tr>{body}</table></td></tr>'
+        f'<tr><td><div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">'
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="min-width:520px;"><tr>{head}</tr>{body}</table>'
+        f'</div></td></tr>'
     )
 
 
