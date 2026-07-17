@@ -493,6 +493,30 @@ _MOBILE_REFLOW_JS = r"""
       });
     });
   });
+  // TARGETED: the "Location Performance · Sales & Customers" table is uniquely
+  // cramped — its Proj. Run Rate cell has an inline min-width:150px (pace bar +
+  // value) that squeezes the other columns and clips values. Find that table via
+  // its card title and compress it harder: kill every inline min-width so columns
+  // can shrink, cap widths to the cell, shrink the pace bars, and drop the font.
+  Array.from(main.querySelectorAll('div'))
+    .filter((d) => d.childElementCount === 0 && /Sales & Customers/.test(d.textContent))
+    .forEach((titleEl) => {
+      let card = titleEl.parentElement;
+      while (card && card !== main && !card.querySelector('table')) card = card.parentElement;
+      const table = card && card.querySelector('table');
+      if (!table) return;
+      table.querySelectorAll('*').forEach((node) => {
+        node.style.minWidth = '0';
+        node.style.maxWidth = '100%';
+      });
+      table.querySelectorAll('th,td').forEach((c) => {
+        c.style.fontSize = '8px';
+        c.style.padding = '2px 2px';
+        c.style.whiteSpace = 'normal';
+        c.style.wordBreak = 'break-word';
+      });
+      table.querySelectorAll('svg').forEach((s) => { s.style.maxWidth = '22px'; });  // shrink pace bars
+    });
 }
 """
 
