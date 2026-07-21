@@ -35,7 +35,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # Import triggers config.py -> SQL Server connection pool init
 import config  # noqa: F401  (side-effect import)
 
-from routers import locations, daily, mtd, operations, employees, charts, appointments, insights, retention
+from routers import locations, daily, mtd, operations, employees, charts, appointments, insights, retention, inventory
 from utils.request_logs import RequestLoggingMiddleware
 
 
@@ -66,6 +66,7 @@ app.include_router(charts.router,       tags=["Charts"])
 app.include_router(appointments.router, tags=["Appointments"])
 app.include_router(insights.router,     tags=["AI Insights"])
 app.include_router(retention.router,    tags=["Retention"])
+app.include_router(inventory.router,    tags=["Inventory"])
 
 # --- Health ---
 @app.get("/health", tags=["System"])

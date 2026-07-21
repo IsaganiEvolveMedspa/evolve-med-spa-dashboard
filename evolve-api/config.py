@@ -140,6 +140,9 @@ BUSINESS_KPI_TEST_TABLE = os.getenv("SQL_BUSINESS_KPI_TEST_TABLE", "dbo.TEST_ZEN
 FACT_COLLECTIONS_TABLE = os.getenv("SQL_FACT_COLLECTIONS_TABLE", "dbo.Bi_FactCollections_s3")
 GOOGLE_ADS_TABLE = os.getenv("SQL_GOOGLE_ADS_TABLE", "dbo.BRONZE_ZENOTI_GOOGLE_ADS")
 FB_ADS_TABLE     = os.getenv("SQL_FB_ADS_TABLE",     "dbo.BRONZE_ZENOTI_FB_ADS")
+# Inventory analytics (Inventory tab) — stock movement ledger + current snapshot.
+STOCK_LEDGER_TABLE    = os.getenv("SQL_STOCK_LEDGER_TABLE",    "dbo.BRONZE_ZENOTI_STOCK_LEDGER")
+STOCK_INVENTORY_TABLE = os.getenv("SQL_STOCK_INVENTORY_TABLE", "dbo.BRONZE_ZENOTI_STOCK_INVENTORY")
 
 # Aliases used by routers — plain table names work for SQL Server
 FULL_SALES    = SALES_TABLE
@@ -168,6 +171,8 @@ def business_kpi_table_for(s: str) -> str:
 FULL_FACT_COLLECTIONS = FACT_COLLECTIONS_TABLE
 FULL_GOOGLE_ADS = GOOGLE_ADS_TABLE
 FULL_FB_ADS     = FB_ADS_TABLE
+FULL_STOCK_LEDGER    = STOCK_LEDGER_TABLE
+FULL_STOCK_INVENTORY = STOCK_INVENTORY_TABLE
 
 # ─── Overlay (fill the gap when bronze lags the live site) ────────────────────
 # When OVERLAY_ENABLED=true, read through the gap-fill VIEWS (bronze UNION ALL

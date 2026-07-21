@@ -2802,7 +2802,7 @@ const MembershipsView = () => <ComingSoon name="Memberships" />;
 /* =================================================================
    COST & INVENTORY ANALYTICS  (hardcoded replica — Zenoti)
    ================================================================= */
-const INV_ALERT = '9 cost-variance flags · 5 PO mismatches · 3 stuck transfers · 4 large true-ups';
+const INV_ALERT = 'Sample data — this view is not yet computable from the stock ledger (needs PO/GRN/invoice or transfer-link data). Figures below are illustrative.';
 
 const InvAlert = () => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: '#FBF1ED', border: `1px solid #F0D9CE`, borderRadius: 10, padding: '9px 14px', font: `500 11.5px ${FONT}`, color: C.clay, marginBottom: 16 }}>
@@ -2822,12 +2822,6 @@ const InvKpis = ({ items }) => (
     ))}
   </div>
 );
-
-const InvSpark = ({ data, color = C.teal, h = 48 }) => {
-  const w = 200, mx = Math.max(...data), mn = Math.min(...data), rng = (mx - mn) || 1;
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - mn) / rng) * (h - 8) - 4}`).join(' ');
-  return <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none"><polyline points={pts} fill="none" stroke={color} strokeWidth="2" /></svg>;
-};
 
 const InvBar = ({ label, pct, color = C.teal, right, target }) => (
   <div style={{ marginBottom: 11 }}>
@@ -2868,188 +2862,141 @@ const InvTable = ({ cols, rows }) => {
 };
 
 // ---- Analytics Overview ----
+// --- Inventory: live data (BRONZE stock ledger + snapshot; see routers/inventory.py) ---
+// Each computable sub-view fetches its own endpoint. PO Matching & Transfers stay
+// mock (not computable from the two stock tables: no PO/GRN/invoice or transfer link).
+const useInvData = (path) => {
+  const fl = useFilters();
+  const params = { start_date: fl.start_date, end_date: fl.end_date, locations: fl.locations };
+  const res = useApiData({ d: { path, params } }, [JSON.stringify(params)]);
+  return { d: res.data.d, loading: res.loading || !fl.ready, error: res.error, reload: res.reload };
+};
+const iMoney = (v, opts) => (n(v) == null ? '—' : money(v, opts));
+const iNum = (v, d = 0) => (n(v) == null ? '—' : num(v, d));
+const iPct = (v, d = 0) => (n(v) == null ? '—' : `${n(v).toFixed(d)}%`);
+const iTurns = (v) => (n(v) == null ? '—' : `${n(v).toFixed(1)}×`);
+const iSigned = (v, fmt) => (n(v) == null ? '—' : `${n(v) >= 0 ? '+' : '−'}${fmt(Math.abs(n(v)))}`);
+
 const InvAnalyticsView = ({ onNavigate }) => {
+  const { d, loading, error, reload } = useInvData('/api/inventory/analytics-overview');
+  const k = (d && d.kpis) || {};
   const kpis = [
-    { label: 'Avg Cost-Variance', value: '+6.3%', sub: 'system vs latest PO', color: C.clay },
-    { label: 'PO Match Rate', value: '88.5%', sub: 'clean 3-way' },
-    { label: 'Open Cost Flags', value: '9', sub: '3 on watch', color: C.clay },
-    { label: 'Inventory Turnover', value: '7.3×', sub: 'annualized' },
-    { label: 'Avg Weeks of Supply', value: '9.6', sub: 'network' },
-    { label: 'True-Up Value', value: '−$18.4K', sub: 'net adjustment', color: C.red },
+    { label: 'Avg Cost Variance', value: iPct(k.avg_cost_variance_pct, 1), sub: 'system vs latest purchase', color: C.clay },
+    { label: 'PO Match Rate', value: '—', sub: 'needs PO + invoice data' },
+    { label: 'Open Cost Flags', value: iNum(k.open_cost_flags), sub: 'at/over drift threshold', color: C.clay },
+    { label: 'Inventory Turnover', value: iTurns(k.inventory_turnover), sub: 'annualized' },
+    { label: 'Avg Weeks of Supply', value: iNum(k.avg_weeks_of_supply, 1), sub: 'network' },
+    { label: 'True-Up Value', value: iMoney(k.true_up_value, { compact: true }), sub: 'net adjustment', color: (n(k.true_up_value) || 0) < 0 ? C.red : C.teal },
   ];
-  const scorecard = [
-    { a: 'Cost per Unit', hl: '$182 wtd', f: 6, to: 'Cost per Unit' },
-    { a: 'Costing Drift', hl: '+6.3% avg', f: 9, to: 'System vs Purchase Cost' },
-    { a: 'PO Matching', hl: '88.5% clean', f: 5, to: 'PO Matching' },
-    { a: 'Transfers', hl: '12 open', f: 5, to: 'Transfers' },
-    { a: 'True-Ups', hl: '−$18.4K net', f: 7, to: 'True-Ups' },
-    { a: 'Inventory Turnover', hl: '7.3× / 9.0× tgt', f: 4, to: 'Inventory Turnover' },
-    { a: 'Weeks of Supply', hl: '9.6 wks avg', f: 6, to: 'Consumption & WOS' },
-  ];
-  const impact = [
-    { label: 'Cost variance', right: '$58.2K', pct: 100, color: C.red },
-    { label: 'PO mismatch', right: '$31.4K', pct: 54, color: C.clay },
-    { label: 'Transfer discrepancy', right: '$12.7K', pct: 22, color: C.navy },
-    { label: 'True-up write-downs', right: '$24.1K', pct: 41, color: C.redBright },
-  ];
+  const sc = (d && d.scorecard) || [];
+  const headline = (r) => {
+    if (r.headline == null) return '—';
+    if (r.to === 'Cost per Unit') return iMoney(r.headline);
+    if (r.to === 'True-Ups') return iMoney(r.headline, { compact: true });
+    if (r.to === 'Inventory Turnover') return iTurns(r.headline);
+    if (r.to === 'System vs Purchase Cost') return iPct(r.headline, 1);
+    if (r.to === 'Weeks of Supply') return iNum(r.headline, 1);
+    return iNum(r.headline, 1);
+  };
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <InvAlert />
-      <InvKpis items={kpis} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 16 }}>
+    <DataState loading={loading} error={error} onRetry={reload} kpiCount={6}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <InvKpis items={kpis} />
         <Card>
-          <CardTitle title="Data-Integrity Scorecard" sub="One row per analysis · health, headline & open flags" />
+          <CardTitle title="Data-Integrity Scorecard" sub="One row per computable analysis · live from Zenoti stock ledger" />
           <div style={{ marginTop: 12 }}>
             <InvTable
               cols={[
-                { h: 'Analysis', k: 'a', strong: true, render: (r) => <span><span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: r.f >= 7 ? C.red : r.f >= 5 ? C.clay : C.teal, marginRight: 8 }} />{r.a}</span> },
-                { h: 'Headline', k: 'hl', align: 'right' },
-                { h: 'Flags', k: 'f', align: 'right', w: '0.5fr' },
+                { h: 'Analysis', k: 'analysis', strong: true, w: '1.6fr' },
+                { h: 'Headline', align: 'right', render: headline },
+                { h: 'Flags', align: 'right', w: '0.5fr', render: (r) => r.flags != null ? iNum(r.flags) : '—' },
                 { h: '', align: 'right', w: '0.5fr', render: (r) => <span onClick={() => onNavigate && onNavigate(r.to)} style={{ color: C.teal, font: `600 11px ${FONT}`, cursor: 'pointer' }}>View →</span> },
               ]}
-              rows={scorecard}
+              rows={sc}
             />
           </div>
         </Card>
-        <Card>
-          <CardTitle title="Flagged $ Impact by Type" sub="Estimated exposure across analyses" />
-          <div style={{ marginTop: 16 }}>
-            {impact.map((b, i) => <InvBar key={i} {...b} />)}
-          </div>
-        </Card>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-        <Card><div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>Inventory Turnover</div><div style={{ font: `600 22px ${FONT}`, color: C.ink, margin: '6px 0' }}>7.3× <span style={{ font: `600 10px ${FONT}`, color: C.green }}>▲ 0.4 vs 12-mo</span></div><InvSpark data={[6.2, 6.4, 6.3, 6.6, 6.8, 6.7, 7.0, 6.9, 7.1, 7.0, 7.2, 7.3]} /><div style={{ font: `500 9.5px ${FONT}`, color: C.gray3, marginTop: 4 }}>Trailing 12 months</div></Card>
-        <Card><div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>True-Up Value</div><div style={{ font: `600 22px ${FONT}`, color: C.red, margin: '6px 0' }}>−$18.4K <span style={{ font: `600 10px ${FONT}`, color: C.clay }}>rising adjustments</span></div><InvSpark data={[-6, -8, -7, -10, -9, -12, -11, -14, -13, -16, -17, -18.4]} color={C.red} /><div style={{ font: `500 9.5px ${FONT}`, color: C.gray3, marginTop: 4 }}>Trailing 12 months</div></Card>
-        <Card><div style={{ font: `600 9.5px ${FONT}`, letterSpacing: '.05em', textTransform: 'uppercase', color: C.gray }}>Avg Cost Variance</div><div style={{ font: `600 22px ${FONT}`, color: C.clay, margin: '6px 0' }}>+6.3% <span style={{ font: `600 10px ${FONT}`, color: C.clay }}>▲ 1.8 pt drift</span></div><InvSpark data={[3.1, 3.4, 3.8, 4.2, 4.5, 4.9, 5.2, 5.6, 5.9, 6.0, 6.1, 6.3]} color={C.clay} /><div style={{ font: `500 9.5px ${FONT}`, color: C.gray3, marginTop: 4 }}>Trailing 12 months</div></Card>
-      </div>
-    </div>
+    </DataState>
   );
 };
 
 // ---- Inventory Turnover ----
 const InvTurnoverView = () => {
+  const { d, loading, error, reload } = useInvData('/api/inventory/turnover');
+  const k = (d && d.kpis) || {};
+  const cats = (d && d.by_category) || [];
+  const locs = (d && d.by_location) || [];
+  const dead = (d && d.dead_stock) || [];
   const kpis = [
-    { label: 'Annualized Turnover', value: '7.3×', sub: 'COGS ÷ avg inv' },
-    { label: 'Days-on-Hand', value: '50', sub: 'network avg' },
-    { label: 'Turnover vs Target', value: '−1.7×', sub: '9.0× blended tgt', color: C.clay },
-    { label: 'Slow-Mover Value', value: '$214K', sub: 'turns < target', color: C.clay },
-    { label: 'Dead-Stock Value', value: '$38K', sub: 'no demand 90d+', color: C.red },
+    { label: 'Annualized Turnover', value: iTurns(k.annualized_turnover), sub: 'COGS ÷ avg inv' },
+    { label: 'Days-on-Hand', value: iNum(k.days_on_hand), sub: 'network avg' },
+    { label: 'Turnover vs Target', value: iSigned(k.turnover_vs_target, (x) => `${x.toFixed(1)}×`), sub: `${iTurns(k.target)} target`, color: (n(k.turnover_vs_target) || 0) < 0 ? C.clay : C.teal },
+    { label: 'Slow-Mover Value', value: iMoney(k.slow_mover_value, { compact: true }), sub: 'turns < target', color: C.clay },
+    { label: 'Dead-Stock Value', value: iMoney(k.dead_stock_value, { compact: true }), sub: 'no recent demand', color: C.red },
   ];
-  const cats = [
-    { l: 'Neurotoxins', v: 13.4, t: 12 }, { l: 'Fillers', v: 7.2, t: 9 },
-    { l: 'Biostimulators', v: 4.8, t: 6 }, { l: 'Consumables', v: 9.5, t: 5 },
-    { l: 'Skincare / Retail', v: 3.1, t: 4 }, { l: 'Equipment', v: 5.2, t: 6 },
-  ];
-  const locs = [
-    { l: 'Tribeca', v: 12.1 }, { l: 'Hoboken', v: 10.7 }, { l: 'Jersey City', v: 10.5 }, { l: 'Montclair', v: 10.3 },
-    { l: 'Short Hills', v: 9.5 }, { l: 'Denville', v: 8.4 }, { l: 'Frederick', v: 5.9 }, { l: 'Bel Air', v: 5.6 },
-    { l: 'Ridgewood', v: 5.3 }, { l: 'Bridgewater', v: 5.0 }, { l: 'Waldorf', v: 4.9 }, { l: 'Old Bridge', v: 4.8 },
-    { l: 'Lancaster', v: 4.4 }, { l: 'Scarsdale', v: 4.3 },
-  ];
-  const dead = [
-    { p: 'EltaMD UV Clear', loc: 'Tribeca', oh: 182, ohd: '$4.6K', t: '2.1×', lu: '138d', st: ['Overstocked', 'clay'] },
-    { p: 'SkinVive', loc: 'Bel Air', oh: 46, ohd: '$10.6K', t: '2.4×', lu: '168d', st: ['Slow', 'amber'] },
-    { p: 'Radiesse 1.5cc', loc: 'Frederick', oh: 22, ohd: '$5.7K', t: '3.0×', lu: '96d', st: ['Slow', 'amber'] },
-    { p: 'Bacteriostatic Water', loc: 'Waldorf', oh: 88, ohd: '$0.5K', t: '0.8×', lu: '212d', st: ['Dead', 'red'] },
-    { p: 'Microcannula 25G', loc: 'Denville', oh: 64, ohd: '$0.2K', t: '1.1×', lu: '184d', st: ['Dead', 'red'] },
-    { p: 'SkinMedica TNS', loc: 'Ridgewood', oh: 120, ohd: '$16.7K', t: '3.4×', lu: '77d', st: ['Slow', 'amber'] },
-    { p: 'Versa Filler', loc: 'Lancaster', oh: 14, ohd: '$2.5K', t: '1.8×', lu: '121d', st: ['Dead', 'red'] },
-    { p: 'Restylane Refyne', loc: 'Old Bridge', oh: 18, ohd: '$4.3K', t: '2.6×', lu: '103d', st: ['Slow', 'amber'] },
-  ];
+  const maxCat = Math.max(1, ...cats.map((c) => n(c.turnover) || 0), ...cats.map((c) => n(c.target) || 0));
+  const maxLoc = Math.max(1, ...locs.map((c) => n(c.turnover) || 0));
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <InvAlert />
-      <InvKpis items={kpis} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <Card>
-          <CardTitle title="Turnover by Category" sub="Annualized turns · black tick = category target" />
-          <div style={{ marginTop: 16 }}>
-            {cats.map((c, i) => <InvBar key={i} label={c.l} right={`${c.v}× · tgt ${c.t}×`} pct={(c.v / 14) * 100} target={(c.t / 14) * 100} color={c.v >= c.t ? C.teal : C.clay} />)}
-          </div>
-        </Card>
-        <Card>
-          <CardTitle title="Turnover by Location" sub="Below 8.0× network target in terracotta" />
-          <div style={{ marginTop: 16 }}>
-            {locs.map((c, i) => <InvBar key={i} label={c.l} right={`${c.v}×`} pct={(c.v / 12.1) * 100} color={c.v >= 8 ? C.teal : C.clay} />)}
+    <DataState loading={loading} error={error} onRetry={reload}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <InvKpis items={kpis} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <Card><CardTitle title="Turnover by Category" sub="Annualized turns · black tick = target" />
+            <div style={{ marginTop: 16 }}>{cats.map((c, i) => <InvBar key={i} label={c.category} right={`${iTurns(c.turnover)} · tgt ${iTurns(c.target)}`} pct={(n(c.turnover) || 0) / maxCat * 100} target={(n(c.target) || 0) / maxCat * 100} color={(n(c.turnover) || 0) >= (n(c.target) || 0) ? C.teal : C.clay} />)}</div>
+          </Card>
+          <Card><CardTitle title="Turnover by Location" sub={`Below ${iTurns(k.target)} target in terracotta`} />
+            <div style={{ marginTop: 16 }}>{locs.map((c, i) => <InvBar key={i} label={c.location} right={iTurns(c.turnover)} pct={(n(c.turnover) || 0) / maxLoc * 100} color={(n(c.turnover) || 0) >= (n(k.target) || 0) ? C.teal : C.clay} />)}</div>
+          </Card>
+        </div>
+        <Card><CardTitle title="Slow & Dead Stock" sub="Turns below target or no recent demand · candidates for write-down or transfer" />
+          <div style={{ marginTop: 12 }}>
+            <InvTable
+              cols={[
+                { h: 'Product', k: 'product', strong: true, w: '1.4fr' }, { h: 'Location', k: 'location' },
+                { h: 'On-Hand', align: 'right', render: (r) => iNum(r.on_hand, 0) }, { h: 'On-Hand $', align: 'right', render: (r) => iMoney(r.on_hand_value, { compact: true }) },
+                { h: 'Turns', align: 'right', render: (r) => iTurns(r.turns) }, { h: 'Last Use', align: 'right', render: (r) => r.last_use_days == null ? '—' : `${r.last_use_days}d` },
+                { h: 'Status', align: 'right', render: (r) => <InvPill text={r.status} tone={r.status === 'Dead' ? 'red' : 'amber'} /> },
+              ]}
+              rows={dead}
+            />
           </div>
         </Card>
       </div>
-      <Card>
-        <CardTitle title="Network Turnover Trend" sub="Annualized turns · trailing 12 months" />
-        <div style={{ marginTop: 10 }}><InvSpark data={[6.1, 6.0, 6.4, 6.3, 6.8, 6.6, 7.0, 6.9, 7.1, 7.0, 7.2, 7.3]} h={90} /></div>
-      </Card>
-      <Card>
-        <CardTitle title="Slow & Dead Stock" sub="Turns below target or no demand 90d+ · candidates for write-down or transfer" />
-        <div style={{ marginTop: 12 }}>
-          <InvTable
-            cols={[
-              { h: 'Product', k: 'p', strong: true, w: '1.4fr' }, { h: 'Location', k: 'loc' },
-              { h: 'On-Hand', k: 'oh', align: 'right' }, { h: 'On-Hand $', k: 'ohd', align: 'right' },
-              { h: 'Turns', k: 't', align: 'right' }, { h: 'Last Use', k: 'lu', align: 'right' },
-              { h: 'Status', align: 'right', render: (r) => <InvPill text={r.st[0]} tone={r.st[1]} /> },
-            ]}
-            rows={dead}
-          />
-        </div>
-      </Card>
-    </div>
+    </DataState>
   );
 };
 
 // ---- True-Ups (Zenoti) ----
 const InvTrueUpsView = () => {
+  const { d, loading, error, reload } = useInvData('/api/inventory/true-ups');
+  const k = (d && d.kpis) || {};
+  const rows = (d && d.by_center) || [];
   const kpis = [
-    { label: 'True-Up Count (May)', value: '14', sub: 'adjustment entries' },
-    { label: 'Net True-Up Value', value: '−$3.5K', sub: 'signed', color: C.red },
-    { label: 'Gross Write-Downs', value: '$6.1K', sub: 'shrink / damage', color: C.clay },
-    { label: 'Gross Write-Ups', value: '+$2.6K', sub: 'corrections up', color: C.green },
-    { label: 'Repeated SKU-Sites', value: '0', sub: 'chronic discrepancy' },
-  ];
-  const entries = [
-    { d: 'May 07', loc: 'Hoboken', p: 'Dysport 300u', sku: 'DYS-300', q: '+4', cb: '$399', v: '+$1.6K', vc: C.green, rs: 'Receiving error', fl: ['Large', 'clay'] },
-    { d: 'May 03', loc: 'Waldorf', p: 'Sculptra', sku: 'SCU-VIAL', q: '−3', cb: '$385', v: '−$1.2K', vc: C.red, rs: 'Damage / expiry write-off', fl: ['Large', 'clay'] },
-    { d: 'May 10', loc: 'Lancaster', p: 'Botox 100u', sku: 'BTX-100', q: '−2', cb: '$560', v: '−$1.1K', vc: C.red, rs: 'Count correction', fl: ['Large', 'clay'] },
-    { d: 'May 15', loc: 'Waldorf', p: 'Xeomin 100u', sku: 'XEO-100', q: '−2', cb: '$480', v: '−$960', vc: C.red, rs: 'Count correction', fl: ['Large', 'clay'] },
-    { d: 'May 18', loc: 'Lancaster', p: 'Sculptra', sku: 'SCU-VIAL', q: '−2', cb: '$385', v: '−$770', vc: C.red, rs: 'Count correction', fl: ['Large', 'clay'] },
-    { d: 'May 22', loc: 'Frederick', p: 'SkinVive', sku: 'SKV-1', q: '+3', cb: '$230', v: '+$690', vc: C.green, rs: 'Receiving error', fl: ['Large', 'clay'] },
-  ];
-  const byLoc = [
-    { label: 'Lancaster', right: '−$1.9K', pct: 100, color: C.red }, { label: 'Waldorf', right: '−$1.5K', pct: 79, color: C.red },
-    { label: 'Hoboken', right: '+$1.6K', pct: 84, color: C.teal }, { label: 'Frederick', right: '+$0.7K', pct: 37, color: C.teal },
-    { label: 'Bel Air', right: '−$0.4K', pct: 21, color: C.clay },
-  ];
-  const byReason = [
-    { label: 'Count correction', right: '−$3.6K', pct: 100, color: C.red }, { label: 'Receiving error', right: '+$2.3K', pct: 64, color: C.teal },
-    { label: 'Damage / expiry', right: '−$1.2K', pct: 33, color: C.clay }, { label: 'Theft / shrink', right: '−$0.6K', pct: 17, color: C.redBright },
+    { label: 'Net True-Up Value', value: iMoney(k.net_trueup_value, { compact: true }), sub: 'adjustments + audits', color: (n(k.net_trueup_value) || 0) < 0 ? C.red : C.teal },
+    { label: 'Centers w/ Adjustments', value: iNum(k.centers_with_adjustments), sub: 'this period' },
   ];
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <InvAlert />
-      <InvKpis items={kpis} />
-      <Card>
-        <CardTitle title="True-Up Value & Count Trend" sub="18 months · write-ups (green) vs write-downs (red) · count line" />
-        <div style={{ marginTop: 10 }}><InvSpark data={[2, -3, 4, -2, 3, -5, 2, -4, 3, -6, 2, -3, 4, -2, 3, -5, 2, -3.5]} h={90} color={C.navy} /></div>
-      </Card>
-      <Card>
-        <CardTitle title="Adjustment Entries" sub="Flagged (value) > $250 or chronic SKU-site · sorted by value" />
-        <div style={{ marginTop: 12 }}>
-          <InvTable
-            cols={[
-              { h: 'Date', k: 'd' }, { h: 'Location', k: 'loc' }, { h: 'Product', k: 'p', strong: true, w: '1.2fr' },
-              { h: 'SKU', k: 'sku' }, { h: 'Qty', k: 'q', align: 'right', w: '0.5fr' }, { h: 'Cost Basis', k: 'cb', align: 'right' },
-              { h: 'Value $', align: 'right', render: (r) => <span style={{ color: r.vc, fontWeight: 600 }}>{r.v}</span> },
-              { h: 'Reason', k: 'rs', w: '1.1fr' }, { h: 'Flag', align: 'right', render: (r) => <InvPill text={r.fl[0]} tone={r.fl[1]} /> },
-            ]}
-            rows={entries}
-          />
-        </div>
-      </Card>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <Card><CardTitle title="Adjustment Value by Location" /><div style={{ marginTop: 16 }}>{byLoc.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
-        <Card><CardTitle title="By Reason" /><div style={{ marginTop: 16 }}>{byReason.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
+    <DataState loading={loading} error={error} onRetry={reload} kpiCount={2}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <InvKpis items={kpis} />
+        <Card><CardTitle title="Inventory Adjustments & Audits" sub="Net stock true-ups by location · cost basis" />
+          <div style={{ marginTop: 12 }}>
+            <InvTable
+              cols={[
+                { h: 'Location', k: 'location', strong: true, w: '1.3fr' },
+                { h: 'Added (Adj)', align: 'right', render: (r) => iMoney(r.added_adjustment, { compact: true }) },
+                { h: 'Decr (Adj)', align: 'right', render: (r) => iMoney(r.decreased_adjustment, { compact: true }) },
+                { h: 'Added (Audit)', align: 'right', render: (r) => iMoney(r.added_audit, { compact: true }) },
+                { h: 'Decr (Audit)', align: 'right', render: (r) => iMoney(r.decreased_audit, { compact: true }) },
+                { h: 'Net', align: 'right', render: (r) => <span style={{ color: (n(r.net_trueup_value) || 0) < 0 ? C.clay : C.teal, fontWeight: 600 }}>{iMoney(r.net_trueup_value, { compact: true })}</span> },
+              ]}
+              rows={rows}
+            />
+          </div>
+        </Card>
       </div>
-    </div>
+    </DataState>
   );
 };
 
@@ -3075,230 +3022,148 @@ const InvHeat = ({ colLabels, rows }) => {
 
 // ---- Consumption & Weeks of Supply ----
 const InvConsumptionView = () => {
+  const { d, loading, error, reload } = useInvData('/api/inventory/consumption');
+  const k = (d && d.kpis) || {};
+  const wos = (d && d.wos) || [];
   const kpis = [
-    { label: 'Network Consumption', value: '3,290 u', sub: 'last month' },
-    { label: 'Avg Weeks of Supply', value: '4.5', sub: 'network' },
-    { label: 'SKUs < 2 Weeks', value: '1', sub: 'critical', color: C.red },
-    { label: 'SKUs > 16 Weeks', value: '0', sub: 'overstock' },
-    { label: 'Forecast Next-Month', value: '3,540 u', sub: 'trend + seasonal', color: C.teal },
+    { label: 'Network Consumption', value: k.network_consumption == null ? '—' : `${num(k.network_consumption)} u`, sub: 'this period' },
+    { label: 'Avg Weeks of Supply', value: iNum(k.avg_wos, 1), sub: 'network' },
+    { label: 'SKUs < 2 Weeks', value: iNum(k.skus_lt2), sub: 'critical', color: C.red },
+    { label: 'SKUs > 16 Weeks', value: iNum(k.skus_gt16), sub: 'overstock' },
   ];
-  const wos = [
-    { p: 'Restylane Kysse', loc: 'Lancaster', oh: 8, wu: 11, w: '0.7', vol: ['Variable', 'red'], st: ['Critical', 'red'] },
-    { p: 'Morpheus8 Tips', loc: 'Frederick', oh: 24, wu: 9, w: '2.6', vol: ['Volatile', 'amber'], st: ['Low', 'clay'] },
-    { p: 'Sculptra', loc: 'Montclair', oh: 16, wu: 6, w: '2.8', vol: ['Volatile', 'amber'], st: ['Low', 'clay'] },
-    { p: 'Juvederm Voluma', loc: 'Bridgewater', oh: 22, wu: 7, w: '3.2', vol: ['Volatile', 'amber'], st: ['Low', 'clay'] },
-    { p: 'Topical Numbing (BLT)', loc: 'Old Bridge', oh: 210, wu: 56, w: '3.8', vol: ['Variable', 'red'], st: ['Low', 'clay'] },
-    { p: 'Jeuveau 100u', loc: 'Denville', oh: 64, wu: 17, w: '3.9', vol: ['Variable', 'red'], st: ['Low', 'clay'] },
-    { p: 'Xeomin 100u', loc: 'Tribeca', oh: 84, wu: 19, w: '4.4', vol: ['Volatile', 'amber'], st: ['Healthy', 'teal'] },
-    { p: 'Hydrafacial Boosters', loc: 'Hoboken', oh: 188, wu: 41, w: '4.6', vol: ['Stable', 'teal'], st: ['Healthy', 'teal'] },
-    { p: 'Botox 100u', loc: 'Montclair', oh: 312, wu: 62, w: '5.0', vol: ['Stable', 'teal'], st: ['Healthy', 'teal'] },
-    { p: 'PRF Tubes', loc: 'Short Hills', oh: 1240, wu: 228, w: '5.4', vol: ['Stable', 'teal'], st: ['Healthy', 'teal'] },
-    { p: 'Dysport 300u', loc: 'Bel Air', oh: 420, wu: 58, w: '7.2', vol: ['Stable', 'teal'], st: ['Healthy', 'teal'] },
-    { p: 'EltaMD UV Clear', loc: 'Ridgewood', oh: 540, wu: 70, w: '7.7', vol: ['Stable', 'teal'], st: ['Healthy', 'teal'] },
-  ];
-  const movers = [
-    { label: 'Neuromodulators', right: '+12.5%', pct: 100, color: C.teal },
-    { label: 'Fillers', right: '+9.2%', pct: 74, color: C.teal },
-    { label: 'Biostimulators', right: '+4.8%', pct: 38, color: C.teal },
-    { label: 'Sculptra', right: '+3.1%', pct: 25, color: C.teal },
-    { label: 'EltaMD UV Clear', right: '−8.4%', pct: 67, color: C.clay },
-    { label: 'Versa Filler', right: '−11.0%', pct: 88, color: C.red },
-  ];
-  const heat = [
-    { label: 'Neuromodulators', cells: [5.2, 4.8, 4.5, 5.0, 4.6, 4.9, 5.1, 4.7] },
-    { label: 'Fillers', cells: [3.8, 4.0, 3.5, 3.9, 3.6, 3.4, 3.7, 3.9] },
-    { label: 'Biostimulators', cells: [2.8, 3.1, 2.9, 3.0, 2.7, 2.6, 2.9, 2.8] },
-    { label: 'Consumables', cells: [6.5, 6.8, 6.2, 6.6, 7.0, 6.4, 6.7, 6.9] },
-    { label: 'Retail', cells: [8.1, 7.8, 8.4, 7.9, 8.2, 8.0, 7.7, 8.3] },
-  ];
+  const tone = (st) => st === 'Critical' ? 'red' : st === 'Low' ? 'clay' : st === 'Overstock' ? 'amber' : st === 'No demand' ? 'gray' : 'teal';
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <InvAlert />
-      <InvKpis items={kpis} />
-      <Card>
-        <CardTitle title="Consumption & Forecast" sub="24 months · units · shaded band = next 3-mo forecast" />
-        <div style={{ marginTop: 10 }}><InvSpark data={[1800, 1900, 1750, 2100, 2000, 2300, 2200, 2600, 2450, 2900, 3100, 2800, 3050, 3290, 3380, 3540]} h={92} /></div>
-      </Card>
-      <Card>
-        <CardTitle title="Weeks of Supply" sub="<2 wks critical · 2–4.5 low · 4–16 healthy · >16 overstock · sorted by WOS asc" />
-        <div style={{ marginTop: 12 }}>
-          <InvTable
-            cols={[
-              { h: 'Product', k: 'p', strong: true, w: '1.4fr' }, { h: 'Location', k: 'loc' },
-              { h: 'On-Hand', k: 'oh', align: 'right' }, { h: 'Weekly Use', k: 'wu', align: 'right' }, { h: 'WOS', k: 'w', align: 'right' },
-              { h: 'Volatility', align: 'right', render: (r) => <InvPill text={r.vol[0]} tone={r.vol[1]} /> },
-              { h: 'Status', align: 'right', render: (r) => <InvPill text={r.st[0]} tone={r.st[1]} /> },
-            ]}
-            rows={wos}
-          />
-        </div>
-      </Card>
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16 }}>
-        <Card><CardTitle title="Weeks-of-Supply Heatmap" sub="Weeks of supply · category × month" /><div style={{ marginTop: 14 }}><InvHeat colLabels={['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May']} rows={heat} /></div></Card>
-        <Card><CardTitle title="Demand Movers · MoM" /><div style={{ marginTop: 16 }}>{movers.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
+    <DataState loading={loading} error={error} onRetry={reload} kpiCount={4}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <InvKpis items={kpis} />
+        <Card><CardTitle title="Weeks of Supply" sub="<2 wks critical · 2–4.5 low · 4–16 healthy · >16 overstock · sorted by WOS asc" />
+          <div style={{ marginTop: 12 }}>
+            <InvTable
+              cols={[
+                { h: 'Product', k: 'product', strong: true, w: '1.4fr' }, { h: 'Location', k: 'location' },
+                { h: 'On-Hand', align: 'right', render: (r) => iNum(r.on_hand, 0) }, { h: 'Weekly Use', align: 'right', render: (r) => iNum(r.weekly_use, 1) },
+                { h: 'WOS', align: 'right', render: (r) => r.wos == null ? '—' : n(r.wos).toFixed(1) },
+                { h: 'Status', align: 'right', render: (r) => <InvPill text={r.status} tone={tone(r.status)} /> },
+              ]}
+              rows={wos}
+            />
+          </div>
+        </Card>
       </div>
-    </div>
+    </DataState>
   );
 };
 
 // ---- Cost per Unit ----
 const InvCostPerUnitView = () => {
+  const { d, loading, error, reload } = useInvData('/api/inventory/cost-per-unit');
+  const k = (d && d.kpis) || {};
+  const rows = (d && d.rows) || [];
+  const byCat = (d && d.by_category) || [];
+  const mover = k.biggest_mover;
   const kpis = [
-    { label: 'Weighted Avg Cost / Unit', value: '$121.83', sub: '▲ vs prior', color: C.clay },
-    { label: 'SKUs w/ Cost Change', value: '14', sub: 'this month' },
-    { label: 'Biggest Mover (Month)', value: 'Jeuveau 100u', sub: '+5.1% unit cost' },
-    { label: 'Inventory on Hand', value: '$28K', sub: 'at cost' },
-  ];
-  const net = [
-    { p: 'Jeuveau 100u', sup: 'Evolus', ac: '$400', oh: '$420', cons: '105', ch: '+5.1%', up: true },
-    { p: 'Nitrile Gloves M', sup: 'Amazon Business', ac: '$0.30', oh: '$8.40', cons: '2,100', ch: '+2.8%', up: true },
-    { p: 'Juvederm Voluma', sup: 'Allergan', ac: '$309', oh: '$3.1K', cons: '48', ch: '−2.1%', up: false },
-    { p: 'Morpheus8 Tips', sup: 'InMode', ac: '$300', oh: '$2.4K', cons: '31', ch: '+7.4%', up: true },
-    { p: 'Restylane Kysse', sup: 'Galderma', ac: '$305', oh: '$2.7K', cons: '40', ch: '+1.6%', up: true },
-    { p: 'Sculptra', sup: 'Galderma', ac: '$385', oh: '$4.2K', cons: '52', ch: '+0.9%', up: true },
-    { p: '31G Needles', sup: 'Amazon Business', ac: '$0.18', oh: '$0.9K', cons: '1,800', ch: '−1.2%', up: false },
-    { p: 'Dysport 300u', sup: 'Galderma', ac: '$452', oh: '$6.3K', cons: '88', ch: '+3.8%', up: true },
-    { p: 'PRF Tubes', sup: 'McKesson', ac: '$1.20', oh: '$1.3K', cons: '228', ch: '+3.2%', up: true },
-    { p: 'Botox 100u', sup: 'Allergan', ac: '$560', oh: '$13.5K', cons: '135', ch: '+4.6%', up: true },
-    { p: 'EltaMD UV Clear', sup: 'EltaMD', ac: '$26', oh: '$2.1K', cons: '70', ch: '+4.1%', up: true },
-    { p: 'Xeomin 100u', sup: 'Merz', ac: '$480', oh: '$9.1K', cons: '1,704', ch: '+5.3%', up: true },
-  ];
-  const tableCols = [
-    { h: 'Product', k: 'p', strong: true, w: '1.3fr' }, { h: 'Supplier', k: 'sup', w: '1.1fr' },
-    { h: 'Avg Cost', k: 'ac', align: 'right' }, { h: 'On-Hand $', k: 'oh', align: 'right' }, { h: 'Consumed', k: 'cons', align: 'right' },
-    { h: 'Change', align: 'right', render: (r) => <span style={{ color: r.up ? C.clay : C.teal, fontWeight: 600 }}>{r.ch}</span> },
+    { label: 'Weighted Avg Cost / Unit', value: iMoney(k.wtd_avg_cost_per_unit), sub: 'on-hand weighted' },
+    { label: 'SKUs w/ Cost Change', value: iNum(k.skus_with_cost_change), sub: 'vs prior period' },
+    { label: 'Biggest Mover', value: mover ? mover.product : '—', sub: mover ? `${n(mover.change_pct) >= 0 ? '+' : ''}${n(mover.change_pct).toFixed(1)}% unit cost` : '' },
+    { label: 'Inventory on Hand', value: iMoney(k.inventory_on_hand_value, { compact: true }), sub: 'at cost' },
   ];
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <InvAlert />
-      <InvKpis items={kpis} />
-      <Card><CardTitle title="Cost per Unit — Network" sub="Weighted unit cost, on-hand value & 24-mo cost trend · Zenoti" /><div style={{ marginTop: 12 }}><InvTable cols={tableCols} rows={net} /></div></Card>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <Card>
-          <CardTitle title="Weighted Avg Cost/Unit — Toxins" right={<span style={{ font: `700 18px ${FONT}`, color: C.ink }}>$3.12</span>} />
-          <div style={{ font: `600 10px ${FONT}`, color: C.green, marginBottom: 6 }}>▲ 20.2% vs 24-mo avg</div>
-          <InvSpark data={[2.4, 2.5, 2.6, 2.55, 2.7, 2.8, 2.85, 2.9, 3.0, 3.05, 3.1, 3.12]} h={70} />
+    <DataState loading={loading} error={error} onRetry={reload} kpiCount={4}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <InvKpis items={kpis} />
+        <Card><CardTitle title="Cost per Unit — Network" sub="Weighted unit cost, on-hand value & consumption · Zenoti" />
+          <div style={{ marginTop: 12 }}>
+            <InvTable
+              cols={[
+                { h: 'Product', k: 'product', strong: true, w: '1.3fr' }, { h: 'Supplier', k: 'vendor', w: '1.1fr' },
+                { h: 'Avg Cost', align: 'right', render: (r) => iMoney(r.avg_cost) }, { h: 'On-Hand $', align: 'right', render: (r) => iMoney(r.on_hand_value, { compact: true }) },
+                { h: 'Consumed', align: 'right', render: (r) => iNum(r.consumed_units, 0) },
+                { h: 'Change', align: 'right', render: (r) => r.cost_change_pct == null ? '—' : <span style={{ color: n(r.cost_change_pct) > 0 ? C.clay : C.teal, fontWeight: 600 }}>{`${n(r.cost_change_pct) >= 0 ? '+' : ''}${n(r.cost_change_pct).toFixed(1)}%`}</span> },
+              ]}
+              rows={rows}
+            />
+          </div>
         </Card>
-        <Card>
-          <CardTitle title="Weighted Avg Cost/Syringe — Fillers" right={<span style={{ font: `700 18px ${FONT}`, color: C.ink }}>$260</span>} />
-          <div style={{ font: `600 10px ${FONT}`, color: C.green, marginBottom: 6 }}>▲ 26.3% vs 24-mo avg</div>
-          <InvSpark data={[205, 210, 215, 222, 228, 235, 240, 246, 250, 255, 258, 260]} h={70} />
+        <Card><CardTitle title="Weighted Avg Cost / Unit by Category" sub="On-hand weighted · cost basis" />
+          <div style={{ marginTop: 12 }}>
+            <InvTable
+              cols={[
+                { h: 'Category', k: 'category', strong: true, w: '1.4fr' },
+                { h: 'Wtd Avg Cost/Unit', align: 'right', render: (r) => iMoney(r.wtd_avg_cost_per_unit) },
+                { h: 'On-Hand $', align: 'right', render: (r) => iMoney(r.on_hand_value, { compact: true }) },
+              ]}
+              rows={byCat}
+            />
+          </div>
         </Card>
       </div>
-    </div>
+    </DataState>
   );
 };
 
 // ---- Costing Sheet ----
 const InvCostingSheetView = () => {
+  const { d, loading, error, reload } = useInvData('/api/inventory/costing-sheet');
+  const k = (d && d.kpis) || {};
+  const up = (d && d.movers_up) || [];
+  const down = (d && d.movers_down) || [];
   const kpis = [
-    { label: 'Products Tracked', value: '184', sub: 'with cost history' },
-    { label: 'Tracking Window', value: '18 mo', sub: 'Dec ’24 – May ’26' },
-    { label: 'Median Cost Change', value: '0.0%', sub: 'typical product vs BB' },
-    { label: 'Cost Increases', value: '31', sub: 'products up >10%', color: C.clay },
-    { label: 'Cost Decreases', value: '45', sub: 'products down >10%', color: C.teal },
+    { label: 'Products Tracked', value: iNum(k.products_tracked), sub: 'with cost history' },
+    { label: 'Tracking Window', value: (k.window_start && k.window_end) ? `${k.window_start} → ${k.window_end}` : '—', sub: 'first → last purchase' },
+    { label: 'Median Cost Change', value: iPct(k.median_cost_change_pct, 1), sub: 'typical product' },
+    { label: 'Cost Increases', value: iNum(k.cost_increases), sub: 'up beyond threshold', color: C.clay },
+    { label: 'Cost Decreases', value: iNum(k.cost_decreases), sub: 'down beyond threshold', color: C.teal },
   ];
-  const avgCost = [
-    { p: '4% Pure Retinol Peel (BB)', c: '$27.50' }, { p: 'Acne Peel (5x) (BB)', c: '$107.00' },
-    { p: 'AHA BHA Hydroxy Mask (BB)', c: '$36.00' }, { p: 'Elastin Regenerating Skin Nectar', c: '$48.00' },
-    { p: 'Average Vol (BB)', c: '$52.00' }, { p: 'B-12 (BB)', c: '$26.00' },
-    { p: 'Beta Carotene (BB)', c: '$40.00' }, { p: 'Bakers Balance', c: '$130.00' },
-    { p: 'TNS Ceramide Treatment Cream (BB)', c: '$66.00' },
-  ];
-  const inc = [
-    { label: 'TNS Ceramide Treatment Cream', right: '+141.0%', pct: 100, color: C.red },
-    { label: 'ZO Skin Rosatint Booster (BB)', right: '+98.7%', pct: 70, color: C.red },
-    { label: 'ZO Skin Brightening Booster (BB)', right: '+76.4%', pct: 54, color: C.clay },
-    { label: 'Restylane (Contour)', right: '+58.2%', pct: 41, color: C.clay },
-    { label: 'SkinPen Tip', right: '+44.1%', pct: 31, color: C.clay },
-    { label: '1% Clinical Active Serum', right: '+40.3%', pct: 29, color: C.clay },
-  ];
-  const dec = [
-    { label: 'Eclipse PRP Kit (Kit)', right: '−80.7%', pct: 100, color: C.teal },
-    { label: 'VE Peel - Purity', right: '−78.3%', pct: 97, color: C.teal },
-    { label: 'Bakers Balance', right: '−75.6%', pct: 94, color: C.teal },
-    { label: 'SkinMedica Instant Bright Eye Mask', right: '−75.1%', pct: 93, color: C.teal },
-    { label: 'CoolSculpting Elite Treatment Card', right: '−70.4%', pct: 87, color: C.teal },
-    { label: 'Microneedling - Tip', right: '−51.2%', pct: 63, color: C.teal },
-  ];
+  const maxUp = Math.max(1, ...up.map((r) => Math.abs(n(r.change_pct) || 0)));
+  const maxDn = Math.max(1, ...down.map((r) => Math.abs(n(r.change_pct) || 0)));
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <InvKpis items={kpis} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: 16 }}>
-        <Card><CardTitle title="Average Unit Cost by Product" sub="Latest unit cost vs 18-month baseline" /><div style={{ marginTop: 12 }}><InvTable cols={[{ h: 'Product', k: 'p', strong: true, w: '2fr' }, { h: 'Avg Unit Cost', k: 'c', align: 'right' }]} rows={avgCost} /></div></Card>
-        <Card>
-          <CardTitle title="TNS Ceramide Treatment Cream (BB)" sub="Largest cost increase in window" />
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, margin: '8px 0' }}>
-            <span style={{ font: `500 13px ${FONT}`, color: C.gray3 }}>$27.36</span>
-            <span style={{ font: `700 22px ${FONT}`, color: C.ink }}>→ $66.00</span>
-            <span style={{ font: `600 12px ${FONT}`, color: C.red }}>+141.0%</span>
-          </div>
-          <InvSpark data={[27.36, 28, 30, 33, 38, 42, 47, 52, 58, 61, 64, 66]} h={80} color={C.red} />
-        </Card>
+    <DataState loading={loading} error={error} onRetry={reload} kpiCount={5}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <InvKpis items={kpis} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <Card><CardTitle title="Biggest Cost Increases" sub="Largest unit-cost rise · first vs last purchase" />
+            <div style={{ marginTop: 16 }}>{up.map((r, i) => <InvBar key={i} label={r.product} right={`${n(r.change_pct) >= 0 ? '+' : ''}${n(r.change_pct).toFixed(1)}%`} pct={Math.abs(n(r.change_pct) || 0) / maxUp * 100} color={C.clay} />)}</div>
+          </Card>
+          <Card><CardTitle title="Biggest Cost Decreases" sub="Largest unit-cost drop · first vs last purchase" />
+            <div style={{ marginTop: 16 }}>{down.map((r, i) => <InvBar key={i} label={r.product} right={`${n(r.change_pct).toFixed(1)}%`} pct={Math.abs(n(r.change_pct) || 0) / maxDn * 100} color={C.teal} />)}</div>
+          </Card>
+        </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <Card><CardTitle title="Biggest Cost Increases" sub="Largest unit-cost rise vs baseline" /><div style={{ marginTop: 16 }}>{inc.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
-        <Card><CardTitle title="Biggest Cost Decreases" sub="Largest unit-cost drop vs baseline" /><div style={{ marginTop: 16 }}>{dec.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
-      </div>
-    </div>
+    </DataState>
   );
 };
 
 // ---- System vs Purchase Cost ----
 const InvSystemCostView = () => {
+  const { d, loading, error, reload } = useInvData('/api/inventory/system-cost');
+  const k = (d && d.kpis) || {};
+  const drift = (d && d.drift) || [];
   const kpis = [
-    { label: 'SKUs With Drift', value: '33%', sub: 'vs latest PO', color: C.clay },
-    { label: 'Flagged SKUs', value: '9', sub: '▲ vs prior', color: C.clay },
-    { label: 'Total $ Mis-Valuation', value: '$20.3K', sub: 'system vs realized', color: C.red },
-    { label: 'Avg Absolute Variance', value: '12.0%', sub: 'across flagged' },
-  ];
-  const drift = [
-    { p: 'Dysport 300u', sup: 'Galderma', sc: '$400', po: '$452', dt: 'May 02', v: '+$52', vp: '+13.0%', up: true, fl: true },
-    { p: 'Sculptra', sup: 'Galderma', sc: '$385', po: '$372', dt: 'Apr 28', v: '−$13', vp: '−3.4%', up: false, fl: false },
-    { p: 'Juvederm Voluma', sup: 'Allergan', sc: '$309', po: '$324', dt: 'May 06', v: '+$15', vp: '+4.9%', up: true, fl: true },
-    { p: 'Morpheus8 Tips', sup: 'InMode', sc: '$300', po: '$338', dt: 'Apr 22', v: '+$38', vp: '+12.7%', up: true, fl: true },
-    { p: 'Nitrile Gloves M', sup: 'Amazon Business', sc: '$0.30', po: '$0.34', dt: 'May 04', v: '+$0.04', vp: '+13.3%', up: true, fl: true },
-    { p: 'SkinVive', sup: 'Allergan', sc: '$260', po: '$245', dt: 'Apr 30', v: '−$15', vp: '−5.8%', up: false, fl: true },
-    { p: 'Restylane Kysse', sup: 'Galderma', sc: '$305', po: '$318', dt: 'May 06', v: '+$13', vp: '+4.3%', up: true, fl: false },
-    { p: 'PRF Tubes', sup: 'McKesson', sc: '$1.20', po: '$1.32', dt: 'May 01', v: '+$0.12', vp: '+10.0%', up: true, fl: true },
-    { p: '31G Needles', sup: 'Amazon Business', sc: '$0.18', po: '$0.20', dt: 'Apr 26', v: '+$0.02', vp: '+11.1%', up: true, fl: true },
+    { label: 'SKUs With Drift', value: iPct(k.skus_with_drift_pct, 0), sub: 'vs latest purchase', color: C.clay },
+    { label: 'Flagged SKUs', value: iNum(k.flagged_skus), sub: 'at/over threshold', color: C.clay },
+    { label: 'Total $ Mis-Valuation', value: iMoney(k.total_misvaluation, { compact: true }), sub: 'system vs realized', color: C.red },
+    { label: 'Avg Absolute Variance', value: iPct(k.avg_abs_variance_pct, 1), sub: 'across SKUs' },
   ];
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <InvAlert />
-      <InvKpis items={kpis} />
-      <Card>
-        <CardTitle title="Costing Drift — System vs Latest Purchase" sub="System cost vs latest delivered PO unit cost · costing drift · Zenoti" />
-        <div style={{ marginTop: 12 }}>
-          <InvTable
-            cols={[
-              { h: 'Product', k: 'p', strong: true, w: '1.3fr' }, { h: 'Supplier', k: 'sup' },
-              { h: 'System $', k: 'sc', align: 'right' }, { h: 'Latest PO $', k: 'po', align: 'right' }, { h: 'Latest', k: 'dt', align: 'right' },
-              { h: 'Variance $', align: 'right', render: (r) => <span style={{ color: r.up ? C.clay : C.teal, fontWeight: 600 }}>{r.v}</span> },
-              { h: 'Variance %', align: 'right', render: (r) => <span style={{ color: r.up ? C.clay : C.teal }}>{r.vp}</span> },
-              { h: 'Flag', align: 'right', render: (r) => r.fl ? <InvPill text="Flag" tone="red" /> : <span style={{ color: C.gray2 }}>—</span> },
-            ]}
-            rows={drift}
-          />
-        </div>
-      </Card>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <Card>
-          <CardTitle title="Direction of Drift" sub="Is configured/system cost under- or over-stated vs realized purchase?" />
-          <div style={{ marginTop: 16 }}>
-            <InvBar label="System UNDERSTATED — system costs less than realized (14 SKUs)" right="$26.9K" pct={100} color={C.red} />
-            <InvBar label="System OVERSTATED — system costs more than realized (6 SKUs)" right="$5.7K" pct={21} color={C.teal} />
+    <DataState loading={loading} error={error} onRetry={reload} kpiCount={4}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <InvKpis items={kpis} />
+        <Card><CardTitle title="Costing Drift — System vs Latest Purchase" sub="System (perpetual avg) cost vs latest received purchase price · Zenoti" />
+          <div style={{ marginTop: 12 }}>
+            <InvTable
+              cols={[
+                { h: 'Product', k: 'product', strong: true, w: '1.3fr' }, { h: 'Supplier', k: 'vendor' },
+                { h: 'System $', align: 'right', render: (r) => iMoney(r.system_cost) }, { h: 'Latest Purch $', align: 'right', render: (r) => iMoney(r.latest_po_cost) },
+                { h: 'Variance $', align: 'right', render: (r) => <span style={{ color: n(r.variance_dollar) > 0 ? C.clay : C.teal, fontWeight: 600 }}>{iMoney(r.variance_dollar)}</span> },
+                { h: 'Variance %', align: 'right', render: (r) => <span style={{ color: n(r.variance_pct) > 0 ? C.clay : C.teal }}>{`${n(r.variance_pct) >= 0 ? '+' : ''}${n(r.variance_pct).toFixed(1)}%`}</span> },
+                { h: 'Flag', align: 'right', render: (r) => r.flag ? <InvPill text="Flag" tone="red" /> : <span style={{ color: C.gray2 }}>—</span> },
+              ]}
+              rows={drift}
+            />
           </div>
         </Card>
-        <Card>
-          <CardTitle title="System vs Latest Purchase" sub="Each dot = a SKU · above line = system understated" />
-          <svg width="100%" height="150" viewBox="0 0 300 150" style={{ marginTop: 10 }}>
-            <line x1="10" y1="140" x2="290" y2="10" stroke={C.line} strokeWidth="1" strokeDasharray="4 4" />
-            {[[40, 120, 6, C.clay], [70, 95, 5, C.clay], [110, 105, 8, C.red], [140, 70, 5, C.clay], [170, 60, 6, C.red], [200, 80, 4, C.teal], [230, 40, 7, C.clay], [120, 50, 5, C.teal], [90, 75, 4, C.teal]].map((d, i) => <circle key={i} cx={d[0]} cy={d[1]} r={d[2]} fill={d[3]} fillOpacity="0.6" />)}
-          </svg>
-        </Card>
       </div>
-    </div>
+    </DataState>
   );
 };
 
@@ -3362,73 +3227,41 @@ const InvPOMatchingView = () => {
 
 // ---- Inventory Movement ----
 const InvMovementView = () => {
+  const { d, loading, error, reload } = useInvData('/api/inventory/movement');
+  const t = (d && d.total) || {};
+  const rows = (d && d.rows) || [];
   const kpis = [
-    { label: 'Beginning Inventory', value: '$1.56M', sub: 'at cost' },
-    { label: 'Purchases', value: '+$406K', sub: 'delivered PO lines', color: C.teal },
-    { label: 'Net Transfers', value: '+$3.1K', sub: 'inter-site', color: C.teal },
-    { label: 'COGS / Consumed', value: '−$464K', sub: 'service + retail', color: C.red },
-    { label: 'True-Ups / Adj', value: '+$1.1K', sub: 'net adjustments', color: C.teal },
-    { label: 'Ending Inventory', value: '$1.50M', sub: 'computed roll-forward' },
+    { label: 'Beginning Inventory', value: iMoney(t.beginning, { compact: true }), sub: 'at cost' },
+    { label: 'Purchases', value: iMoney(t.purchases, { compact: true }), sub: 'received PO lines', color: C.teal },
+    { label: 'Net Transfers', value: iMoney(t.net_transfers, { compact: true }), sub: 'inter-site', color: (n(t.net_transfers) || 0) < 0 ? C.clay : C.teal },
+    { label: 'COGS / Consumed', value: t.cogs_consumed == null ? '—' : `−${money(t.cogs_consumed, { compact: true })}`, sub: 'service + retail', color: C.red },
+    { label: 'True-Ups / Adj', value: iMoney(t.adjustments, { compact: true }), sub: 'net adjustments', color: (n(t.adjustments) || 0) < 0 ? C.clay : C.teal },
+    { label: 'Ending Inventory', value: iMoney(t.actual_ending, { compact: true }), sub: 'running balance' },
   ];
-  const wf = [
-    { label: 'Beginning', right: '$1.56M', pct: 100, color: C.navy },
-    { label: 'Purchases', right: '+$406K', pct: 26, color: C.teal },
-    { label: 'Net Transfers', right: '+$3.1K', pct: 2, color: C.tealLite },
-    { label: 'COGS / Consumed', right: '−$464K', pct: 30, color: C.clay },
-    { label: 'Adjustments', right: '+$1.1K', pct: 2, color: C.tealLite },
-    { label: 'Ending', right: '$1.50M', pct: 96, color: C.navy },
-  ];
-  const recon = [
-    ['Beginning Inventory', '$1.56M'], ['Purchases', '+$406K'], ['Net Transfers', '+$3.1K'],
-    ['COGS / Consumed', '−$464K'], ['Manual Adjustments', '+$1.1K'], ['Expected Ending', '$1.50M'],
-  ];
-  const roll = [
-    { l: 'Warehouse', b: '$200K', pu: '+$210K', co: '−$180K', e: '$222K', v: '+$2.0K' },
-    { l: 'Jersey City', b: '$89.4K', pu: '+$24.1K', co: '−$28.0K', e: '$88.9K', v: '−$0.5K' },
-    { l: 'Bel Air', b: '$129K', pu: '+$31.0K', co: '−$33.0K', e: '$130K', v: '+$0.9K' },
-    { l: 'Frederick', b: '$77.4K', pu: '+$18.2K', co: '−$19.0K', e: '$78.0K', v: '+$0.4K' },
-    { l: 'Lancaster', b: '$55.7K', pu: '+$14.0K', co: '−$13.5K', e: '$56.3K', v: '+$0.6K' },
-    { l: 'Bridgewater', b: '$102K', pu: '+$22.0K', co: '−$24.0K', e: '$101K', v: '−$0.7K' },
-    { l: 'Montclair', b: '$89.9K', pu: '+$21.0K', co: '−$22.0K', e: '$90.1K', v: '+$0.2K' },
-    { l: 'Denville', b: '$82.7K', pu: '+$19.5K', co: '−$20.0K', e: '$82.9K', v: '+$0.2K' },
-    { l: 'Ridgewood', b: '$75.0K', pu: '+$17.0K', co: '−$18.0K', e: '$74.5K', v: '−$0.5K' },
-    { l: 'Hoboken', b: '$129K', pu: '+$30.0K', co: '−$31.0K', e: '$129K', v: '+$0.1K' },
-    { l: 'Waldorf', b: '$82.5K', pu: '+$19.0K', co: '−$20.0K', e: '$82.1K', v: '−$0.4K' },
-    { l: 'Tribeca', b: '$112K', pu: '+$28.0K', co: '−$27.0K', e: '$113K', v: '+$0.8K' },
-    { l: 'Red Bank', b: '$90.0K', pu: '+$21.0K', co: '−$21.5K', e: '$90.3K', v: '+$0.3K' },
-    { l: 'Old Bridge', b: '$83.4K', pu: '+$20.0K', co: '−$20.0K', e: '$83.8K', v: '+$0.4K' },
-    { l: 'Short Hills', b: '$124K', pu: '+$29.0K', co: '−$28.0K', e: '$125K', v: '+$0.6K' },
-  ];
+  const tableRows = t.location ? [...rows, t] : rows;
+  const bold = (r) => r.location === 'NETWORK TOTAL';
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <InvAlert />
-      <InvKpis items={kpis} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16 }}>
-        <Card><CardTitle title="Movement Waterfall" sub="Network roll-up · cost basis" /><div style={{ marginTop: 16 }}>{wf.map((b, i) => <InvBar key={i} {...b} />)}</div></Card>
-        <Card>
-          <CardTitle title="Reconciliation" sub="Expected vs actual ending — variance within tolerance" />
+    <DataState loading={loading} error={error} onRetry={reload} kpiCount={6}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <InvKpis items={kpis} />
+        <Card><CardTitle title="Roll-Forward by Location" sub="Beginning → purchases → transfers → consumed → ending · cost basis" />
           <div style={{ marginTop: 12 }}>
-            {recon.map((r, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${C.line3}`, font: `500 12px ${FONT}`, color: i === 5 ? C.ink : C.ink2, fontWeight: i === 5 ? 700 : 500 }}><span>{r[0]}</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{r[1]}</span></div>)}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, padding: '8px 11px', background: '#EAF5F0', borderRadius: 8, font: `600 12px ${FONT}`, color: C.teal }}><span>Unexplained Variance — Actual $1.50M</span><span>+$376</span></div>
+            <InvTable
+              cols={[
+                { h: 'Location', align: 'left', render: (r) => <span style={{ fontWeight: bold(r) ? 700 : 500, color: bold(r) ? C.ink : C.ink2 }}>{r.location}</span> },
+                { h: 'Beginning', align: 'right', render: (r) => iMoney(r.beginning, { compact: true }) },
+                { h: 'Purchases', align: 'right', render: (r) => <span style={{ color: C.teal }}>{iMoney(r.purchases, { compact: true })}</span> },
+                { h: 'Transfers', align: 'right', render: (r) => iMoney(r.net_transfers, { compact: true }) },
+                { h: 'Consumed', align: 'right', render: (r) => <span style={{ color: C.clay }}>{iMoney(r.cogs_consumed, { compact: true })}</span> },
+                { h: 'Ending', align: 'right', render: (r) => <span style={{ fontWeight: bold(r) ? 700 : 600, color: C.ink }}>{iMoney(r.actual_ending, { compact: true })}</span> },
+                { h: 'Variance', align: 'right', render: (r) => <span style={{ color: (n(r.unexplained_variance) || 0) < 0 ? C.clay : C.teal }}>{iMoney(r.unexplained_variance, { compact: true })}</span> },
+              ]}
+              rows={tableRows}
+            />
           </div>
         </Card>
       </div>
-      <Card>
-        <CardTitle title="Roll-Forward Table" sub="Beginning → purchases → consumed → ending, per location · cost basis" />
-        <div style={{ marginTop: 12 }}>
-          <InvTable
-            cols={[
-              { h: 'Location', k: 'l', strong: true }, { h: 'Beginning', k: 'b', align: 'right' },
-              { h: 'Purchases', align: 'right', render: (r) => <span style={{ color: C.teal }}>{r.pu}</span> },
-              { h: 'Consumed', align: 'right', render: (r) => <span style={{ color: C.clay }}>{r.co}</span> },
-              { h: 'Ending', k: 'e', align: 'right', strong: true },
-              { h: 'Variance', align: 'right', render: (r) => <span style={{ color: r.v.startsWith('−') ? C.clay : C.teal }}>{r.v}</span> },
-            ]}
-            rows={roll}
-          />
-        </div>
-      </Card>
-    </div>
+    </DataState>
   );
 };
 
